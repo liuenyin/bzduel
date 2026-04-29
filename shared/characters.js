@@ -117,7 +117,7 @@ export const characters = [
     title: '+*',
     subjects: ['physics', 'chemistry', 'biology'],
     electives: ['physics', 'chemistry', 'biology'],
-    image: '/photos/hjc.png',
+    image: '/photos/hjc.jpg',
     hp: 22,
     dicePool: [8, 10, 10, 12],
     atkSlots: 3,
