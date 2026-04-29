@@ -26,7 +26,7 @@ export const SKILL = {
 };
 
 /**
- * 角色卡列表（初始 2 张测试卡）
+ * 角色卡列表
  *
  * 字段说明：
  *   id           唯一标识
@@ -71,7 +71,7 @@ export const characters = [
     id: 'char_4',
     name: '王鹤迪',
     title: '那个显眼包',
-    subjects: ['physics', 'chemistry', 'geography'],
+    subjects: ['chinese', 'math', 'english', 'physics', 'chemistry', 'geography'],
     electives: ['physics', 'chemistry', 'geography'],
     image: '/photos/whd.jpg',
     hp: 30,

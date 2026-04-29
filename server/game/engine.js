@@ -122,6 +122,14 @@ export function rollAttack(state) {
     atk.hp -= Math.floor(2 * multi);
     if (atk.hp < 0) atk.hp = 0;
   }
+
+  // 如果自伤致死，立刻判定游戏结束
+  if (atk.hp <= 0) {
+    state.phase = PHASE.GAME_OVER;
+    state.winner = state.turnData.defenderIdx;
+    return { ok: true, rolls: [], selfKill: true };
+  }
+
   if (atk.card.positiveSkill?.id === SKILL.STAR_SHOWOFF) {
     atk.rerolls += 2;
   }

@@ -146,7 +146,19 @@ io.on('connection', (socket) => {
     const g = room.game;
     if (getCurrentAttackerId(g) !== socket.id) return;
     const res = rollAttack(g);
-    if (res.ok) emitStateToAll(room);
+    if (res.ok) {
+      emitStateToAll(room);
+      if (res.selfKill) {
+        emitToAll(room, 'turn_resolved', (pid) => ({
+          damage: 0, selfDamage: 0, pierce: false, finalDef: 0, penalty: 0,
+          defNegTriggered: false, defNegName: null, defPosTriggered: false, defPosName: null,
+          noobTriggered: false, gameOver: true, winner: g.winner,
+          attackerIdx: g.turnData.attackerIdx,
+          state: getStateView(g, pid),
+        }));
+        setTimeout(() => cleanupRoom(room), 30000);
+      }
+    }
   });
 
   // ── 重投骰子 ──
@@ -219,8 +231,20 @@ function triggerAiPhase(room) {
   if (g.turnPhase === TURN.WAITING_ATK && getCurrentAttackerId(g) === room.aiId) {
     setTimeout(() => {
       if (g.phase !== 'battle') return;
-      rollAttack(g);
+      const rollRes = rollAttack(g);
+      if (!rollRes.ok) return;
       emitStateToAll(room);
+      if (rollRes.selfKill) {
+        emitToAll(room, 'turn_resolved', (pid) => ({
+          damage: 0, selfDamage: 0, pierce: false, finalDef: 0, penalty: 0,
+          defNegTriggered: false, defNegName: null, defPosTriggered: false, defPosName: null,
+          noobTriggered: false, gameOver: true, winner: g.winner,
+          attackerIdx: g.turnData.attackerIdx,
+          state: getStateView(g, pid),
+        }));
+        setTimeout(() => cleanupRoom(room), 30000);
+        return;
+      }
       // AI auto-confirms attack
       setTimeout(() => {
         if (g.phase !== 'battle' || g.turnPhase !== TURN.ATK_ROLLED) return;
@@ -231,7 +255,6 @@ function triggerAiPhase(room) {
         const indices = rolls.map((v, i) => ({v, i})).sort((a,b) => b.v - a.v).slice(0, slots).map(x => x.i);
         const res = confirmAttack(g, indices);
         if (!res.ok) { console.error("AI confirmAttack failed", res, indices, atk.card); return; }
-        if (!res.ok) return;
         emitToAll(room, 'atk_confirmed', (pid) => ({
           atkResult: res.atkResult, defenseRolls: res.defenseRolls,
           state: getStateView(g, pid),

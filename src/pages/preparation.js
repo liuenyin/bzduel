@@ -130,7 +130,7 @@ function renderCard(char, schedule) {
           </div>
           <div class="stat" style="flex:1; padding-left:8px;">
             <div class="stat-val" style="color:var(--text); letter-spacing:1px;">${diceDesc(char.dicePool)}</div>
-            <div class="stat-lbl">骰池 (攻${char.atkSlots} 守${char.defSlots})</div>
+            <div class="stat-lbl">骰池 (攻${char.atkSlots === -1 ? '全选' : char.atkSlots} 守${char.defSlots})</div>
           </div>
         </div>
         <div style="text-align:center; font-size:0.72rem; color:var(--text-muted); margin-bottom:8px;">

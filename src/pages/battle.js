@@ -180,11 +180,12 @@ function renderDice() {
   if (S.defenseRolls) {
     const isMine = isDefPhase && S.isMyDefendTurn;
     const canSelect = isMine;
-    const opPool = S.opponent.card?.dicePool || poolFaces; // Fallback
+    const isMyDefTurn = isDefPhase && S.isMyDefendTurn;
+    const defPool = isMyDefTurn ? poolFaces : (S.opponent.card?.dicePool || poolFaces);
     html += `<div class="dice-row"><span class="dice-label" style="color:var(--blue)">守</span>`;
     html += S.defenseRolls.map((v, i) => {
       const isKept = S.turnPhase !== 'def_rolled' && false; // We don't have defResult keptIndices yet usually, handled after confirm
-      const face = opPool[i] || poolFaces[i];
+      const face = defPool[i] || poolFaces[i];
       const color = DICE_COLORS[face];
       let style = color ? `border-color:${color.border}; color:${color.border};` : '';
       return `<div class="die defense${canSelect ? ' selectable' : ''}" style="${style}" data-idx="${i}" data-val="${v}">
@@ -427,7 +428,7 @@ function showGameOver(s) {
         <div class="go-vs">VS</div>
         <div class="go-player op">
           <img src="${op.card.image}" class="go-avatar ${op.hp <= 0 ? 'dead' : ''}" />
-          <div class="go-name">${op.opponentName || op.nickname}</div>
+          <div class="go-name">${op.nickname}</div>
           <div class="go-hp ${op.hp > 0 ? 'alive' : 'dead'}">${op.hp} <span>HP</span></div>
         </div>
       </div>
@@ -474,7 +475,7 @@ function actionButtons(s) {
   if (s.turnPhase === 'waiting_atk' && s.isMyAttackTurn)
     return '<button id="btn-roll" class="btn btn-primary btn-lg">掷骰</button>';
   if (s.turnPhase === 'atk_rolled' && s.isMyAttackTurn)
-    return `<button id="btn-confirm" class="btn btn-primary" disabled>需选 ${s.me.card.atkSlots} 颗</button>`;
+    return `<button id="btn-confirm" class="btn btn-primary" disabled>${s.me.card.atkSlots === -1 ? '至少选 1 颗' : `需选 ${s.me.card.atkSlots} 颗`}</button>`;
   if (s.turnPhase === 'def_rolled' && s.isMyDefendTurn)
     return `<button id="btn-confirm" class="btn btn-primary" disabled>需选 ${s.me.card.defSlots} 颗</button>`;
   return `<span style="color:var(--text-muted);font-size:.88rem">${phasePrompt(s)}</span>`;
