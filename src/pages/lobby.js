@@ -32,14 +32,26 @@ export function renderLobby(container) {
       <div id="status" style="min-height:36px; margin-top:12px;"></div>
 
       <div class="lobby-info-grid">
-        <div class="info-card">
-          <h2 class="info-title">📜 玩法提示</h2>
-          <ul class="info-list">
-            <li><strong>选课阶段：</strong>根据今日课程表选择角色，主场作战伤害翻倍！</li>
-            <li><strong>调课权：</strong>每局有一次机会调整尚未开始的课程，抢占先机。</li>
-            <li><strong>骰子对决：</strong>攻击方掷骰选点，防御方随后确认。点数差距即为伤害。</li>
-            <li><strong>角色技能：</strong>每个角色都有独特的正负面技能，注意触发条件。</li>
-          </ul>
+        <div class="info-card tutorial">
+          <h2 class="info-title">🎓 新手入门教程</h2>
+          <div class="tutorial-steps">
+            <div class="step">
+              <span class="step-num">1</span>
+              <p><strong>查看课表：</strong> 每局有6节课，不同课程对不同角色有 **×2** 或 **×0.5** 的技能倍率加成。</p>
+            </div>
+            <div class="step">
+              <span class="step-num">2</span>
+              <p><strong>调课时机：</strong> 点击战斗界面右上角图标可“调课”，把接下来的弱势课程换成强势科目。</p>
+            </div>
+            <div class="step">
+              <span class="step-num">3</span>
+              <p><strong>掷骰攻防：</strong> 攻击时选高点数求稳，防御时博高点数减伤。点数之差即为对方扣除的HP。</p>
+            </div>
+            <div class="step">
+              <span class="step-num">4</span>
+              <p><strong>技能爆发：</strong> 注意角色的正负面技能。例如：[记号]在不重投时变强，[红温]在攻击后会灼烧对方。</p>
+            </div>
+          </div>
         </div>
         
         <div class="info-card">
