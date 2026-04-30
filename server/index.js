@@ -277,12 +277,26 @@ function triggerAiPhase(roomId) {
         setTimeout(() => cleanupRoom(room), 30000);
         return;
       }
-      // AI auto-confirms attack
+      // AI 掷骰后决定是否重投
       setTimeout(() => {
         if (g.phase !== 'battle' || g.turnPhase !== TURN.ATK_ROLLED) return;
         const atk = g.players[g.turnData.attackerIdx];
         const rolls = g.turnData.attackRolls;
-        // AI picks highest dice
+        
+        // 如果点数太小 (平均面数的一半以下)，尝试重投
+        if (atk.rerolls > 0) {
+          const badIndices = rolls.map((v, i) => v <= (atk.card.dicePool[i] / 2) ? i : -1).filter(i => i !== -1);
+          if (badIndices.length > 0) {
+            const res = rerollDice(g, atk.id, badIndices);
+            if (res.ok) {
+              emitStateToAll(room);
+              triggerAiPhase(roomId);
+              return;
+            }
+          }
+        }
+
+        // 不重投或重投完，则确认攻击
         const slots = atk.card.atkSlots === -1 ? rolls.length : atk.card.atkSlots;
         const indices = rolls.map((v, i) => ({v, i})).sort((a,b) => b.v - a.v).slice(0, slots).map(x => x.i);
         const res = confirmAttack(g, indices);
@@ -291,7 +305,6 @@ function triggerAiPhase(roomId) {
           atkResult: res.atkResult, defenseRolls: res.defenseRolls,
           state: getStateView(g, pid),
         }));
-        // Now it's player's defense turn — don't auto-trigger
       }, 1500);
     }, 1200);
   }
@@ -301,6 +314,20 @@ function triggerAiPhase(roomId) {
       if (g.phase !== 'battle' || g.turnPhase !== TURN.DEF_ROLLED) return;
       const def = g.players[g.turnData.defenderIdx];
       const rolls = g.turnData.defenseRolls;
+
+      // 防御方也可以考虑重投
+      if (def.rerolls > 0) {
+        const badIndices = rolls.map((v, i) => v <= (def.card.dicePool[i] / 2) ? i : -1).filter(i => i !== -1);
+        if (badIndices.length >= 2) { // 防御方比较保守
+          const res = rerollDice(g, def.id, badIndices);
+          if (res.ok) {
+            emitStateToAll(room);
+            triggerAiPhase(roomId);
+            return;
+          }
+        }
+      }
+
       // AI picks highest dice
       let candidates = rolls.map((v, i) => ({v, i, face: def.card.dicePool[i]})).sort((a,b) => b.v - a.v);
       
