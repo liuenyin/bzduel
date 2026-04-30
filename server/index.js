@@ -260,12 +260,14 @@ function triggerAiPhase(roomId) {
   if (!room || !room.isAI || room.game.phase !== 'battle') return;
   const g = room.game;
 
+  // 1. 等待攻击阶段 (掷骰)
   if (g.turnPhase === TURN.WAITING_ATK && getCurrentAttackerId(g) === room.aiId) {
     setTimeout(() => {
-      if (g.phase !== 'battle') return;
+      if (g.phase !== 'battle' || g.turnPhase !== TURN.WAITING_ATK) return;
       const rollRes = rollAttack(g);
       if (!rollRes.ok) return;
       emitStateToAll(room);
+
       if (rollRes.selfKill) {
         emitToAll(room, 'turn_resolved', (pid) => ({
           damage: 0, selfDamage: 0, pierce: false, finalDef: 0, penalty: 0,
@@ -277,38 +279,45 @@ function triggerAiPhase(roomId) {
         setTimeout(() => cleanupRoom(room), 30000);
         return;
       }
-      // AI 掷骰后决定是否重投
-      setTimeout(() => {
-        if (g.phase !== 'battle' || g.turnPhase !== TURN.ATK_ROLLED) return;
-        const atk = g.players[g.turnData.attackerIdx];
-        const rolls = g.turnData.attackRolls;
-        
-        // 如果点数太小 (平均面数的一半以下)，尝试重投
-        if (atk.rerolls > 0) {
-          const badIndices = rolls.map((v, i) => v <= (atk.card.dicePool[i] / 2) ? i : -1).filter(i => i !== -1);
-          if (badIndices.length > 0) {
-            const res = rerollDice(g, atk.id, badIndices);
-            if (res.ok) {
-              emitStateToAll(room);
-              triggerAiPhase(roomId);
-              return;
-            }
-          }
-        }
-
-        // 不重投或重投完，则确认攻击
-        const slots = atk.card.atkSlots === -1 ? rolls.length : atk.card.atkSlots;
-        const indices = rolls.map((v, i) => ({v, i})).sort((a,b) => b.v - a.v).slice(0, slots).map(x => x.i);
-        const res = confirmAttack(g, indices);
-        if (!res.ok) { console.error("AI confirmAttack failed", res, indices, atk.card); return; }
-        emitToAll(room, 'atk_confirmed', (pid) => ({
-          atkResult: res.atkResult, defenseRolls: res.defenseRolls,
-          state: getStateView(g, pid),
-        }));
-      }, 1500);
+      // 掷骰完自动进入下个子阶段处理
+      triggerAiPhase(roomId);
     }, 1200);
   }
 
+  // 2. 已掷攻击骰阶段 (重投或确认)
+  if (g.turnPhase === TURN.ATK_ROLLED && getCurrentAttackerId(g) === room.aiId) {
+    setTimeout(() => {
+      if (g.phase !== 'battle' || g.turnPhase !== TURN.ATK_ROLLED) return;
+      const atk = g.players[g.turnData.attackerIdx];
+      const rolls = g.turnData.attackRolls;
+      
+      // AI 决定是否重投 (如果点数太小则尝试)
+      if (atk.rerolls > 0) {
+        const badIndices = rolls.map((v, i) => v <= (atk.card.dicePool[i] / 2) ? i : -1).filter(i => i !== -1);
+        if (badIndices.length > 0) {
+          const res = rerollDice(g, atk.id, badIndices);
+          if (res.ok) {
+            emitStateToAll(room);
+            triggerAiPhase(roomId); // 递归：重投完再次进入本阶段判断
+            return;
+          }
+        }
+      }
+
+      // 不重投或重投完，则确认攻击
+      const slots = atk.card.atkSlots === -1 ? rolls.length : atk.card.atkSlots;
+      const indices = rolls.map((v, i) => ({v, i})).sort((a,b) => b.v - a.v).slice(0, slots).map(x => x.i);
+      const res = confirmAttack(g, indices);
+      if (!res.ok) { console.error("AI confirmAttack failed", res, indices, atk.card); return; }
+      emitToAll(room, 'atk_confirmed', (pid) => ({
+        atkResult: res.atkResult, defenseRolls: res.defenseRolls,
+        state: getStateView(g, pid),
+      }));
+      // 这里不需要 triggerAiPhase，因为确认后进入玩家防御
+    }, 1500);
+  }
+
+  // 3. 已掷防御骰阶段 (重投或确认)
   if (g.turnPhase === TURN.DEF_ROLLED && getCurrentDefenderId(g) === room.aiId) {
     setTimeout(() => {
       if (g.phase !== 'battle' || g.turnPhase !== TURN.DEF_ROLLED) return;
@@ -322,18 +331,17 @@ function triggerAiPhase(roomId) {
           const res = rerollDice(g, def.id, badIndices);
           if (res.ok) {
             emitStateToAll(room);
-            triggerAiPhase(roomId);
+            triggerAiPhase(roomId); // 递归
             return;
           }
         }
       }
 
-      // AI picks highest dice
+      // AI 选择最高的骰子
       let candidates = rolls.map((v, i) => ({v, i, face: def.card.dicePool[i]})).sort((a,b) => b.v - a.v);
       
       let indices;
       if (def.card.negativeSkill?.id === SKILL.D10_LIMIT) {
-        // 曾无畏限制：最多只能选一个 D10
         let chosenIndices = [];
         let d10Used = false;
         for (let c of candidates) {
@@ -350,21 +358,19 @@ function triggerAiPhase(roomId) {
       }
 
       let options = {};
-      // 李灿 AI 献祭逻辑：HP 低于 50% 且有高点数骰子时献祭
       if (def.card.id === 'char_8' && def.hp < def.maxHp * 0.5) {
         let bestSac = indices[0];
         let maxVal = -1;
         for (let idx of indices) {
           if (rolls[idx] > maxVal) { maxVal = rolls[idx]; bestSac = idx; }
         }
-        if (maxVal >= 4) { // 点数够大才献祭
-          options.sacrificeIndex = bestSac;
-        }
+        if (maxVal >= 4) options.sacrificeIndex = bestSac;
       }
 
       const res = confirmDefense(g, indices, options);
       if (!res.ok) { console.error("AI confirmDefense failed", res, indices, def.card); return; }
       emitToAll(room, 'turn_resolved', (pid) => ({ ...res, state: getStateView(g, pid) }));
+
       if (res.gameOver) {
         setTimeout(() => cleanupRoom(room), 30000);
       } else if (res.classChanged) {
