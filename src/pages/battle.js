@@ -336,6 +336,7 @@ function onTurnResolved(data) {
   if (defPosTriggered) alerts += `<div class="skill-alert positive">✦ ${defPosName} 发动！</div>`;
   if (data.lcCounterDamage > 0) alerts += `<div class="skill-alert positive">🗡️ 反击伤害: ${data.lcCounterDamage}</div>`;
   if (data.healAmount > 0) alerts += `<div class="skill-alert positive">💚 献祭回复: ${data.healAmount}HP</div>`;
+  if (data.eatTriggered) alerts += `<div class="skill-alert positive">🍴 吃掉！攻击降为 2</div>`;
   if (data.noobTriggered) alerts += `<div class="skill-alert negative">✧ 杂鱼反噬 — 血量减半！</div>`;
   if (data.detonateTriggered) alerts += `<div class="skill-alert negative">💥 红温引爆 — ${data.detonateDamage}伤害！</div>`;
   if (data.redHeatApplied > 0) alerts += `<div class="skill-alert negative">🔥 红温 +${data.redHeatApplied}层</div>`;
@@ -538,10 +539,15 @@ function multiTag(m) {
 
 
 function phasePrompt(s) {
-  if (s.turnPhase === 'waiting_atk') return s.isMyAttackTurn ? '你的攻击回合' : '对手攻击中…';
-  if (s.turnPhase === 'atk_rolled') return s.isMyAttackTurn ? '选择骰子重投或确认' : '对手选择中…';
-  if (s.turnPhase === 'def_rolled') return s.isMyDefendTurn ? '你的防御 — 重投或确认' : '对手防御中…';
-  return '';
+  let p = '';
+  if (s.turnPhase === 'waiting_atk') p = s.isMyAttackTurn ? '你的攻击回合' : '对手攻击中…';
+  if (s.turnPhase === 'atk_rolled') p = s.isMyAttackTurn ? '选择骰子重投或确认' : '对手选择中…';
+  if (s.turnPhase === 'def_rolled') p = s.isMyDefendTurn ? '你的防御 — 重投或确认' : '对手防御中…';
+  
+  if (s.allergyTriggered && s.isMyAttackTurn) {
+    p = `<span style="color:var(--red); font-weight:bold;">⚠️ 过敏：伤害已锁定！</span><br/>${p}`;
+  }
+  return p;
 }
 
 function actionButtons(s) {

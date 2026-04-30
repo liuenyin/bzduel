@@ -336,8 +336,8 @@ export function confirmDefense(state, keepIndices, options = {}) {
 
   let damage = ar.pierce ? finalBaseAtk : Math.max(0, finalBaseAtk - finalFinalDef);
   
-  // 殷泽轩负面: 受到伤害增加 2 × 倍率
-  if (def.card.negativeSkill?.id === SKILL.VULNERABLE) {
+  // 殷泽轩负面: 受到伤害时 (即伤害 > 0)，最终伤害额外 +2 × 倍率
+  if (damage > 0 && def.card.negativeSkill?.id === SKILL.VULNERABLE) {
     damage += Math.floor(2 * defMulti);
   }
 
@@ -440,7 +440,7 @@ export function confirmDefense(state, keepIndices, options = {}) {
     defPosName: talentTriggered ? "天赋怪" : (commanderTriggered ? "团长大人!" : (eatTriggered ? "吃掉!" : (lcHealTriggered ? "献祭" : (lcCounterTriggered ? "反击" : null)))),
     noobTriggered, detonateTriggered, detonateDamage, redHeatApplied,
     damage, selfDamage: ar.selfDamage, pierce: ar.pierce,
-    lcCounterDamage, healAmount,
+    lcCounterDamage, healAmount, eatTriggered,
     gameOver, winner, classChanged, nextSubject,
     attackerIdx: prevAttackerIdx,
   };
@@ -510,9 +510,10 @@ export function getStateView(state, playerId) {
     turnPhase: state.turnPhase,
     isMyAttackTurn: isAtk && (state.turnPhase === TURN.WAITING_ATK || state.turnPhase === TURN.ATK_ROLLED),
     isMyDefendTurn: !isAtk && state.turnPhase === TURN.DEF_ROLLED,
-    attackRolls: state.turnData?.attackRolls ? [...state.turnData.attackRolls] : null,
-    defenseRolls: state.turnData?.defenseRolls ? [...state.turnData.defenseRolls] : null,
+    attackRolls: (state.turnData?.attackRolls && (isAtk || op.cardId !== 'char_10')) ? [...state.turnData.attackRolls] : null,
+    defenseRolls: (state.turnData?.defenseRolls && (!isAtk || op.cardId !== 'char_10')) ? [...state.turnData.defenseRolls] : null,
     atkResult: state.turnData?.atkResult || null,
+    allergyTriggered: state.turnData?.allergyTriggered || false,
     me: {
       nickname: me.nickname, cardId: me.cardId, card: me.card,
       hp: me.hp, maxHp: me.maxHp, ready: me.ready,

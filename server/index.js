@@ -309,7 +309,20 @@ function triggerAiPhase(room) {
         indices = candidates.slice(0, def.card.defSlots).map(x => x.i);
       }
 
-      const res = confirmDefense(g, indices);
+      let options = {};
+      // 李灿 AI 献祭逻辑：HP 低于 50% 且有高点数骰子时献祭
+      if (def.cardId === 'char_8' && def.hp < def.maxHp * 0.5) {
+        let bestSac = indices[0];
+        let maxVal = -1;
+        for (let idx of indices) {
+          if (rolls[idx] > maxVal) { maxVal = rolls[idx]; bestSac = idx; }
+        }
+        if (maxVal >= 4) { // 点数够大才献祭
+          options.sacrificeIndex = bestSac;
+        }
+      }
+
+      const res = confirmDefense(g, indices, options);
       if (!res.ok) { console.error("AI confirmDefense failed", res, indices, def.card); return; }
       emitToAll(room, 'turn_resolved', (pid) => ({ ...res, state: getStateView(g, pid) }));
       if (res.gameOver) {
