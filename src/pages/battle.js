@@ -315,32 +315,41 @@ function buffIcons(p) {
 // ── 攻击确认回调 ──
 function onAtkConfirmed(data) {
   const ar = data.atkResult;
-  // Show attack skill alerts
-  let alerts = '';
-  if (ar.posTriggered) alerts += `<div class="skill-alert positive">✦ ${ar.posName} 发动！</div>`;
-  if (ar.negTriggered) alerts += `<div class="skill-alert negative">✧ ${ar.negName} — 自伤 ${ar.selfDamage}</div>`;
   const phase = document.getElementById('phase-text');
-  if (phase && alerts) phase.innerHTML = alerts;
+  if (phase) phase.innerHTML = buildAlerts(data);
 
   setTimeout(() => refreshAll(), 600);
 }
 
-// ── 回合结算回调 (含攻击动画) ──
-function onTurnResolved(data) {
-  const newState = data.state;
-  const { damage, selfDamage, pierce, finalDef, penalty, defNegTriggered, defNegName, defPosTriggered, defPosName, gameOver, attackerIdx } = data;
-
-  // Defense skill alerts
+// ── 辅助：构建提示信息 ──
+function buildAlerts(data) {
   let alerts = '';
-  if (defNegTriggered) alerts += `<div class="skill-alert negative">✧ ${defNegName} — 防御 −${penalty}</div>`;
-  if (defPosTriggered) alerts += `<div class="skill-alert positive">✦ ${defPosName} 发动！</div>`;
+  const ar = data.atkResult || {};
+  const defPosTriggered = data.defPosTriggered;
+  const defNegTriggered = data.defNegTriggered;
+
+  if (ar.posTriggered) alerts += `<div class="skill-alert positive">✦ ${ar.posName} 发动！</div>`;
+  if (ar.negTriggered) alerts += `<div class="skill-alert negative">✧ ${ar.negName} 发动！</div>`;
+  if (defPosTriggered) alerts += `<div class="skill-alert positive">✦ ${data.defPosName} 发动！</div>`;
+  if (defNegTriggered) alerts += `<div class="skill-alert negative">✧ ${data.defNegName} 发动！</div>`;
+  
   if (data.lcCounterDamage > 0) alerts += `<div class="skill-alert positive">🗡️ 反击伤害: ${data.lcCounterDamage}</div>`;
-  if (data.healAmount > 0) alerts += `<div class="skill-alert positive">💚 献祭回复: ${data.healAmount}HP</div>`;
+  if (data.lcHealTriggered) alerts += `<div class="skill-alert positive">💚 献祭回复: ${data.healAmount}HP</div>`;
   if (data.eatTriggered) alerts += `<div class="skill-alert positive">🍴 吃掉！攻击降为 2</div>`;
   if (data.noobTriggered) alerts += `<div class="skill-alert negative">✧ 杂鱼反噬 — 血量减半！</div>`;
   if (data.detonateTriggered) alerts += `<div class="skill-alert negative">💥 红温引爆 — ${data.detonateDamage}伤害！</div>`;
   if (data.redHeatApplied > 0) alerts += `<div class="skill-alert negative">🔥 红温 +${data.redHeatApplied}层</div>`;
+
+  return alerts;
+}
+
+// ── 回合结算回调 (含攻击动画) ──
+export function onTurnResolved(data) {
+  const newState = data.state;
+  const { damage, finalDef, penalty, gameOver, attackerIdx } = data;
+
   const phase = document.getElementById('phase-text');
+  const alerts = buildAlerts(data);
   if (phase && alerts) phase.innerHTML = alerts;
 
   // Show final defense value
