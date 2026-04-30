@@ -144,7 +144,7 @@ export const characters = [
     defSlots: 3,
     positiveSkill: {
       id: SKILL.RED_HEAT_APPLY,
-      name: '玩战雷玩的',
+      name: '玩（）玩的',
       desc: '攻击造成伤害时，对对方施加 1+2×课程倍率 层[红温]；红温: 攻击回合开始受等同层数伤害，然后减2层',
     },
     negativeSkill: {
