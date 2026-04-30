@@ -150,15 +150,17 @@ function renderDice() {
   const isDefPhase = S.turnPhase === 'def_rolled';
   
   const poolFaces = S.me.card.dicePool;
+  const opPoolFaces = S.opponent.card?.dicePool || poolFaces;
 
   let html = '';
   if (S.attackRolls) {
     const isMine = isAtkPhase && S.isMyAttackTurn;
     const canSelect = isMine;
+    const atkPool = isMine ? poolFaces : opPoolFaces;
     html += `<div class="dice-row"><span class="dice-label" style="color:var(--gold)">攻</span>`;
     html += S.attackRolls.map((v, i) => {
       const isKept = S.atkResult?.keptIndices?.includes(i);
-      const face = poolFaces[i];
+      const face = atkPool[i];
       const color = DICE_COLORS[face];
       let style = color ? `border-color:${color.border}; color:${color.border};` : '';
       if (!isMine && S.atkResult && !isKept) style += 'opacity:0.3;';
@@ -181,7 +183,7 @@ function renderDice() {
     const isMine = isDefPhase && S.isMyDefendTurn;
     const canSelect = isMine;
     const isMyDefTurn = isDefPhase && S.isMyDefendTurn;
-    const defPool = isMyDefTurn ? poolFaces : (S.opponent.card?.dicePool || poolFaces);
+    const defPool = isMyDefTurn ? poolFaces : opPoolFaces;
     html += `<div class="dice-row"><span class="dice-label" style="color:var(--blue)">守</span>`;
     html += S.defenseRolls.map((v, i) => {
       const isKept = S.turnPhase !== 'def_rolled' && false; // We don't have defResult keptIndices yet usually, handled after confirm
@@ -267,6 +269,7 @@ function buffIcons(p) {
   if (p.hasReschedule) h += `<div class="buff-icon pos" title="拥有调课权">🔄</div>`;
   if (p.permanentDefPenalty) h += `<div class="buff-icon neg" title="体力透支: 防御力永久 -${p.permanentDefPenalty}">💦</div>`;
   if (p.buffs && p.buffs.find(b => b.id === 'sugar_crash')) h += `<div class="buff-icon neg" title="犯糖: 禁锢重投，回合开始受击">🍭</div>`;
+  if (p.redHeat > 0) h += `<div class="buff-icon neg" title="红温: ${p.redHeat}层">🔥${p.redHeat}</div>`;
   return h;
 }
 
@@ -293,6 +296,8 @@ function onTurnResolved(data) {
   if (defNegTriggered) alerts += `<div class="skill-alert negative">✧ ${defNegName} — 防御 −${penalty}</div>`;
   if (defPosTriggered) alerts += `<div class="skill-alert positive">✦ ${defPosName} 发动！</div>`;
   if (data.noobTriggered) alerts += `<div class="skill-alert negative">✧ 杂鱼反噬 — 血量减半！</div>`;
+  if (data.detonateTriggered) alerts += `<div class="skill-alert negative">💥 红温引爆 — ${data.detonateDamage}伤害！</div>`;
+  if (data.redHeatApplied > 0) alerts += `<div class="skill-alert negative">🔥 红温 +${data.redHeatApplied}层</div>`;
   const phase = document.getElementById('phase-text');
   if (phase && alerts) phase.innerHTML = alerts;
 
@@ -366,6 +371,7 @@ function showRescheduleModal() {
   const overlay = document.createElement('div');
   overlay.className = 'result-overlay';
   overlay.id = 'reschedule-modal';
+  overlay.style.zIndex = '9999';
   
   let options = '';
   for(let i = S.currentClassIndex; i < S.schedule.length; i++) {

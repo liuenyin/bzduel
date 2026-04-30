@@ -8,21 +8,17 @@
  */
 export const SKILL = {
   // 正面技能
-  ALL_EVEN_BONUS: 'all_even_bonus',        // 攻击骰全偶数时加伤害
-  SAME_FACE_PIERCE: 'same_face_pierce',    // 攻击骰点数相同时穿透
-  NO_REROLL_BONUS: 'no_reroll_bonus',      // 未重投时加伤害
+  NO_REROLL_BONUS: 'no_reroll_bonus',      // 记号 (未重投时选中骰+2)
   STAR_SHOWOFF: 'star_showoff',            // 观星 & 显眼包复合技能
-  COMMANDER_RECRUIT: 'commander_recruit',  // 团长大人！防守成功拉人
+  COMMANDER_RECRUIT: 'commander_recruit',  // 团长大人！未重投时拉人
+  TALENTED: 'talented',                    // 天赋怪 (受到伤害减免)
+  RED_HEAT_APPLY: 'red_heat_apply',        // 玩战雷玩的 (叠红温)
 
   // 负面技能
-  PERIODIC_DEF_LOSS: 'periodic_def_loss',  // 每 N 回合扣防御
-  LOW_ROLL_SELF_DMG: 'low_roll_self_dmg',  // 攻击骰总和过低时自伤
-  REROLL_PENALTY: 'reroll_penalty',        // 攻击时重投导致防御降低
+  REROLL_PENALTY: 'reroll_penalty',        // 体力透支 (重投永久扣防)
   SUGAR_CRASH: 'sugar_crash',              // 犯糖 (受大伤后获得负面状态)
   UNSUSTAINABLE: 'unsustainable',          // 不可持续发展
-  TALENTED: 'talented',                    // 天赋怪 (受到伤害减免)
-  ALLERGY: 'allergy',                      // 过敏 (概率攻击锁定)
-  NOOB: 'noob',                            // 杂鱼 (攻击被防住反噬)
+  RED_HEAT_DETONATE: 'red_heat_detonate',  // 你怎么急了 (引爆红温)
 };
 
 /**
@@ -37,10 +33,11 @@ export const SKILL = {
  *   image        角色头像路径
  *   hp           生命值
  *   dicePool     骰池 [面数, ...]
- *   atkSlots     攻击时可选择的骰子数
+ *   atkSlots     攻击时可选择的骰子数 (-1=无上限)
  *   defSlots     防御时可选择的骰子数
- *   positiveSkill  正面技能 { id, name, desc, baseValue }
- *   negativeSkill  负面技能 { id, name, desc, baseValue, interval?, threshold? }
+ *   rerollAll    若为 true, 重投时所有骰子均参与
+ *   positiveSkill  正面技能
+ *   negativeSkill  负面技能
  */
 export const characters = [
   {
@@ -57,7 +54,7 @@ export const characters = [
     positiveSkill: {
       id: SKILL.NO_REROLL_BONUS,
       name: '记号',
-      desc: '本轮未重投，则本局中两颗随机骰子的最高面数永久+2',
+      desc: '本轮未重投，则本局中所有选中骰子的最高面数永久+2',
       baseValue: 2,
     },
     negativeSkill: {
@@ -78,32 +75,33 @@ export const characters = [
     dicePool: [4, 4, 4, 6, 6],
     atkSlots: 4,
     defSlots: 3,
+    rerollAll: true, // 重投时所有骰子均重投
     positiveSkill: {
       id: SKILL.STAR_SHOWOFF,
       name: '观星 & 显眼包',
-      desc: '攻击回合开始时+2次重投。若攻击确认时选取的4个骰子极差<=2，最终伤害乘以 (0.5+课程倍率)',
+      desc: '攻击回合开始时+2次重投。若选取的4个骰子极差<=2，最终伤害乘以课程倍率',
     },
     negativeSkill: {
       id: SKILL.SUGAR_CRASH,
-      name: '犯糖',
-      desc: '单次受防守伤害>=8时，获得1整轮[犯糖]：禁止重投，且下个攻击回合开始时自伤 4×倍率',
+      name: '犯糖 & 全投',
+      desc: '受伤>=8时获得1轮[犯糖]；重投时所有骰子均会重投',
     },
   },
   {
     id: 'char_5',
     name: '赵恩培',
     title: '团长',
-    subjects: ['physics', 'chemistry', 'biology'],
+    subjects: ['chinese', 'math', 'english', 'physics', 'chemistry', 'biology'],
     electives: ['physics', 'chemistry', 'biology'],
     image: '/photos/zep.jpg',
-    hp: 28,
+    hp: 40,
     dicePool: [4, 4, 4, 4],
-    atkSlots: -1, // -1 代表无上限
+    atkSlots: -1,
     defSlots: 4,
     positiveSkill: {
       id: SKILL.COMMANDER_RECRUIT,
       name: '团长大人！',
-      desc: '若防御点数 > 对方攻击点数，立刻将一枚 4/6/8 面骰子永久加入骰池（面数取决于当前课程倍率）',
+      desc: '防御时未重投，将一枚 4/6/8 面骰子永久加入骰池（面数取决于课程倍率）',
     },
     negativeSkill: {
       id: SKILL.UNSUSTAINABLE,
@@ -115,11 +113,11 @@ export const characters = [
     id: 'char_6',
     name: '黄佳程',
     title: '+*',
-    subjects: ['physics', 'chemistry', 'biology'],
+    subjects: ['chinese', 'math', 'english', 'physics', 'chemistry', 'biology'],
     electives: ['physics', 'chemistry', 'biology'],
     image: '/photos/hjc.jpg',
     hp: 22,
-    dicePool: [8, 10, 10, 12],
+    dicePool: [6, 8, 10, 12],
     atkSlots: 3,
     defSlots: 3,
     positiveSkill: {
@@ -130,7 +128,29 @@ export const characters = [
     negativeSkill: {
       id: 'hjc_neg',
       name: '过敏 & 杂鱼',
-      desc: '过敏: 攻击开始有10%概率锁定伤害为 2/4/8; 杂鱼: 若攻击力 < 对方防御力，自身血量减半 (向上取整)',
+      desc: '过敏: 攻击开始有10%概率锁定伤害为 2/4/8; 杂鱼: 若攻击力 < 对方防御力，自身血量减半',
+    },
+  },
+  {
+    id: 'char_7',
+    name: '王钰程',
+    title: '不知道称号',
+    subjects: ['chinese', 'math', 'english', 'physics', 'chemistry', 'biology'],
+    electives: ['physics', 'chemistry', 'biology'],
+    image: '/photos/wyc.jpg',
+    hp: 32,
+    dicePool: [4, 4, 6, 6, 6],
+    atkSlots: 3,
+    defSlots: 3,
+    positiveSkill: {
+      id: SKILL.RED_HEAT_APPLY,
+      name: '玩战雷玩的',
+      desc: '攻击造成伤害时，对对方施加 1+2×课程倍率 层[红温]；红温: 攻击回合开始受等同层数伤害，然后减2层',
+    },
+    negativeSkill: {
+      id: SKILL.RED_HEAT_DETONATE,
+      name: '你怎么急了',
+      desc: '若攻击≤对方防御，立刻对对方造成等同于其红温层数的伤害，然后红温归零',
     },
   },
 ];

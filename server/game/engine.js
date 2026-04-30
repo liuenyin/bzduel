@@ -59,6 +59,7 @@ function makePlayer(id, name) {
     hasReschedule: true,
     rerolls: GAME_CONFIG.REROLLS_PER_GAME,
     buffs: [],
+    redHeat: 0, // 红温层数
   };
 }
 
@@ -113,11 +114,20 @@ export function rollAttack(state) {
   if (!atk.buffs) atk.buffs = [];
   atk.buffs = atk.buffs.filter(b => b.expireRound > state.totalRound);
 
-  // 结算回合开始效果
+  // 红温伤害 (攻击回合开始时)
+  if (atk.redHeat > 0) {
+    atk.hp -= atk.redHeat;
+    atk.redHeat = Math.max(0, atk.redHeat - 2);
+    if (atk.hp < 0) atk.hp = 0;
+  }
+
+  // 犯糖自伤
   if (atk.buffs.find(b => b.id === SKILL.SUGAR_CRASH)) {
     atk.hp -= Math.floor(4 * multi);
     if (atk.hp < 0) atk.hp = 0;
   }
+
+  // 不可持续发展自伤
   if (atk.card.negativeSkill?.id === SKILL.UNSUSTAINABLE) {
     atk.hp -= Math.floor(2 * multi);
     if (atk.hp < 0) atk.hp = 0;
@@ -130,6 +140,7 @@ export function rollAttack(state) {
     return { ok: true, rolls: [], selfKill: true };
   }
 
+  // 显眼包: +2 重投
   if (atk.card.positiveSkill?.id === SKILL.STAR_SHOWOFF) {
     atk.rerolls += 2;
   }
@@ -168,10 +179,19 @@ export function rerollDice(state, playerId, indices) {
   }
 
   const faces = p.card.dicePool;
-  for (const i of indices) {
-    if (i < 0 || i >= rolls.length) return { ok: false };
-    rolls[i] = rollDie(faces[i]);
+
+  // 王鹤迪 rerollAll: 重投时所有骰子均重投
+  if (p.card.rerollAll) {
+    for (let i = 0; i < rolls.length; i++) {
+      rolls[i] = rollDie(faces[i]);
+    }
+  } else {
+    for (const i of indices) {
+      if (i < 0 || i >= rolls.length) return { ok: false };
+      rolls[i] = rollDie(faces[i]);
+    }
   }
+
   p.rerolls--;
   if (state.turnPhase === TURN.ATK_ROLLED) {
     state.turnData.hasAttackerRerolled = true;
@@ -200,26 +220,25 @@ export function confirmAttack(state, keepIndices) {
   const pos = resolvePositiveSkill(atk.card.positiveSkill, multi, keptRolls, state.totalRound, state.turnData);
   const neg = resolveNegativeSkill(atk.card.negativeSkill, multi, keptRolls, state.totalRound);
 
-  // Apply composite multiplier from STAR_SHOWOFF
   let finalBase = baseAtk;
-  if (pos.multiplierBonus) {
-    finalBase = Math.floor(baseAtk * (pos.multiplierBonus + multi));
+
+  // 观星: 极差<=2 时伤害乘以课程倍率
+  if (pos.applyMultiplier) {
+    finalBase = Math.floor(baseAtk * multi);
   }
 
   // 黄佳程过敏处理: 强制锁定攻击力
-  let allergyNote = null;
   if (state.turnData.allergyTriggered) {
-    finalBase = 4 * multi;
-    allergyNote = '过敏触发';
+    finalBase = Math.floor(4 * multi);
   }
 
-  // Apply permanent dice upgrade
+  // 记号: 未重投时选中的所有骰子面数+2
   if (pos.upgradeDice) {
     let pool = atk.card.dicePool;
-    // pick 2 different random indices
-    let idxs = pool.map((_, i) => i).sort(() => Math.random() - 0.5).slice(0, 2);
-    for (let i of idxs) {
-      if (pool[i] < 12) pool[i] = Math.min(12, pool[i] + (pos.upgradeAmount || 2));
+    for (let i of keepIndices) {
+      if (i < pool.length && pool[i] < 12) {
+        pool[i] = Math.min(12, pool[i] + (pos.upgradeAmount || 2));
+      }
     }
   }
 
@@ -249,6 +268,7 @@ export function confirmDefense(state, keepIndices) {
   
   const atk = state.players[state.turnData.attackerIdx];
   const subj = state.schedule[state.currentClassIndex];
+  const atkMulti = getSkillMultiplier(atk.card.subjects, subj);
   const defMulti = getSkillMultiplier(def.card.subjects, subj);
 
   const defRolls = state.turnData.defenseRolls;
@@ -274,28 +294,49 @@ export function confirmDefense(state, keepIndices) {
     talentTriggered = true;
   }
 
-  // 杂鱼自残判定
+  // 杂鱼自残判定 (HJC: 攻击力 < 防御力 → 自身血量减半)
   let noobTriggered = false;
   if (ar.finalAtk < finalDef && atk.card.negativeSkill?.id === 'hjc_neg') {
     atk.hp -= Math.floor(atk.hp / 2);
     noobTriggered = true;
   }
 
-  // 团长大人！触发：防守点数 > 攻击点数
+  // 团长大人！触发：防守时未重投 → 获得骰子
   let commanderTriggered = false;
-  if (finalDef > ar.finalAtk && def.card.positiveSkill?.id === SKILL.COMMANDER_RECRUIT && !ar.pierce) {
+  if (!state.turnData.hasDefenderRerolled && def.card.positiveSkill?.id === SKILL.COMMANDER_RECRUIT && !ar.pierce) {
     const newFace = defMulti === 0.5 ? 4 : (defMulti === 1 ? 6 : 8);
     def.card.dicePool.push(newFace);
     commanderTriggered = true;
   }
 
+  // 应用伤害
   def.hp = Math.max(0, def.hp - damage);
   atk.hp = Math.max(0, atk.hp - ar.selfDamage);
 
-  // 触发 SUGAR_CRASH 负面效果
+  // 红温叠加 (WYC正面: 造成伤害时给对方叠红温)
+  let redHeatApplied = 0;
+  if (damage > 0 && atk.card.positiveSkill?.id === SKILL.RED_HEAT_APPLY) {
+    redHeatApplied = 1 + Math.floor(2 * atkMulti);
+    def.redHeat = (def.redHeat || 0) + redHeatApplied;
+  }
+
+  // 红温引爆 (WYC负面: 攻击≤防御时引爆对方红温)
+  let detonateTriggered = false;
+  let detonateDamage = 0;
+  if (ar.finalAtk <= finalDef && atk.card.negativeSkill?.id === SKILL.RED_HEAT_DETONATE) {
+    const opHeat = def.redHeat || 0;
+    if (opHeat > 0) {
+      detonateDamage = opHeat;
+      def.hp = Math.max(0, def.hp - detonateDamage);
+      def.redHeat = 0;
+      detonateTriggered = true;
+    }
+  }
+
+  // 触发 SUGAR_CRASH 负面效果 (expireRound +2 修复)
   if (damage >= 8 && def.card.negativeSkill?.id === SKILL.SUGAR_CRASH) {
     if (!def.buffs) def.buffs = [];
-    def.buffs.push({ id: SKILL.SUGAR_CRASH, expireRound: state.totalRound + 1 });
+    def.buffs.push({ id: SKILL.SUGAR_CRASH, expireRound: state.totalRound + 2 });
   }
 
   // Check game over
@@ -341,7 +382,7 @@ export function confirmDefense(state, keepIndices) {
     defNegName: defNeg.triggered ? def.card.negativeSkill.name : null,
     defPosTriggered: commanderTriggered || talentTriggered,
     defPosName: talentTriggered ? "天赋怪" : (commanderTriggered ? def.card.positiveSkill.name : null),
-    noobTriggered: noobTriggered,
+    noobTriggered, detonateTriggered, detonateDamage, redHeatApplied,
     damage, selfDamage: ar.selfDamage, pierce: ar.pierce,
     gameOver, winner, classChanged, nextSubject,
     attackerIdx: prevAttackerIdx,
@@ -352,14 +393,6 @@ export function confirmDefense(state, keepIndices) {
 function resolvePositiveSkill(skill, multi, rolls, totalRound, turnData) {
   if (!skill) return { triggered: false };
   switch (skill.id) {
-    case SKILL.ALL_EVEN_BONUS: {
-      if (rolls.every(v => v % 2 === 0)) return { triggered: true, bonusDamage: Math.floor(skill.baseValue * multi) };
-      return { triggered: false };
-    }
-    case SKILL.SAME_FACE_PIERCE: {
-      if (new Set(rolls).size === 1) return { triggered: true, pierce: true, bonusDamage: multi > 1 ? 5 : 0 };
-      return { triggered: false };
-    }
     case SKILL.NO_REROLL_BONUS: {
       if (turnData && !turnData.hasAttackerRerolled) return { triggered: true, upgradeDice: true, upgradeAmount: skill.baseValue };
       return { triggered: false };
@@ -368,7 +401,7 @@ function resolvePositiveSkill(skill, multi, rolls, totalRound, turnData) {
       const max = Math.max(...rolls);
       const min = Math.min(...rolls);
       if (max - min <= 2) {
-        return { triggered: true, multiplierBonus: 0.5 };
+        return { triggered: true, applyMultiplier: true };
       }
       return { triggered: false };
     }
@@ -379,12 +412,6 @@ function resolvePositiveSkill(skill, multi, rolls, totalRound, turnData) {
 function resolveNegativeSkill(skill, multi, rolls, round) {
   if (!skill) return { triggered: false };
   switch (skill.id) {
-    case SKILL.PERIODIC_DEF_LOSS: return { triggered: false };
-    case SKILL.LOW_ROLL_SELF_DMG: {
-      const sum = rolls.reduce((s, v) => s + v, 0);
-      if (sum < (skill.threshold || 8)) return { triggered: true, selfDamage: Math.floor(skill.baseValue * multi) };
-      return { triggered: false };
-    }
     default: return { triggered: false };
   }
 }
@@ -392,11 +419,6 @@ function resolveNegativeSkill(skill, multi, rolls, round) {
 function resolveDefenderNegativeSkill(skill, multi, totalRound, turnData) {
   if (!skill) return { triggered: false };
   switch (skill.id) {
-    case SKILL.PERIODIC_DEF_LOSS: {
-      const interval = skill.interval || 2;
-      if (totalRound > 0 && totalRound % interval === 0) return { triggered: true, defensePenalty: Math.floor(skill.baseValue * multi) };
-      return { triggered: false };
-    }
     case SKILL.REROLL_PENALTY: {
       if (turnData && turnData.hasDefenderRerolled) return { triggered: true, addPermanentPenalty: skill.baseValue };
       return { triggered: false };
@@ -438,7 +460,7 @@ export function getStateView(state, playerId) {
       nickname: me.nickname, cardId: me.cardId, card: me.card,
       hp: me.hp, maxHp: me.maxHp, ready: me.ready,
       hasReschedule: me.hasReschedule, rerolls: me.rerolls, buffs: me.buffs,
-      permanentDefPenalty: me.permanentDefPenalty,
+      permanentDefPenalty: me.permanentDefPenalty, redHeat: me.redHeat || 0,
     },
     opponent: {
       nickname: op.nickname,
@@ -446,7 +468,7 @@ export function getStateView(state, playerId) {
       card: state.phase === PHASE.BATTLE ? op.card : null,
       hp: op.hp, maxHp: op.maxHp, ready: op.ready,
       hasReschedule: op.hasReschedule, rerolls: op.rerolls, buffs: op.buffs,
-      permanentDefPenalty: op.permanentDefPenalty,
+      permanentDefPenalty: op.permanentDefPenalty, redHeat: op.redHeat || 0,
     },
     winner: state.winner,
   };
