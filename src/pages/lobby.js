@@ -30,6 +30,36 @@ export function renderLobby(container) {
       </div>
 
       <div id="status" style="min-height:36px; margin-top:12px;"></div>
+
+      <div class="lobby-info-grid">
+        <div class="info-card">
+          <h2 class="info-title">📜 玩法提示</h2>
+          <ul class="info-list">
+            <li><strong>选课阶段：</strong>根据今日课程表选择角色，主场作战伤害翻倍！</li>
+            <li><strong>调课权：</strong>每局有一次机会调整尚未开始的课程，抢占先机。</li>
+            <li><strong>骰子对决：</strong>攻击方掷骰选点，防御方随后确认。点数差距即为伤害。</li>
+            <li><strong>角色技能：</strong>每个角色都有独特的正负面技能，注意触发条件。</li>
+          </ul>
+        </div>
+        
+        <div class="info-card">
+          <h2 class="info-title">🛠️ 更新日志 (v1.2)</h2>
+          <div class="changelog">
+            <div class="log-entry">
+              <span class="log-ver">v1.2</span>
+              <p>新增角色[王钰程]；重构红温系统；平衡性调整；修复PVE逻辑与移动端调课层级。</p>
+            </div>
+            <div class="log-entry">
+              <span class="log-ver">v1.1</span>
+              <p>新增角色[黄佳程]；实装过敏/杂鱼技能；优化结算界面动画。</p>
+            </div>
+            <div class="log-entry">
+              <span class="log-ver">v1.0</span>
+              <p>基础框架搭建；实装[计浩然][王鹤迪][赵恩培]；支持在线匹配与房间对战。</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   `;
 

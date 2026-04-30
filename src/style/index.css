@@ -290,3 +290,73 @@ input[type="text"]::placeholder{color:var(--text-muted)}
 }
 
 .go-footer { margin-top: 20px; }
+/* ── 大厅信息展示 ──────────────────────── */
+.lobby-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  width: 100%;
+  max-width: 800px;
+  margin-top: 30px;
+}
+.info-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--bg-inset);
+}
+.info-title {
+  font-size: 1.1rem;
+  color: var(--accent);
+  margin-bottom: 12px;
+  border-bottom: 2px solid var(--bg-inset);
+  padding-bottom: 6px;
+}
+.info-list {
+  list-style: none;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+.info-list li {
+  margin-bottom: 8px;
+  position: relative;
+  padding-left: 14px;
+}
+.info-list li::before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  color: var(--accent);
+  font-weight: bold;
+}
+.changelog {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.log-entry {
+  position: relative;
+  padding-left: 50px;
+}
+.log-ver {
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-size: 0.7rem;
+  font-weight: 900;
+  background: var(--bg-inset);
+  color: var(--text-muted);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.log-entry p {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+@media(max-width:680px){
+  .lobby-info-grid { grid-template-columns: 1fr; }
+  /* ... existing mobile styles ... */
+}
