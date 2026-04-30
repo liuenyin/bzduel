@@ -153,6 +153,11 @@ export function rollAttack(state) {
 
   const rolls = rollDiceGroup(atk.card.dicePool);
   state.turnData.attackRolls = rolls;
+
+  // 王鹤迪: 攻击回合开始时+2次重投
+  if (atk.card.positiveSkill?.id === SKILL.STAR_SHOWOFF) {
+    atk.rerolls += 2;
+  }
   state.turnData.allergyTriggered = allergyTriggered;
   state.turnPhase = TURN.ATK_ROLLED;
   return { ok: true, rolls: [...rolls] };

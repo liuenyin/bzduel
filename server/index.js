@@ -147,7 +147,7 @@ io.on('connection', (socket) => {
     }
     if (res.battleStarted) {
       emitStateToAll(room);
-      triggerAiPhase(room);
+      triggerAiPhase(socketToRoom.get(socket.id));
     } else {
       socket.emit('state_update', getStateView(room.game, socket.id));
       broadcastToOpponent(room, socket.id, 'opponent_ready');
@@ -203,7 +203,7 @@ io.on('connection', (socket) => {
         atkResult: res.atkResult, defenseRolls: res.defenseRolls,
         state: getStateView(g, pid),
       }));
-      triggerAiPhase(room);
+      triggerAiPhase(socketToRoom.get(socket.id));
 
     } else if (g.turnPhase === TURN.DEF_ROLLED && getCurrentDefenderId(g) === socket.id) {
       const res = confirmDefense(g, indices, options);
@@ -218,15 +218,16 @@ io.on('connection', (socket) => {
       emitToAll(room, 'turn_resolved', (pid) => ({
         ...res, state: getStateView(g, pid),
       }));
+      const roomId = socketToRoom.get(socket.id);
       if (res.gameOver) {
         setTimeout(() => cleanupRoom(room), 30000);
       } else if (res.classChanged) {
         emitToAll(room, 'class_change', () => ({
           subject: res.nextSubject, index: g.currentClassIndex,
         }));
-        setTimeout(() => triggerAiPhase(room), 2000);
+        setTimeout(() => triggerAiPhase(roomId), 2000);
       } else {
-        triggerAiPhase(room);
+        triggerAiPhase(roomId);
       }
     }
   });
