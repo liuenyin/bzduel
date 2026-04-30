@@ -341,6 +341,16 @@ export function confirmDefense(state, keepIndices, options = {}) {
     damage += Math.floor(2 * defMulti);
   }
 
+  // 黄佳程正面: 天赋怪 (减伤)
+  let talentTriggered = false;
+  if (damage > 0 && def.card.positiveSkill?.id === SKILL.TALENTED) {
+    const ratio = defMulti === 2 ? 0.5 : (defMulti === 1 ? 0.75 : 1);
+    if (ratio < 1) {
+      damage = Math.floor(damage * ratio);
+      talentTriggered = true;
+    }
+  }
+
   // 李灿正面A: 反击伤害
   let lcCounterTriggered = false;
   let lcCounterDamage = 0;
