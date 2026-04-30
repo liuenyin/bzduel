@@ -140,12 +140,12 @@ export function rollAttack(state) {
     return { ok: true, rolls: [], selfKill: true };
   }
 
-  // WHD +2 rerolls handled below to avoid duplication
-  /*
-  if (atk.card.positiveSkill?.id === SKILL.STAR_SHOWOFF) {
-    atk.rerolls += 2;
+  // 记号: 攻击开始时获得 +1 重投
+  if (atk.card.positiveSkill?.id === SKILL.NO_REROLL_BONUS) {
+    atk.rerolls += 1;
   }
-  */
+
+  // WHD +2 rerolls handled below to avoid duplication
 
   // 黄佳程过敏判定 (10% 概率)
   let allergyTriggered = false;
@@ -239,12 +239,12 @@ export function confirmAttack(state, keepIndices) {
     finalBase = Math.floor(4 * multi);
   }
 
-  // 记号: 未重投时选中的所有骰子面数+2
+  // 记号: 若选中骰子全为奇数，参与骰子永久面数+2，无上限
   if (pos.upgradeDice) {
     let pool = atk.card.dicePool;
     for (let i of keepIndices) {
-      if (i < pool.length && pool[i] < 12) {
-        pool[i] = Math.min(12, pool[i] + (pos.upgradeAmount || 2));
+      if (i < pool.length) {
+        pool[i] += 2;
       }
     }
   }
@@ -469,7 +469,10 @@ function resolvePositiveSkill(skill, multi, rolls, totalRound, turnData) {
   if (!skill) return { triggered: false };
   switch (skill.id) {
     case SKILL.NO_REROLL_BONUS: {
-      if (turnData && !turnData.hasAttackerRerolled) return { triggered: true, upgradeDice: true, upgradeAmount: skill.baseValue };
+      // 计浩然: 选择的点数全为奇数
+      if (rolls && rolls.length > 0 && rolls.every(v => v % 2 !== 0)) {
+        return { triggered: true, upgradeDice: true };
+      }
       return { triggered: false };
     }
     case SKILL.STAR_SHOWOFF: {

@@ -55,14 +55,13 @@ export const characters = [
     electives: ['physics', 'chemistry', 'biology'],
     image: '/photos/jihaoran.png',
     hp: 33,
-    dicePool: [4, 4, 6, 6],
+    dicePool: [6, 6, 6, 8],
     atkSlots: 3,
     defSlots: 2,
     positiveSkill: {
       id: SKILL.NO_REROLL_BONUS,
       name: '记号',
-      desc: '本轮未重投，则本局中所有选中骰子的最高面数永久+2',
-      baseValue: 2,
+      desc: '攻击开始时+1重投。若选择点数全为奇数，参与骰子永久+2面，无上限',
     },
     negativeSkill: {
       id: SKILL.REROLL_PENALTY,
