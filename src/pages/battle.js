@@ -20,6 +20,10 @@ export function renderBattle(container, data) {
     const el = document.getElementById('phase-text');
     if (el) el.innerHTML = '<span style="color:var(--red)">对手已断开连接</span>';
   });
+  gameSocket.on('error_msg', (d) => {
+    alert(d.message);
+    refreshAll();
+  });
 
   return () => {};
 }
@@ -100,7 +104,9 @@ function bindCoreEvents() {
   });
   on('btn-confirm', 'click', () => {
     const sel = document.querySelectorAll('.die.selected');
-    gameSocket.confirmDice([...sel].map(d => parseInt(d.dataset.idx)));
+    const indices = [...sel].map(d => parseInt(d.dataset.idx));
+    const res = gameSocket.confirmDice(indices);
+    // Note: confirmDice is async, but we can handle global error messages via socket event
     disableBtn('btn-confirm');
     hide('btn-reroll');
   });
@@ -161,12 +167,14 @@ function renderDice() {
     html += S.attackRolls.map((v, i) => {
       const isKept = S.atkResult?.keptIndices?.includes(i);
       const face = atkPool[i];
+      const isYzx = !isMine && S.opponent.cardId === 'char_10';
       const color = DICE_COLORS[face];
       let style = color ? `border-color:${color.border}; color:${color.border};` : '';
       if (!isMine && S.atkResult && !isKept) style += 'opacity:0.3;';
+      const displayVal = isYzx ? '?' : v;
       return `<div class="die attack${canSelect ? ' selectable' : ''}${isAtkPhase ? ' rolling' : ''}" style="${style}" data-idx="${i}" data-val="${v}">
-        ${color ? `<div class="die-corner" style="color:${color.border};background:${color.bg}">${color.label}</div>` : ''}
-        ${v}
+        ${color && !isYzx ? `<div class="die-corner" style="color:${color.border};background:${color.bg}">${color.label}</div>` : ''}
+        ${displayVal}
       </div>`;
     }).join('');
     
@@ -187,10 +195,12 @@ function renderDice() {
     html += S.defenseRolls.map((v, i) => {
       const face = defPool[i] || (isMine ? poolFaces[i] : opPoolFaces[i]) || 6;
       const color = DICE_COLORS[face];
+      const isYzx = !isMine && S.opponent.cardId === 'char_10';
       let style = color ? `border-color:${color.border}; color:${color.border};` : '';
+      const displayVal = isYzx ? '?' : v;
       return `<div class="die defense${canSelect ? ' selectable' : ''}" style="${style}" data-idx="${i}" data-val="${v}">
-        ${color ? `<div class="die-corner" style="color:${color.border};background:${color.bg}">${color.label}</div>` : ''}
-        ${v}
+        ${color && !isYzx ? `<div class="die-corner" style="color:${color.border};background:${color.bg}">${color.label}</div>` : ''}
+        ${displayVal}
       </div>`;
     }).join('');
     
@@ -241,7 +251,18 @@ function updateActionButtons() {
     const isDef = S.turnPhase === 'def_rolled' && S.isMyDefendTurn;
     const target = isAtk ? S.me.card.atkSlots : (isDef ? S.me.card.defSlots : 99);
     
+    // 李灿献祭逻辑
+    const btnSacrifice = document.getElementById('btn-sacrifice');
+    if (btnSacrifice) {
+      if (isDef && S.me.cardId === 'char_8' && count === target) {
+        btnSacrifice.style.display = 'block';
+      } else {
+        btnSacrifice.style.display = 'none';
+      }
+    }
+
     if (target === -1) {
+      // ... same
       if (count > 0) {
         btnConfirm.disabled = false;
         btnConfirm.innerHTML = `✓ 确认 (已选 ${count} 颗) 总和:${currentSum}`;
@@ -260,6 +281,26 @@ function updateActionButtons() {
     }
   }
 }
+
+// 献祭弹窗
+window._showSacrifice = () => {
+  const sel = document.querySelectorAll('.die.defense.selected');
+  let opts = '';
+  sel.forEach(d => {
+    opts += `<button class="btn btn-secondary" onclick="window._doSacrifice(${d.dataset.idx})">献祭 ${d.dataset.val}</button>`;
+  });
+  const m = document.createElement('div');
+  m.className = 'result-overlay';
+  m.id = 'sacrifice-modal';
+  m.innerHTML = `<div class="panel"><h3>选择一个骰子进行献祭</h3><p>该骰子变1，回复其点数-1的HP</p>${opts}</div>`;
+  document.body.appendChild(m);
+};
+
+window._doSacrifice = (idx) => {
+  const indices = Array.from(document.querySelectorAll('.die.defense.selected')).map(d => parseInt(d.dataset.idx));
+  gameSocket.confirmDice(indices, { sacrificeIndex: idx });
+  document.getElementById('sacrifice-modal').remove();
+};
 
 // ── 增益/状态图标 ──
 function buffIcons(p) {
@@ -293,6 +334,8 @@ function onTurnResolved(data) {
   let alerts = '';
   if (defNegTriggered) alerts += `<div class="skill-alert negative">✧ ${defNegName} — 防御 −${penalty}</div>`;
   if (defPosTriggered) alerts += `<div class="skill-alert positive">✦ ${defPosName} 发动！</div>`;
+  if (data.lcCounterDamage > 0) alerts += `<div class="skill-alert positive">🗡️ 反击伤害: ${data.lcCounterDamage}</div>`;
+  if (data.healAmount > 0) alerts += `<div class="skill-alert positive">💚 献祭回复: ${data.healAmount}HP</div>`;
   if (data.noobTriggered) alerts += `<div class="skill-alert negative">✧ 杂鱼反噬 — 血量减半！</div>`;
   if (data.detonateTriggered) alerts += `<div class="skill-alert negative">💥 红温引爆 — ${data.detonateDamage}伤害！</div>`;
   if (data.redHeatApplied > 0) alerts += `<div class="skill-alert negative">🔥 红温 +${data.redHeatApplied}层</div>`;
@@ -419,22 +462,45 @@ function showGameOver(s) {
   
   const me = s.me;
   const op = s.opponent;
+
+  function renderPlayer(p, index) {
+    const isMe = index === s.myIndex;
+    const card = p.card;
+    const isYzx = p.cardId === 'char_10' && !isMe;
+    const hpText = isYzx ? '??' : p.hp;
+    const maxHpText = isYzx ? '??' : p.maxHp;
+    const hpPercent = isYzx ? 100 : (p.hp / p.maxHp) * 100;
+
+    return `
+      <div class="player-box ${isMe ? 'me' : 'op'} ${isYzx ? 'stealth' : ''}">
+        <div class="avatar-area">
+          <img src="${card.image}" class="avatar" />
+          ${isMe ? `<div class="badge-me">我</div>` : ''}
+        </div>
+        <div class="player-info">
+          <div class="name-row">
+            <span class="nickname">${p.nickname}</span>
+            <span class="card-name">${card.name}</span>
+          </div>
+          <div class="hp-container">
+            <div class="hp-bar">
+              <div class="hp-bar-fill" style="width:${hpPercent}%"></div>
+            </div>
+            <div class="hp-text">${hpText} / ${maxHpText}</div>
+          </div>
+          <div class="buffs-row">${buffIcons(p)}</div>
+        </div>
+      </div>
+    `;
+  }
   
   o.innerHTML = `
     <div class="go-content ${statusClass}">
       <h1 class="go-title">${statusStr}</h1>
       <div class="go-stats">
-        <div class="go-player me">
-          <img src="${me.card.image}" class="go-avatar ${me.hp <= 0 ? 'dead' : ''}" />
-          <div class="go-name">${me.nickname}</div>
-          <div class="go-hp ${me.hp > 0 ? 'alive' : 'dead'}">${me.hp} <span>HP</span></div>
-        </div>
+        ${renderPlayer(me, s.myIndex)}
         <div class="go-vs">VS</div>
-        <div class="go-player op">
-          <img src="${op.card.image}" class="go-avatar ${op.hp <= 0 ? 'dead' : ''}" />
-          <div class="go-name">${op.nickname}</div>
-          <div class="go-hp ${op.hp > 0 ? 'alive' : 'dead'}">${op.hp} <span>HP</span></div>
-        </div>
+        ${renderPlayer(op, (s.myIndex + 1) % 2)}
       </div>
       <div class="go-footer">
         <button class="btn btn-primary btn-lg" id="btn-back" style="min-width: 200px; padding: 12px 0;">返回大厅</button>
@@ -479,9 +545,15 @@ function actionButtons(s) {
   if (s.turnPhase === 'waiting_atk' && s.isMyAttackTurn)
     return '<button id="btn-roll" class="btn btn-primary btn-lg">掷骰</button>';
   if (s.turnPhase === 'atk_rolled' && s.isMyAttackTurn)
-    return `<button id="btn-confirm" class="btn btn-primary" disabled>${s.me.card.atkSlots === -1 ? '至少选 1 颗' : `需选 ${s.me.card.atkSlots} 颗`}</button>`;
+    return `<div>
+          <button id="btn-confirm" class="btn btn-success" disabled>✓ 确认</button>
+          <button id="btn-sacrifice" class="btn btn-secondary" style="display:none;" onclick="window._showSacrifice()">🩸 献祭回血</button>
+        </div>` + `${s.me.card.atkSlots === -1 ? '至少选 1 颗' : `需选 ${s.me.card.atkSlots} 颗`}`;
   if (s.turnPhase === 'def_rolled' && s.isMyDefendTurn)
-    return `<button id="btn-confirm" class="btn btn-primary" disabled>需选 ${s.me.card.defSlots} 颗</button>`;
+    return `<div>
+          <button id="btn-confirm" class="btn btn-primary" disabled>✓ 确认</button>
+          <button id="btn-sacrifice" class="btn btn-secondary" onclick="window._showSacrifice()">🩸 献祭回血</button>
+        </div>` + `需选 ${s.me.card.defSlots} 颗`;
   return `<span style="color:var(--text-muted);font-size:.88rem">${phasePrompt(s)}</span>`;
 }
 
@@ -499,8 +571,9 @@ function scheduleHTML(s) {
 function setHP(barId, hp, maxHp, txtId) {
   const bar = document.getElementById(barId);
   const txt = document.getElementById(txtId);
-  if (bar) bar.style.width = `${pct(hp, maxHp)}%`;
-  if (txt) txt.textContent = hp;
+  const isHidden = hp === '??';
+  if (bar) bar.style.width = isHidden ? '100%' : `${pct(hp, maxHp)}%`;
+  if (txt) txt.textContent = isHidden ? '??' : hp;
 }
 
 function on(id, evt, fn) { document.getElementById(id)?.addEventListener(evt, fn); }

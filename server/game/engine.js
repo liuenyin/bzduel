@@ -251,6 +251,12 @@ export function confirmAttack(state, keepIndices) {
     keptIndices: keepIndices,
   };
 
+  // 殷泽轩正面: 攻击力额外 +2 × 课程倍率
+  if (atk.card.positiveSkill?.id === SKILL.STEALTH_STRIKE) {
+    state.turnData.atkResult.bonusDamage += Math.floor(2 * multi);
+    state.turnData.atkResult.finalAtk += Math.floor(2 * multi);
+  }
+
   // Auto-roll defense using pool
   const defRolls = rollDiceGroup(def.card.dicePool);
   state.turnData.defenseRolls = defRolls;
@@ -260,11 +266,17 @@ export function confirmAttack(state, keepIndices) {
 }
 
 // ── 阶段4: 防守方确认 → 结算 → 伤害 → 推进回合 ──
-export function confirmDefense(state, keepIndices) {
+export function confirmDefense(state, keepIndices, options = {}) {
   if (state.turnPhase !== TURN.DEF_ROLLED) return { ok: false };
   const def = state.players[state.turnData.defenderIdx];
   
   if (!keepIndices || keepIndices.length !== def.card.defSlots) return { ok: false, error: 'invalid_slots' };
+
+  // 曾无畏负面: 防御时只能选中一个 D10
+  if (def.card.negativeSkill?.id === SKILL.D10_LIMIT) {
+    const d10Count = keepIndices.filter(idx => def.card.dicePool[idx] === 10).length;
+    if (d10Count > 1) return { ok: false, error: 'zww_d10_limit' };
+  }
   
   const atk = state.players[state.turnData.attackerIdx];
   const subj = state.schedule[state.currentClassIndex];
@@ -284,14 +296,58 @@ export function confirmDefense(state, keepIndices) {
   const finalDef = Math.max(0, baseDef - penalty);
 
   const ar = state.turnData.atkResult;
-  let damage = ar.pierce ? ar.finalAtk : Math.max(0, ar.finalAtk - finalDef);
+  let finalBaseAtk = ar.finalAtk;
+
+  // 曾无畏正面: “吃掉!” 将对方选定的最大骰子改为 2
+  let eatTriggered = false;
+  if (def.card.positiveSkill?.id === SKILL.EAT_IT) {
+    const atkRolls = state.turnData.attackRolls;
+    const atkKeptIndices = ar.keptIndices;
+    let maxVal = -1, maxIdx = -1;
+    for (let idx of atkKeptIndices) {
+      if (atkRolls[idx] > maxVal) { maxVal = atkRolls[idx]; maxIdx = idx; }
+    }
+    if (maxVal > 2) {
+      finalBaseAtk = finalBaseAtk - maxVal + 2;
+      eatTriggered = true;
+    }
+  }
+
+  // 李灿正面B: 献祭骰子回血
+  let lcHealTriggered = false;
+  let healAmount = 0;
+  if (def.card.positiveSkill?.id === SKILL.GAL_PLAYER && options.sacrificeIndex !== undefined) {
+    const sIdx = options.sacrificeIndex;
+    if (keepIndices.includes(sIdx)) {
+      const orig = defRolls[sIdx];
+      if (orig > 1) {
+        healAmount = orig - 1;
+        defRolls[sIdx] = 1; // 变为1
+        def.hp = Math.min(def.maxHp, def.hp + healAmount);
+        lcHealTriggered = true;
+      }
+    }
+  }
+
+  // 重新计算最终防御 (因为骰子可能变了)
+  const finalKeptRolls = keepIndices.map(i => defRolls[i]);
+  const finalBaseDef = finalKeptRolls.reduce((s, v) => s + v, 0);
+  const finalFinalDef = Math.max(0, finalBaseDef - penalty);
+
+  let damage = ar.pierce ? finalBaseAtk : Math.max(0, finalBaseAtk - finalFinalDef);
   
-  // 天赋怪减伤判定
-  let talentTriggered = false;
-  if (def.card.positiveSkill?.id === SKILL.TALENTED) {
-    const reductionMulti = defMulti === 0.5 ? 1 : (defMulti === 1 ? 0.75 : 0.5);
-    damage = Math.round(damage * reductionMulti);
-    talentTriggered = true;
+  // 殷泽轩负面: 受到伤害增加 2 × 倍率
+  if (def.card.negativeSkill?.id === SKILL.VULNERABLE) {
+    damage += Math.floor(2 * defMulti);
+  }
+
+  // 李灿正面A: 反击伤害
+  let lcCounterTriggered = false;
+  let lcCounterDamage = 0;
+  if (def.card.positiveSkill?.id === SKILL.GAL_PLAYER && finalFinalDef > finalBaseAtk && !ar.pierce) {
+    lcCounterDamage = finalFinalDef - finalBaseAtk;
+    atk.hp = Math.max(0, atk.hp - lcCounterDamage);
+    lcCounterTriggered = true;
   }
 
   // 杂鱼自残判定 (HJC: 攻击力 < 防御力 → 自身血量减半)
@@ -380,10 +436,11 @@ export function confirmDefense(state, keepIndices) {
     ok: true, baseDef, finalDef, penalty, keptIndices: keepIndices,
     defNegTriggered: defNeg.triggered,
     defNegName: defNeg.triggered ? def.card.negativeSkill.name : null,
-    defPosTriggered: commanderTriggered || talentTriggered,
-    defPosName: talentTriggered ? "天赋怪" : (commanderTriggered ? def.card.positiveSkill.name : null),
+    defPosTriggered: commanderTriggered || talentTriggered || eatTriggered || lcHealTriggered || lcCounterTriggered,
+    defPosName: talentTriggered ? "天赋怪" : (commanderTriggered ? "团长大人!" : (eatTriggered ? "吃掉!" : (lcHealTriggered ? "献祭" : (lcCounterTriggered ? "反击" : null)))),
     noobTriggered, detonateTriggered, detonateDamage, redHeatApplied,
     damage, selfDamage: ar.selfDamage, pierce: ar.pierce,
+    lcCounterDamage, healAmount,
     gameOver, winner, classChanged, nextSubject,
     attackerIdx: prevAttackerIdx,
   };
@@ -466,7 +523,9 @@ export function getStateView(state, playerId) {
       nickname: op.nickname,
       cardId: state.phase === PHASE.BATTLE ? op.cardId : null,
       card: state.phase === PHASE.BATTLE ? op.card : null,
-      hp: op.hp, maxHp: op.maxHp, ready: op.ready,
+      hp: op.cardId === 'char_10' ? '??' : op.hp, 
+      maxHp: op.cardId === 'char_10' ? '??' : op.maxHp,
+      ready: op.ready,
       hasReschedule: op.hasReschedule, rerolls: op.rerolls, buffs: op.buffs,
       permanentDefPenalty: op.permanentDefPenalty, redHeat: op.redHeat || 0,
     },

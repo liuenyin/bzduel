@@ -25,7 +25,7 @@ class GameSocket {
 
   rollDice() { this.socket.emit('roll_dice'); }
   rerollDice(indices) { this.socket.emit('reroll_dice', { indices }); }
-  confirmDice(indices) { this.socket.emit('confirm_dice', { indices }); }
+  confirmDice(indices, options = {}) { this.socket.emit('confirm_dice', { indices, options }); }
 
   on(e, cb) { this.socket.on(e, cb); }
   off(e, cb) { this.socket.off(e, cb); }

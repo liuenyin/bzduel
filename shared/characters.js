@@ -19,6 +19,13 @@ export const SKILL = {
   SUGAR_CRASH: 'sugar_crash',              // 犯糖 (受大伤后获得负面状态)
   UNSUSTAINABLE: 'unsustainable',          // 不可持续发展
   RED_HEAT_DETONATE: 'red_heat_detonate',  // 你怎么急了 (引爆红温)
+
+  // 新角色技能
+  GAL_PLAYER: 'gal_player',                // 玩gal玩的 (李灿: 反击 + 献祭回血)
+  EAT_IT: 'eat_it',                        // 吃掉! (曾无畏: 将对方最大骰子改为2)
+  STEALTH_STRIKE: 'stealth_strike',        // 对方无法得知信息 + 攻击加成 (殷泽轩)
+  VULNERABLE: 'vulnerable',                // 受到伤害增加 (殷泽轩)
+  D10_LIMIT: 'd10_limit',                  // 防御时只能选一个D10 (曾无畏)
 };
 
 /**
@@ -151,6 +158,68 @@ export const characters = [
       id: SKILL.RED_HEAT_DETONATE,
       name: '你怎么急了',
       desc: '若攻击≤对方防御，立刻对对方造成等同于其红温层数的伤害，然后红温归零',
+    },
+  },
+  {
+    id: 'char_8',
+    name: '李灿',
+    title: '玩gal玩的',
+    subjects: ['chinese', 'math', 'english', 'history', 'geography', 'politics'],
+    electives: ['history', 'geography', 'politics'],
+    image: '/photos/lc.jpg',
+    hp: 27,
+    dicePool: [6, 6, 6, 8],
+    atkSlots: 2,
+    defSlots: 4,
+    positiveSkill: {
+      id: SKILL.GAL_PLAYER,
+      name: '玩gal玩的',
+      desc: '防御时若防守>攻击，反伤差值。防御确认前可点[献祭]将一颗骰子变1，回复等额HP',
+    },
+    negativeSkill: null,
+  },
+  {
+    id: 'char_9',
+    name: '曾无畏',
+    title: '吃掉!',
+    subjects: ['chinese', 'math', 'english', 'history', 'geography', 'politics'],
+    electives: ['history', 'geography', 'politics'],
+    image: '/photos/zww.jpg',
+    hp: 31,
+    dicePool: [6, 10, 10],
+    atkSlots: 3,
+    defSlots: 2,
+    positiveSkill: {
+      id: SKILL.EAT_IT,
+      name: '吃掉!',
+      desc: '防御时，将对方选定的最大骰子强制变为 2',
+    },
+    negativeSkill: {
+      id: SKILL.D10_LIMIT,
+      name: '???',
+      desc: '防御时，最多只能选中一个 D10 骰子',
+    },
+  },
+  {
+    id: 'char_10',
+    name: '殷泽轩',
+    title: '隐藏者',
+    subjects: ['chinese', 'math', 'english', 'physics', 'chemistry', 'biology'],
+    electives: ['physics', 'chemistry', 'biology'],
+    image: '/photos/yzx.jpg',
+    hp: 33,
+    dicePool: [8, 8, 8, 8],
+    atkSlots: 3,
+    defSlots: 3,
+    positiveSkill: {
+      id: SKILL.STEALTH_STRIKE,
+      name: '隐藏信息',
+      desc: '对方无法查看你的HP和掷骰点数；攻击力额外 +2 × 课程倍率',
+    },
+    negativeSkill: {
+      id: SKILL.VULNERABLE,
+      name: '???',
+      desc: '受到伤害时，最终伤害额外 +2 × 课程倍率',
     },
   },
 ];

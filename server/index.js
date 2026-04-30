@@ -181,7 +181,7 @@ io.on('connection', (socket) => {
   });
 
   // ── 确认骰子 ──
-  socket.on('confirm_dice', ({ indices }) => {
+  socket.on('confirm_dice', ({ indices, options = {} }) => {
     const room = getRoom(socket.id); if (!room) return;
     const g = room.game;
 
@@ -196,8 +196,15 @@ io.on('connection', (socket) => {
       triggerAiPhase(room);
 
     } else if (g.turnPhase === TURN.DEF_ROLLED && getCurrentDefenderId(g) === socket.id) {
-      const res = confirmDefense(g, indices);
-      if (!res.ok) return;
+      const res = confirmDefense(g, indices, options);
+      if (!res.ok) {
+        if (res.error === 'zww_d10_limit') {
+          socket.emit('error_msg', { message: '曾无畏的限制：防御时最多只能选中一个 D10 骰子！' });
+        } else {
+          socket.emit('error_msg', { message: '无效的选骰' });
+        }
+        return;
+      }
       emitToAll(room, 'turn_resolved', (pid) => ({
         ...res, state: getStateView(g, pid),
       }));
