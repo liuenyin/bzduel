@@ -145,9 +145,10 @@ io.on('connection', (socket) => {
       if (aiRes.battleStarted) res.battleStarted = true;
       console.log(`[PVE] AI ${room.aiId} 准备完毕, 战斗开始: ${res.battleStarted}`);
     }
+    const roomId = socketToRoom.get(socket.id);
     if (res.battleStarted) {
       emitStateToAll(room);
-      triggerAiPhase(socketToRoom.get(socket.id));
+      triggerAiPhase(roomId);
     } else {
       socket.emit('state_update', getStateView(room.game, socket.id));
       broadcastToOpponent(room, socket.id, 'opponent_ready');
@@ -254,8 +255,9 @@ io.on('connection', (socket) => {
 });
 
 // ── AI 阶段自动处理 ──
-function triggerAiPhase(room) {
-  if (!room.isAI || room.game.phase !== 'battle') return;
+function triggerAiPhase(roomId) {
+  const room = rooms.get(roomId);
+  if (!room || !room.isAI || room.game.phase !== 'battle') return;
   const g = room.game;
 
   if (g.turnPhase === TURN.WAITING_ATK && getCurrentAttackerId(g) === room.aiId) {
@@ -322,7 +324,7 @@ function triggerAiPhase(room) {
 
       let options = {};
       // 李灿 AI 献祭逻辑：HP 低于 50% 且有高点数骰子时献祭
-      if (def.cardId === 'char_8' && def.hp < def.maxHp * 0.5) {
+      if (def.card.id === 'char_8' && def.hp < def.maxHp * 0.5) {
         let bestSac = indices[0];
         let maxVal = -1;
         for (let idx of indices) {
@@ -340,9 +342,9 @@ function triggerAiPhase(room) {
         setTimeout(() => cleanupRoom(room), 30000);
       } else if (res.classChanged) {
         emitToAll(room, 'class_change', () => ({ subject: res.nextSubject, index: g.currentClassIndex }));
-        setTimeout(() => triggerAiPhase(room), 2500);
+        setTimeout(() => triggerAiPhase(roomId), 2500);
       } else {
-        triggerAiPhase(room);
+        triggerAiPhase(roomId);
       }
     }, 1500);
   }
