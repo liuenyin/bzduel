@@ -12,6 +12,7 @@ import {
   getCurrentAttackerId, getCurrentDefenderId, getStateView, TURN,
 } from './game/engine.js';
 import { aiSelectCard } from './game/ai.js';
+import { SKILL } from '../shared/characters.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -89,7 +90,14 @@ io.on('connection', (socket) => {
   // ── 匹配 ──
   socket.on('join_matchmaking', ({ nickname }) => {
     if (matchQueue.length > 0) {
-      const other = matchQueue.shift();
+      const idx = matchQueue.findIndex(p => p.socketId !== socket.id);
+      if (idx === -1) {
+        if (!matchQueue.some(p => p.socketId === socket.id)) {
+          matchQueue.push({ socketId: socket.id, nickname });
+        }
+        return;
+      }
+      const other = matchQueue.splice(idx, 1)[0];
       const roomId = newRoomId();
       const game = createGame(other.socketId, other.nickname, socket.id, nickname);
       rooms.set(roomId, { game, playerSockets: [other.socketId, socket.id], isAI: false });
@@ -99,8 +107,10 @@ io.on('connection', (socket) => {
       io.sockets.sockets.get(other.socketId)?.join(roomId);
       for (const pid of [other.socketId, socket.id]) {
         io.to(pid).emit('match_found', {
-          roomId, opponent: game.players.find(p => p.id !== pid).nickname,
-          schedule: game.schedule, state: getStateView(game, pid),
+          roomId, 
+          opponent: game.players.find(p => p.id !== pid)?.nickname || "未知对手",
+          schedule: game.schedule, 
+          state: getStateView(game, pid),
         });
       }
     } else {
