@@ -229,9 +229,9 @@ export function confirmAttack(state, keepIndices) {
 
   let finalBase = baseAtk;
 
-  // 观星: 极差<=2 时伤害乘以课程倍率
+  // 观星: 极差<=2 时伤害乘以 (0.5 + 课程倍率)
   if (pos.applyMultiplier) {
-    finalBase = Math.floor(baseAtk * multi);
+    finalBase = Math.floor(baseAtk * (0.5 + multi));
   }
 
   // 黄佳程过敏处理: 强制锁定攻击力

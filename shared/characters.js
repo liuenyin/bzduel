@@ -81,11 +81,11 @@ export const characters = [
     dicePool: [4, 4, 4, 6, 6],
     atkSlots: 4,
     defSlots: 3,
-    rerollAll: true, // 重投时所有骰子均重投
+    rerollAll: true,
     positiveSkill: {
       id: SKILL.STAR_SHOWOFF,
       name: '观星 & 显眼包',
-      desc: '攻击回合开始时+2次重投。若选取的4个骰子极差<=2，最终伤害乘以课程倍率',
+      desc: '攻击回合开始时+2次重投。若选取的4个骰子极差<=2，最终伤害乘以(0.5+课程倍率)',
     },
     negativeSkill: {
       id: SKILL.SUGAR_CRASH,
@@ -172,7 +172,7 @@ export const characters = [
     defSlots: 4,
     positiveSkill: {
       id: SKILL.GAL_PLAYER,
-      name: '玩gal玩的',
+      name: '休眠火山',
       desc: '防御时若防守>攻击，反伤差值。防御确认前可点[献祭]将一颗骰子变1，回复等额HP',
     },
     negativeSkill: null,
