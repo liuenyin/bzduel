@@ -38,11 +38,22 @@ io.on('connection', (socket) => {
     const game = createGame(socket.id, nickname, aiId, '🤖 电脑');
     rooms.set(roomId, { game, playerSockets: [socket.id, null], isAI: true, aiId });
     socketToRoom.set(socket.id, roomId);
-    socket.join(roomId);
     socket.emit('match_found', {
       roomId, opponent: '🤖 电脑',
       schedule: game.schedule, state: getStateView(game, socket.id),
     });
+    console.log(`[PVE] 房间 ${roomId} 已创建, AI: ${aiId}`);
+    
+    // AI 预选卡片 (增加体验，让玩家看到 AI 已选)
+    setTimeout(() => {
+      const room = rooms.get(roomId);
+      if (room && room.isAI) {
+        const aiCardId = aiSelectCard(room.game.schedule);
+        selectCard(room.game, room.aiId, aiCardId);
+        console.log(`[PVE] AI ${aiId} 已自动选卡: ${aiCardId}`);
+        socket.emit('opponent_selected');
+      }
+    }, 1000);
   });
 
   // ── 创建房间 ──
@@ -118,10 +129,11 @@ io.on('connection', (socket) => {
     const res = setReady(room.game, socket.id);
     if (!res.ok) return;
     if (room.isAI && !res.battleStarted) {
-      const aiCardId = aiSelectCard(room.game.schedule);
-      selectCard(room.game, room.aiId, aiCardId);
-      setReady(room.game, room.aiId);
-      res.battleStarted = true;
+      const aiCardId = room.game.players[1].cardId || aiSelectCard(room.game.schedule);
+      if (!room.game.players[1].cardId) selectCard(room.game, room.aiId, aiCardId);
+      const aiRes = setReady(room.game, room.aiId);
+      if (aiRes.battleStarted) res.battleStarted = true;
+      console.log(`[PVE] AI ${room.aiId} 准备完毕, 战斗开始: ${res.battleStarted}`);
     }
     if (res.battleStarted) {
       emitStateToAll(room);

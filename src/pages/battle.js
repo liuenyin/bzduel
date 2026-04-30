@@ -182,12 +182,10 @@ function renderDice() {
   if (S.defenseRolls) {
     const isMine = isDefPhase && S.isMyDefendTurn;
     const canSelect = isMine;
-    const isMyDefTurn = isDefPhase && S.isMyDefendTurn;
-    const defPool = isMyDefTurn ? poolFaces : opPoolFaces;
+    const defPool = isMine ? poolFaces : opPoolFaces;
     html += `<div class="dice-row"><span class="dice-label" style="color:var(--blue)">守</span>`;
     html += S.defenseRolls.map((v, i) => {
-      const isKept = S.turnPhase !== 'def_rolled' && false; // We don't have defResult keptIndices yet usually, handled after confirm
-      const face = defPool[i] || poolFaces[i];
+      const face = defPool[i] || (isMine ? poolFaces[i] : opPoolFaces[i]) || 6;
       const color = DICE_COLORS[face];
       let style = color ? `border-color:${color.border}; color:${color.border};` : '';
       return `<div class="die defense${canSelect ? ' selectable' : ''}" style="${style}" data-idx="${i}" data-val="${v}">
