@@ -382,8 +382,11 @@ function onTurnResolved(data) {
       }
 
       setTimeout(() => {
-        S = newState;
-        refreshAll();
+        // 防止过时状态覆盖最新状态
+        if (!S || newState.totalRound >= S.totalRound) {
+          S = newState;
+          refreshAll();
+        }
         addLog(data);
         if (gameOver) setTimeout(() => showGameOver(S), 800);
       }, data.classChanged ? 1500 : 500);

@@ -279,8 +279,8 @@ function triggerAiPhase(room) {
           state: getStateView(g, pid),
         }));
         // Now it's player's defense turn — don't auto-trigger
-      }, 1200);
-    }, 800);
+      }, 1500);
+    }, 1200);
   }
 
   if (g.turnPhase === TURN.DEF_ROLLED && getCurrentDefenderId(g) === room.aiId) {
@@ -289,19 +289,38 @@ function triggerAiPhase(room) {
       const def = g.players[g.turnData.defenderIdx];
       const rolls = g.turnData.defenseRolls;
       // AI picks highest dice
-      const indices = rolls.map((v, i) => ({v, i})).sort((a,b) => b.v - a.v).slice(0, def.card.defSlots).map(x => x.i);
+      let candidates = rolls.map((v, i) => ({v, i, face: def.card.dicePool[i]})).sort((a,b) => b.v - a.v);
+      
+      let indices;
+      if (def.card.negativeSkill?.id === SKILL.D10_LIMIT) {
+        // 曾无畏限制：最多只能选一个 D10
+        let chosenIndices = [];
+        let d10Used = false;
+        for (let c of candidates) {
+          if (c.face === 10) {
+            if (!d10Used) { chosenIndices.push(c.i); d10Used = true; }
+          } else {
+            chosenIndices.push(c.i);
+          }
+          if (chosenIndices.length === def.card.defSlots) break;
+        }
+        indices = chosenIndices;
+      } else {
+        indices = candidates.slice(0, def.card.defSlots).map(x => x.i);
+      }
+
       const res = confirmDefense(g, indices);
-      if (!res.ok) return;
+      if (!res.ok) { console.error("AI confirmDefense failed", res, indices, def.card); return; }
       emitToAll(room, 'turn_resolved', (pid) => ({ ...res, state: getStateView(g, pid) }));
       if (res.gameOver) {
         setTimeout(() => cleanupRoom(room), 30000);
       } else if (res.classChanged) {
         emitToAll(room, 'class_change', () => ({ subject: res.nextSubject, index: g.currentClassIndex }));
-        setTimeout(() => triggerAiPhase(room), 2000);
+        setTimeout(() => triggerAiPhase(room), 2500);
       } else {
         triggerAiPhase(room);
       }
-    }, 1000);
+    }, 1500);
   }
 }
 
