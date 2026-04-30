@@ -360,6 +360,49 @@ input[type="text"]::placeholder{color:var(--text-muted)}
   color: var(--text-secondary);
   line-height: 1.5;
 }
+/* 规则详解样式 */
+.rule-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.rule-group h3 {
+  font-size: 0.95rem;
+  color: var(--text-main);
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.rule-group p {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 8px;
+}
+.rule-list {
+  list-style: none;
+  padding-left: 0;
+}
+.rule-list li {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  padding-left: 12px;
+  position: relative;
+}
+.rule-list li::before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  color: var(--accent);
+}
+.rule-list code {
+  background: var(--bg-inset);
+  padding: 2px 4px;
+  border-radius: 4px;
+  color: var(--accent);
+}
 .changelog {
   display: flex;
   flex-direction: column;

@@ -32,29 +32,32 @@ export function renderLobby(container) {
       <div id="status" style="min-height:36px; margin-top:12px;"></div>
 
       <div class="lobby-info-grid">
-        <div class="info-card tutorial">
-          <h2 class="info-title">🎓 新手入门教程</h2>
-          <div class="tutorial-steps">
-            <div class="step">
-              <span class="step-num">1</span>
-              <p><strong>查看课表：</strong> 每局有6节课，不同课程对不同角色有 **×2** 或 **×0.5** 的技能倍率加成。</p>
+        <div class="info-card tutorial" style="grid-column: span 2;">
+          <h2 class="info-title">📖 校园战力党：规则详解</h2>
+          <div class="rule-sections">
+            <div class="rule-group">
+              <h3>1. 游戏流程</h3>
+              <p>一局游戏包含 <strong>6节课</strong>。每节课由 <strong>2个小轮</strong> 组成（双方轮流担任一次攻击方和防御方）。当6节课结束或某方HP归零时，游戏结束。</p>
             </div>
-            <div class="step">
-              <span class="step-num">2</span>
-              <p><strong>调课时机：</strong> 点击战斗界面右上角图标可“调课”，把接下来的弱势课程换成强势科目。</p>
+            <div class="rule-group">
+              <h3>2. 卡牌信息阅读</h3>
+              <ul class="rule-list">
+                <li><strong>HP (生命值)：</strong> 战斗的本钱，降至0即判负。</li>
+                <li><strong>骰子组：</strong> 决定你投出的骰子面数。例如 <code>[6, 8, 10, 12]</code> 表示你每轮会掷出这四种骰子各一颗。</li>
+                <li><strong>攻/防位数：</strong> 表示你最终可以挑选 <strong>几颗</strong> 骰子计入总分。例如“3位攻”表示你可以从所有投出的骰子中选最大的3颗。</li>
+                <li><strong>科目倾向：</strong> 每个角色有擅长和不擅长的科目。主场作战时，技能强度和基础值会有巨大提升。</li>
+              </ul>
             </div>
-            <div class="step">
-              <span class="step-num">3</span>
-              <p><strong>掷骰攻防：</strong> 攻击时选高点数求稳，防御时博高点数减伤。点数之差即为对方扣除的HP。</p>
-            </div>
-            <div class="step">
-              <span class="step-num">4</span>
-              <p><strong>技能爆发：</strong> 注意角色的正负面技能。例如：[记号]在不重投时变强，[红温]在攻击后会灼烧对方。</p>
+            <div class="rule-group">
+              <h3>3. 回合操作</h3>
+              <p><strong>攻击方：</strong> 掷骰后，可以点击骰子进行 <strong>一次重投</strong>（部分技能会限制此操作）。最后挑选点数最大的几颗骰子进行确认。</p>
+              <p><strong>防御方：</strong> 在攻击方确认后掷骰。同样拥有一次重投机会，选出最大点数以减免伤害。</p>
+              <p><strong>调课：</strong> 战斗中点击右上角图标。如果你有“调课权”，可以将未来某一节课修改为对你更有利的科目。</p>
             </div>
           </div>
         </div>
         
-        <div class="info-card">
+        <div class="info-card" style="grid-column: span 2;">
           <h2 class="info-title">🛠️ 更新日志 (v1.2)</h2>
           <div class="changelog">
             <div class="log-entry">
@@ -64,10 +67,6 @@ export function renderLobby(container) {
             <div class="log-entry">
               <span class="log-ver">v1.1</span>
               <p>新增角色[黄佳程]；实装过敏/杂鱼技能；优化结算界面动画。</p>
-            </div>
-            <div class="log-entry">
-              <span class="log-ver">v1.0</span>
-              <p>基础框架搭建；实装[计浩然][王鹤迪][赵恩培]；支持在线匹配与房间对战。</p>
             </div>
           </div>
         </div>
