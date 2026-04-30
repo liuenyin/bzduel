@@ -434,13 +434,14 @@ export function confirmDefense(state, keepIndices, options = {}) {
 
   return {
     ok: true, baseDef, finalDef, penalty, keptIndices: keepIndices,
+    atkResult: ar,
     defNegTriggered: defNeg.triggered,
     defNegName: defNeg.triggered ? def.card.negativeSkill.name : null,
     defPosTriggered: commanderTriggered || talentTriggered || eatTriggered || lcHealTriggered || lcCounterTriggered,
     defPosName: talentTriggered ? "天赋怪" : (commanderTriggered ? "团长大人!" : (eatTriggered ? "吃掉!" : (lcHealTriggered ? "献祭" : (lcCounterTriggered ? "反击" : null)))),
     noobTriggered, detonateTriggered, detonateDamage, redHeatApplied,
     damage, selfDamage: ar.selfDamage, pierce: ar.pierce,
-    lcCounterDamage, healAmount, eatTriggered,
+    lcCounterDamage, healAmount, lcHealTriggered, eatTriggered,
     gameOver, winner, classChanged, nextSubject,
     attackerIdx: prevAttackerIdx,
   };
