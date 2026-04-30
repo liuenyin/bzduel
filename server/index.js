@@ -281,7 +281,7 @@ function triggerAiPhase(roomId) {
       }
       // 掷骰完自动进入下个子阶段处理
       triggerAiPhase(roomId);
-    }, 1200);
+    }, 2200);
   }
 
   // 2. 已掷攻击骰阶段 (重投或确认)

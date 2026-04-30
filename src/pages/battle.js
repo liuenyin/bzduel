@@ -393,7 +393,11 @@ export function onTurnResolved(data) {
 
       setTimeout(() => {
         // 防止过时状态覆盖最新状态
-        if (!S || newState.totalRound >= S.totalRound) {
+        // 规则：新的 totalRound 必选；同回合下，只有 WAITING_ATK 能被后续阶段覆盖
+        const isNewer = !S || (newState.totalRound > S.totalRound) || 
+                        (newState.totalRound === S.totalRound && (S.turnPhase === 'waiting_atk' || newState.turnPhase !== 'waiting_atk'));
+        
+        if (isNewer) {
           S = newState;
           refreshAll();
         }

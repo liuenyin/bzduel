@@ -140,10 +140,12 @@ export function rollAttack(state) {
     return { ok: true, rolls: [], selfKill: true };
   }
 
-  // 显眼包: +2 重投
+  // WHD +2 rerolls handled below to avoid duplication
+  /*
   if (atk.card.positiveSkill?.id === SKILL.STAR_SHOWOFF) {
     atk.rerolls += 2;
   }
+  */
 
   // 黄佳程过敏判定 (10% 概率)
   let allergyTriggered = false;
