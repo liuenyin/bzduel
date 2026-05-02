@@ -28,6 +28,8 @@ export const SKILL = {
   D10_LIMIT: 'd10_limit',                  // 防御时只能选一个D10 (曾无畏)
   LIBERAL_ARTS: 'liberal_arts',              // 文科之光 (姜鹏泽: 骰子点数×课程倍率)
   FIRST_BLOOD: 'first_blood',               // 偏科 (姜鹏泽: 首次掉血后防御选骰-1)
+  EXTRA_TURN: 'extra_turn',                  // 逆袭 (张楚唯: 受重伤后获得额外攻击回合)
+  BACK_PAIN: 'back_pain',                    // 腰疼？ (张楚唯: 触发额外回合后防御-1)
 };
 
 /**
@@ -243,6 +245,28 @@ export const characters = [
       id: SKILL.FIRST_BLOOD,
       name: '偏科',
       desc: '首次受到伤害时，防御能选择的骰子数永久 -1',
+    },
+  },
+  {
+    id: 'char_12',
+    name: '张楚唯',
+    title: '逆袭者',
+    subjects: ['chinese', 'math', 'english', 'physics', 'chemistry', 'biology'],
+    electives: ['physics', 'chemistry', 'biology'],
+    image: '/photos/zcw.jpg',
+    hp: 30,
+    dicePool: [6, 6, 6, 8],
+    atkSlots: 3,
+    defSlots: 3,
+    positiveSkill: {
+      id: SKILL.EXTRA_TURN,
+      name: '逆袭',
+      desc: '防御时若受到 ≥8 点伤害，立刻获得一个额外攻击回合',
+    },
+    negativeSkill: {
+      id: SKILL.BACK_PAIN,
+      name: '腰疼？',
+      desc: '每次触发逆袭后，防御选骰数永久 -1',
     },
   },
 ];

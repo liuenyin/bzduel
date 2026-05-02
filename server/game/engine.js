@@ -439,28 +439,46 @@ export function confirmDefense(state, keepIndices, options = {}) {
     state.winner = winner;
   }
 
-  if (!gameOver) {
-    state.totalRound++;
-    state.currentSubRound++;
-    if (state.currentSubRound >= GAME_CONFIG.SUBROUNDS_PER_CLASS) {
-      state.currentSubRound = 0;
-      state.currentClassIndex++;
-      state.firstAttacker = 1 - state.firstAttacker;
-      classChanged = true;
-      if (state.currentClassIndex >= GAME_CONFIG.CLASSES_PER_GAME) {
-        gameOver = true;
-        const h0 = state.players[0].hp, h1 = state.players[1].hp;
-        state.winner = h0 > h1 ? 0 : h1 > h0 ? 1 : 'draw';
-        state.phase = PHASE.GAME_OVER;
-        winner = state.winner;
-      } else {
-        nextSubject = state.schedule[state.currentClassIndex];
-      }
+  // 张楚唯正面: 逆袭 — 受到 >=8 伤害时获得额外攻击回合
+  let extraTurnTriggered = false;
+  if (damage >= 8 && def.card.positiveSkill?.id === SKILL.EXTRA_TURN && !gameOver && def.hp > 0) {
+    extraTurnTriggered = true;
+    // 张楚唯负面: 腰疼？ — 每次逆袭后防御选骰 -1
+    if (def.card.negativeSkill?.id === SKILL.BACK_PAIN && def.card.defSlots > 1) {
+      def.card.defSlots -= 1;
     }
-    if (!gameOver) {
-      const ni = (state.firstAttacker + state.currentSubRound) % 2;
-      state.turnData = { attackerIdx: ni, defenderIdx: 1 - ni, attackRolls: null, defenseRolls: null, hasAttackerRerolled: false, hasDefenderRerolled: false };
+  }
+
+  if (!gameOver) {
+    // 额外回合: 不推进 subRound，直接让防御方变成下一轮的攻击方
+    if (extraTurnTriggered) {
+      state.totalRound++;
+      const defIdx = state.turnData.defenderIdx;
+      state.turnData = { attackerIdx: defIdx, defenderIdx: 1 - defIdx, attackRolls: null, defenseRolls: null, hasAttackerRerolled: false, hasDefenderRerolled: false };
       state.turnPhase = TURN.WAITING_ATK;
+    } else {
+      state.totalRound++;
+      state.currentSubRound++;
+      if (state.currentSubRound >= GAME_CONFIG.SUBROUNDS_PER_CLASS) {
+        state.currentSubRound = 0;
+        state.currentClassIndex++;
+        state.firstAttacker = 1 - state.firstAttacker;
+        classChanged = true;
+        if (state.currentClassIndex >= GAME_CONFIG.CLASSES_PER_GAME) {
+          gameOver = true;
+          const h0 = state.players[0].hp, h1 = state.players[1].hp;
+          state.winner = h0 > h1 ? 0 : h1 > h0 ? 1 : 'draw';
+          state.phase = PHASE.GAME_OVER;
+          winner = state.winner;
+        } else {
+          nextSubject = state.schedule[state.currentClassIndex];
+        }
+      }
+      if (!gameOver) {
+        const ni = (state.firstAttacker + state.currentSubRound) % 2;
+        state.turnData = { attackerIdx: ni, defenderIdx: 1 - ni, attackRolls: null, defenseRolls: null, hasAttackerRerolled: false, hasDefenderRerolled: false };
+        state.turnPhase = TURN.WAITING_ATK;
+      }
     }
   }
 
@@ -469,11 +487,12 @@ export function confirmDefense(state, keepIndices, options = {}) {
     atkResult: ar,
     defNegTriggered: defNeg.triggered,
     defNegName: defNeg.triggered ? def.card.negativeSkill.name : null,
-    defPosTriggered: commanderTriggered || talentTriggered || eatTriggered || lcHealTriggered || lcCounterTriggered,
-    defPosName: talentTriggered ? "天赋怪" : (commanderTriggered ? "团长大人!" : (eatTriggered ? "吃掉!" : (lcHealTriggered ? "献祭" : (lcCounterTriggered ? "反击" : null)))),
+    defPosTriggered: commanderTriggered || talentTriggered || eatTriggered || lcHealTriggered || lcCounterTriggered || extraTurnTriggered,
+    defPosName: talentTriggered ? "天赋怪" : (commanderTriggered ? "团长大人!" : (eatTriggered ? "吃掉!" : (lcHealTriggered ? "献祭" : (lcCounterTriggered ? "反击" : (extraTurnTriggered ? "逆袭" : null))))),
     noobTriggered, detonateTriggered, detonateDamage, redHeatApplied,
     damage, selfDamage: ar.selfDamage, pierce: ar.pierce,
     lcCounterDamage, healAmount, lcHealTriggered, eatTriggered,
+    extraTurnTriggered,
     firstBloodTriggered: damage > 0 && def.firstBloodTriggered && def.card.negativeSkill?.id === SKILL.FIRST_BLOOD,
     gameOver, winner, classChanged, nextSubject,
     attackerIdx: prevAttackerIdx,
