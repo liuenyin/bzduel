@@ -247,10 +247,9 @@ export const characters = [
       desc: '首次受到伤害时，防御能选择的骰子数永久 -1',
     },
   },
-  {
     id: 'char_12',
     name: '张楚唯',
-    title: '逆袭者',
+    title: 'hammer',
     subjects: ['chinese', 'math', 'english', 'physics', 'chemistry', 'biology'],
     electives: ['physics', 'chemistry', 'biology'],
     image: '/photos/zcw.jpg',
@@ -260,7 +259,7 @@ export const characters = [
     defSlots: 3,
     positiveSkill: {
       id: SKILL.EXTRA_TURN,
-      name: '逆袭',
+      name: '死磕',
       desc: '防御时若受到 ≥8 点伤害，立刻获得一个额外攻击回合',
     },
     negativeSkill: {

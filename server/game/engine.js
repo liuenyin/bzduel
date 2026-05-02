@@ -488,7 +488,7 @@ export function confirmDefense(state, keepIndices, options = {}) {
     defNegTriggered: defNeg.triggered,
     defNegName: defNeg.triggered ? def.card.negativeSkill.name : null,
     defPosTriggered: commanderTriggered || talentTriggered || eatTriggered || lcHealTriggered || lcCounterTriggered || extraTurnTriggered,
-    defPosName: talentTriggered ? "天赋怪" : (commanderTriggered ? "团长大人!" : (eatTriggered ? "吃掉!" : (lcHealTriggered ? "献祭" : (lcCounterTriggered ? "反击" : (extraTurnTriggered ? "逆袭" : null))))),
+    defPosName: talentTriggered ? "天赋怪" : (commanderTriggered ? "团长大人!" : (eatTriggered ? "吃掉!" : (lcHealTriggered ? "献祭" : (lcCounterTriggered ? "反击" : (extraTurnTriggered ? "死磕" : null))))),
     noobTriggered, detonateTriggered, detonateDamage, redHeatApplied,
     damage, selfDamage: ar.selfDamage, pierce: ar.pierce,
     lcCounterDamage, healAmount, lcHealTriggered, eatTriggered,

@@ -339,7 +339,7 @@ function buildAlerts(data) {
   if (data.detonateTriggered) alerts += `<div class="skill-alert negative">💥 红温引爆 — ${data.detonateDamage}伤害！</div>`;
   if (data.redHeatApplied > 0) alerts += `<div class="skill-alert negative">🔥 红温 +${data.redHeatApplied}层</div>`;
   if (data.firstBloodTriggered) alerts += `<div class="skill-alert negative">📉 偏科 — 防御选骰数 -1！</div>`;
-  if (data.extraTurnTriggered) alerts += `<div class="skill-alert positive">⚡ 逆袭 — 获得额外攻击回合！</div>`;
+  if (data.extraTurnTriggered) alerts += `<div class="skill-alert positive">⚡ 死磕 — 获得额外攻击回合！</div>`;
 
   return alerts;
 }
