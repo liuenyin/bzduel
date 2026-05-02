@@ -153,13 +153,21 @@ export function rollAttack(state) {
     allergyTriggered = true;
   }
 
-  const rolls = rollDiceGroup(atk.card.dicePool);
-  state.turnData.attackRolls = rolls;
-
   // 王鹤迪: 攻击回合开始时+2次重投
   if (atk.card.positiveSkill?.id === SKILL.STAR_SHOWOFF) {
     atk.rerolls += 2;
   }
+
+  // 张楚唯: 额外回合重投+2, 所有骰子面数临时+2
+  let rollingPool = atk.card.dicePool;
+  if (state.turnData.isExtraTurn && atk.card.positiveSkill?.id === SKILL.EXTRA_TURN) {
+    atk.rerolls += 2;
+    rollingPool = rollingPool.map(f => f + 2);
+    state.turnData.extraTurnFaceBoost = 2; // 记录以便重投时也应用加成
+  }
+
+  const rolls = rollDiceGroup(rollingPool);
+  state.turnData.attackRolls = rolls;
   state.turnData.allergyTriggered = allergyTriggered;
   state.turnPhase = TURN.ATK_ROLLED;
   return { ok: true, rolls: [...rolls] };
@@ -193,12 +201,20 @@ export function rerollDice(state, playerId, indices) {
   // 王鹤迪 rerollAll: 重投时所有骰子均重投
   if (p.card.rerollAll) {
     for (let i = 0; i < rolls.length; i++) {
-      rolls[i] = rollDie(faces[i]);
+      let face = faces[i];
+      if (state.turnData.isExtraTurn && p.card.positiveSkill?.id === SKILL.EXTRA_TURN && state.turnData.extraTurnFaceBoost) {
+        face += state.turnData.extraTurnFaceBoost;
+      }
+      rolls[i] = rollDie(face);
     }
   } else {
     for (const i of indices) {
       if (i < 0 || i >= rolls.length) return { ok: false };
-      rolls[i] = rollDie(faces[i]);
+      let face = faces[i];
+      if (state.turnData.isExtraTurn && p.card.positiveSkill?.id === SKILL.EXTRA_TURN && state.turnData.extraTurnFaceBoost) {
+        face += state.turnData.extraTurnFaceBoost;
+      }
+      rolls[i] = rollDie(face);
     }
   }
 
@@ -273,11 +289,7 @@ export function confirmAttack(state, keepIndices) {
     state.turnData.atkResult.finalAtk += Math.floor(2 * multi);
   }
 
-  // 张楚唯: 额外回合攻击 +2
-  if (state.turnData.isExtraTurn && atk.card.positiveSkill?.id === SKILL.EXTRA_TURN) {
-    state.turnData.atkResult.bonusDamage += 2;
-    state.turnData.atkResult.finalAtk += 2;
-  }
+  // 张楚唯: 额外回合 → 在 rollAttack 中处理 (+2重投, 面数临时+2)
 
   // Auto-roll defense using pool
   const defRolls = rollDiceGroup(def.card.dicePool);
@@ -402,8 +414,10 @@ export function confirmDefense(state, keepIndices, options = {}) {
   atk.hp = Math.max(0, atk.hp - ar.selfDamage);
 
   // 姜鹏泽负面: 首次受伤时防御选骰数 -1
+  let firstBloodTriggeredThisTurn = false;
   if (damage > 0 && def.card.negativeSkill?.id === SKILL.FIRST_BLOOD && !def.firstBloodTriggered) {
     def.firstBloodTriggered = true;
+    firstBloodTriggeredThisTurn = true;
     if (def.card.defSlots > 1) def.card.defSlots -= 1;
   }
 
@@ -499,7 +513,7 @@ export function confirmDefense(state, keepIndices, options = {}) {
     damage, selfDamage: ar.selfDamage, pierce: ar.pierce,
     lcCounterDamage, healAmount, lcHealTriggered, eatTriggered,
     extraTurnTriggered,
-    firstBloodTriggered: damage > 0 && def.firstBloodTriggered && def.card.negativeSkill?.id === SKILL.FIRST_BLOOD,
+    firstBloodTriggered: firstBloodTriggeredThisTurn,
     gameOver, winner, classChanged, nextSubject,
     attackerIdx: prevAttackerIdx,
   };

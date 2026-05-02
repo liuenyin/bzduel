@@ -233,7 +233,7 @@ export const characters = [
     electives: ['politics', 'history', 'geography'],
     image: '/photos/jpz.jpg',
     hp: 28,
-    dicePool: [4, 6, 8, 8],
+    dicePool: [4, 4, 6, 6],
     atkSlots: 3,
     defSlots: 3,
     positiveSkill: {
@@ -254,14 +254,14 @@ export const characters = [
     subjects: ['chinese', 'math', 'english', 'physics', 'chemistry', 'biology'],
     electives: ['physics', 'chemistry', 'biology'],
     image: '/photos/zcw.jpg',
-    hp: 30,
-    dicePool: [6, 6, 6, 8, 8],
+    hp: 37,
+    dicePool: [6, 6, 6, 6, 8],
     atkSlots: 3,
     defSlots: 3,
     positiveSkill: {
       id: SKILL.EXTRA_TURN,
       name: '死磕',
-      desc: '防御时若受到 ≥8 点伤害，立刻获得一个额外攻击回合',
+      desc: '防御时若受到 ≥8 点伤害，立刻获得一个额外攻击回合（+2重投，骰子面数临时+2）',
     },
     negativeSkill: {
       id: SKILL.BACK_PAIN,
