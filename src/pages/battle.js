@@ -10,6 +10,7 @@ let animLock = false; // prevent state_update during animations
 
 export function renderBattle(container, data) {
   S = data.state;
+  animLock = false; // 重置动画锁
   container.innerHTML = buildArena(S);
   bindCoreEvents();
 
@@ -525,7 +526,7 @@ function addLog(r) {
 
 // ── 辅助 ──
 function curSubj() { return S.schedule[S.currentClassIndex] || S.schedule[S.schedule.length-1]; }
-function pct(c,m) { return m>0 ? Math.max(0,Math.round(c/m*100)) : 0; }
+function pct(c,m) { if (typeof c !== 'number' || typeof m !== 'number') return 100; return m>0 ? Math.max(0,Math.round(c/m*100)) : 0; }
 function getM(p,subj) { return p.card ? getSkillMultiplier(p.card.subjects, subj) : 1; }
 
 function multiTag(m) {
