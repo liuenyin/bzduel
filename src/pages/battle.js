@@ -6,13 +6,14 @@ import { navigate } from '../main.js';
 import { SUBJECTS, CORE_SUBJECTS, ELECTIVE_SUBJECTS, MINOR_SUBJECTS, getSkillMultiplier, DICE_COLORS } from '../../shared/rules.js';
 
 let S; // module-level state ref
+let animLock = false; // prevent state_update during animations
 
 export function renderBattle(container, data) {
   S = data.state;
   container.innerHTML = buildArena(S);
   bindCoreEvents();
 
-  gameSocket.on('state_update', (s) => { S = s; refreshAll(); });
+  gameSocket.on('state_update', (s) => { if (!animLock) { S = s; refreshAll(); } });
   gameSocket.on('atk_confirmed', (d) => { S = d.state; onAtkConfirmed(d); });
   gameSocket.on('turn_resolved', (d) => { S = d.state; onTurnResolved(d); });
   gameSocket.on('class_change', (d) => showClassChange(d));
@@ -95,29 +96,38 @@ function buildArena(s) {
     <div class="battle-log-bar" id="battle-log"></div>
   `;
 }
-
-// ── 事件绑定 ──
+// ── 事件绑定 (仅初始化时调用一次) ──
 function bindCoreEvents() {
-  on('btn-roll', 'click', () => {
-    gameSocket.rollDice();
-    disableBtn('btn-roll');
-  });
+  on('btn-roll', 'click', () => { gameSocket.rollDice(); disableBtn('btn-roll'); });
   on('btn-confirm', 'click', () => {
     const sel = document.querySelectorAll('.die.selected');
     const indices = [...sel].map(d => parseInt(d.dataset.idx));
-    const res = gameSocket.confirmDice(indices);
-    // Note: confirmDice is async, but we can handle global error messages via socket event
-    disableBtn('btn-confirm');
-    hide('btn-reroll');
+    gameSocket.confirmDice(indices);
+    disableBtn('btn-confirm'); hide('btn-reroll');
   });
-  on('btn-reroll', 'click', () => {
+  // btn-reroll 在 sidebar 中，只绑一次
+  const rr = document.getElementById('btn-reroll');
+  if (rr) rr.onclick = () => {
     const sel = document.querySelectorAll('.die.selected');
     if (sel.length === 0) return;
     gameSocket.rerollDice([...sel].map(d => parseInt(d.dataset.idx)));
     sel.forEach(d => d.classList.remove('selected'));
     hide('btn-reroll');
-  });
+  };
   on('btn-reschedule', 'click', () => showRescheduleModal());
+}
+
+// ── 仅重绑 action-bar 内的按钮 (refreshAll 每次重建 action-bar HTML) ──
+function rebindActionButtons() {
+  const roll = document.getElementById('btn-roll');
+  if (roll) roll.onclick = () => { gameSocket.rollDice(); disableBtn('btn-roll'); };
+  const conf = document.getElementById('btn-confirm');
+  if (conf) conf.onclick = () => {
+    const sel = document.querySelectorAll('.die.selected');
+    const indices = [...sel].map(d => parseInt(d.dataset.idx));
+    gameSocket.confirmDice(indices);
+    disableBtn('btn-confirm'); hide('btn-reroll');
+  };
 }
 
 // ── 刷新所有 UI ──
@@ -143,7 +153,7 @@ function refreshAll() {
   // Phase & actions
   setText('phase-text', phasePrompt(S));
   setText('action-bar', actionButtons(S));
-  bindCoreEvents();
+  rebindActionButtons();
   // Dice - render if available
   renderDice();
 }
@@ -152,32 +162,29 @@ function refreshAll() {
 function renderDice() {
   const area = document.getElementById('dice-area');
   if (!area) return;
-  const isAtkPhase = S.turnPhase === 'atk_rolled';
-  const isDefPhase = S.turnPhase === 'def_rolled';
-  
-  const poolFaces = S.me.card.dicePool;
-  const opPoolFaces = S.opponent.card?.dicePool || poolFaces;
+  const myPool = S.me.card.dicePool;
+  const opPool = S.opponent.card?.dicePool || myPool;
 
   let html = '';
   if (S.attackRolls) {
-    const isMine = isAtkPhase && S.isMyAttackTurn;
-    const canSelect = isMine;
-    const atkPool = isMine ? poolFaces : opPoolFaces;
+    // 攻击骰始终属于攻击方
+    const isMineAtk = S.isMyAttackTurn;
+    const canSelect = S.turnPhase === 'atk_rolled' && isMineAtk;
+    const atkPool = isMineAtk ? myPool : opPool;
     html += `<div class="dice-row"><span class="dice-label" style="color:var(--gold)">攻</span>`;
     html += S.attackRolls.map((v, i) => {
       const isKept = S.atkResult?.keptIndices?.includes(i);
-      const face = atkPool[i];
-      const isYzx = !isMine && S.opponent.cardId === 'char_10';
+      const face = atkPool[i] || 6;
+      const isYzx = !isMineAtk && S.opponent.cardId === 'char_10';
       const color = DICE_COLORS[face];
       let style = color ? `border-color:${color.border}; color:${color.border};` : '';
-      if (!isMine && S.atkResult && !isKept) style += 'opacity:0.3;';
+      if (!isMineAtk && S.atkResult && !isKept) style += 'opacity:0.3;';
       const displayVal = isYzx ? '?' : v;
-      return `<div class="die attack${canSelect ? ' selectable' : ''}${isAtkPhase ? ' rolling' : ''}" style="${style}" data-idx="${i}" data-val="${v}">
+      return `<div class="die attack${canSelect ? ' selectable' : ''}${canSelect ? ' rolling' : ''}" style="${style}" data-idx="${i}" data-val="${v}">
         ${color && !isYzx ? `<div class="die-corner" style="color:${color.border};background:${color.bg}">${color.label}</div>` : ''}
         ${displayVal}
       </div>`;
     }).join('');
-    
     if (S.atkResult) {
       const sum = S.atkResult.baseAtk;
       const bonus = S.atkResult.bonusDamage ? `+${S.atkResult.bonusDamage}` : '';
@@ -186,16 +193,16 @@ function renderDice() {
       html += `</div>`;
     }
   }
-  
   if (S.defenseRolls) {
-    const isMine = isDefPhase && S.isMyDefendTurn;
-    const canSelect = isMine;
-    const defPool = isMine ? poolFaces : opPoolFaces;
+    // 防御骰始终属于防御方
+    const isMineDef = S.isMyDefendTurn;
+    const canSelect = S.turnPhase === 'def_rolled' && isMineDef;
+    const defPool = isMineDef ? myPool : opPool;
     html += `<div class="dice-row"><span class="dice-label" style="color:var(--blue)">守</span>`;
     html += S.defenseRolls.map((v, i) => {
-      const face = defPool[i] || (isMine ? poolFaces[i] : opPoolFaces[i]) || 6;
+      const face = defPool[i] || 6;
       const color = DICE_COLORS[face];
-      const isYzx = !isMine && S.opponent.cardId === 'char_10';
+      const isYzx = !isMineDef && S.opponent.cardId === 'char_10';
       let style = color ? `border-color:${color.border}; color:${color.border};` : '';
       const displayVal = isYzx ? '?' : v;
       return `<div class="die defense${canSelect ? ' selectable' : ''}" style="${style}" data-idx="${i}" data-val="${v}">
@@ -203,21 +210,12 @@ function renderDice() {
         ${displayVal}
       </div>`;
     }).join('');
-    
-    // We update sum when turn_resolved
     html += `<span class="dice-sum" style="color:var(--blue)"></span></div>`;
   }
   area.innerHTML = html;
-
-  // Make dice selectable
   area.querySelectorAll('.die.selectable').forEach(d => {
-    d.addEventListener('click', () => {
-      d.classList.toggle('selected');
-      updateActionButtons();
-    });
+    d.addEventListener('click', () => { d.classList.toggle('selected'); updateActionButtons(); });
   });
-  
-  // Initial check for action buttons
   updateActionButtons();
 }
 
@@ -345,6 +343,7 @@ function buildAlerts(data) {
 
 // ── 回合结算回调 (含攻击动画) ──
 export function onTurnResolved(data) {
+  animLock = true;
   const newState = data.state;
   const { damage, finalDef, penalty, gameOver, attackerIdx } = data;
 
@@ -352,14 +351,12 @@ export function onTurnResolved(data) {
   const alerts = buildAlerts(data);
   if (phase && alerts) phase.innerHTML = alerts;
 
-  // Show final defense value
   const dArea = document.getElementById('dice-area');
   if (dArea) {
     const defSumEl = dArea.querySelector('.dice-row:last-child .dice-sum');
     if (defSumEl) defSumEl.innerHTML = `= ${finalDef}${penalty ? ` <small>(−${penalty})</small>` : ''}`;
   }
 
-  // Card attack animation after short delay
   setTimeout(() => {
     const isMyAtk = S.myIndex === attackerIdx;
     const atkCard = document.getElementById(isMyAtk ? 'card-me' : 'card-op');
@@ -368,39 +365,25 @@ export function onTurnResolved(data) {
     if (atkCard) atkCard.classList.add('card-attacking');
     if (defCard) setTimeout(() => defCard.classList.add('card-hit'), 300);
 
-    // Show damage number & Update HP visually
     setTimeout(() => {
       const dmgEl = document.createElement('div');
       dmgEl.className = `floating-damage ${damage === 0 ? 'miss' : ''}`;
       dmgEl.textContent = damage > 0 ? `−${damage}` : 'MISS';
       if (defCard) defCard.appendChild(dmgEl);
-      
-      // HP bar drops now
       setHP('hp-me', newState.me.hp, newState.me.maxHp, 'hp-me-t');
       setHP('hp-op', newState.opponent.hp, newState.opponent.maxHp, 'hp-op-t');
-      
       setTimeout(() => dmgEl.remove(), 1200);
     }, 400);
 
-    // Cleanup animation classes and refresh class/schedule
     setTimeout(() => {
       if (atkCard) atkCard.classList.remove('card-attacking');
       if (defCard) defCard.classList.remove('card-hit');
-      
-      if (data.classChanged && !gameOver) {
-        showBanner(`下一节课: ${SUBJECTS[newState.schedule[newState.currentClassIndex]]?.label || newState.schedule[newState.currentClassIndex]}`);
-      }
+      // 不再在此处 showBanner，由 class_change 事件统一处理
 
       setTimeout(() => {
-        // 防止过时状态覆盖最新状态
-        // 规则：新的 totalRound 必选；同回合下，只有 WAITING_ATK 能被后续阶段覆盖
-        const isNewer = !S || (newState.totalRound > S.totalRound) || 
-                        (newState.totalRound === S.totalRound && (S.turnPhase === 'waiting_atk' || newState.turnPhase !== 'waiting_atk'));
-        
-        if (isNewer) {
-          S = newState;
-          refreshAll();
-        }
+        S = newState;
+        animLock = false;
+        refreshAll();
         addLog(data);
         if (gameOver) setTimeout(() => showGameOver(S), 800);
       }, data.classChanged ? 1500 : 500);
@@ -569,13 +552,14 @@ function actionButtons(s) {
   if (s.turnPhase === 'atk_rolled' && s.isMyAttackTurn)
     return `<div>
           <button id="btn-confirm" class="btn btn-success" disabled>✓ 确认</button>
-          <button id="btn-sacrifice" class="btn btn-secondary" style="display:none;" onclick="window._showSacrifice()">🩸 献祭回血</button>
         </div>` + `${s.me.card.atkSlots === -1 ? '至少选 1 颗' : `需选 ${s.me.card.atkSlots} 颗`}`;
-  if (s.turnPhase === 'def_rolled' && s.isMyDefendTurn)
+  if (s.turnPhase === 'def_rolled' && s.isMyDefendTurn) {
+    const sacBtn = s.me.cardId === 'char_8' ? '<button id="btn-sacrifice" class="btn btn-secondary" style="display:none;" onclick="window._showSacrifice()">🩸 献祭回血</button>' : '';
     return `<div>
           <button id="btn-confirm" class="btn btn-primary" disabled>✓ 确认</button>
-          <button id="btn-sacrifice" class="btn btn-secondary" onclick="window._showSacrifice()">🩸 献祭回血</button>
+          ${sacBtn}
         </div>` + `需选 ${s.me.card.defSlots} 颗`;
+  }
   return `<span style="color:var(--text-muted);font-size:.88rem">${phasePrompt(s)}</span>`;
 }
 

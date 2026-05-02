@@ -145,7 +145,7 @@ export function rollAttack(state) {
     atk.rerolls += 1;
   }
 
-  // WHD +2 rerolls handled below to avoid duplication
+  // 王鹤迪: 攻击回合开始时+2次重投 (在下方 L159 处理)
 
   // 黄佳程过敏判定 (10% 概率)
   let allergyTriggered = false;
@@ -171,8 +171,11 @@ export function rerollDice(state, playerId, indices) {
   if (!p || p.rerolls <= 0) return { ok: false };
   if (!indices || indices.length === 0) return { ok: false };
 
-  // 检查是否被禁锢重投
-  if (p.buffs && p.buffs.find(b => b.id === SKILL.SUGAR_CRASH)) return { ok: false, error: 'sugar_crash_locked' };
+  // 检查是否被禁锢重投 (需校验 buff 是否过期)
+  if (p.buffs) {
+    p.buffs = p.buffs.filter(b => b.expireRound > state.totalRound);
+    if (p.buffs.find(b => b.id === SKILL.SUGAR_CRASH)) return { ok: false, error: 'sugar_crash_locked' };
+  }
 
   let rolls;
   if (state.turnPhase === TURN.ATK_ROLLED) {
@@ -543,8 +546,8 @@ export function getStateView(state, playerId) {
     },
     opponent: {
       nickname: op.nickname,
-      cardId: state.phase === PHASE.BATTLE ? op.cardId : null,
-      card: state.phase === PHASE.BATTLE ? op.card : null,
+      cardId: (state.phase === PHASE.BATTLE || state.phase === PHASE.GAME_OVER) ? op.cardId : null,
+      card: (state.phase === PHASE.BATTLE || state.phase === PHASE.GAME_OVER) ? op.card : null,
       hp: op.cardId === 'char_10' ? '??' : op.hp, 
       maxHp: op.cardId === 'char_10' ? '??' : op.maxHp,
       ready: op.ready,

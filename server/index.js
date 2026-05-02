@@ -17,7 +17,7 @@ import { SKILL } from '../shared/characters.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 const httpServer = createServer(app);
-const io = new Server(httpServer, { cors: { origin: '*' } });
+const io = new Server(httpServer, { cors: { origin: '*' }, pingTimeout: 30000, pingInterval: 10000 });
 
 app.use(express.static(join(__dirname, '..', 'dist')));
 app.get('*', (req, res) => res.sendFile(join(__dirname, '..', 'dist', 'index.html')));

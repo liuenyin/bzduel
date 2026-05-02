@@ -5,7 +5,7 @@ import { io } from 'socket.io-client';
 
 class GameSocket {
   constructor() {
-    this.socket = io({ reconnection: true, reconnectionDelay: 1000, reconnectionAttempts: 10 });
+    this.socket = io({ reconnection: true, reconnectionDelay: 500, reconnectionDelayMax: 5000, reconnectionAttempts: Infinity, timeout: 20000 });
     this.socket.on('connect', () => {
       console.log('[socket] connected', this.socket.id);
       this.socket.emit('request_state');
