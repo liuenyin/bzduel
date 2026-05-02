@@ -26,6 +26,8 @@ export const SKILL = {
   STEALTH_STRIKE: 'stealth_strike',        // 对方无法得知信息 + 攻击加成 (殷泽轩)
   VULNERABLE: 'vulnerable',                // 受到伤害增加 (殷泽轩)
   D10_LIMIT: 'd10_limit',                  // 防御时只能选一个D10 (曾无畏)
+  LIBERAL_ARTS: 'liberal_arts',              // 文科之光 (姜鹏泽: 骰子点数×课程倍率)
+  FIRST_BLOOD: 'first_blood',               // 偏科 (姜鹏泽: 首次掉血后防御选骰-1)
 };
 
 /**
@@ -219,6 +221,28 @@ export const characters = [
       id: SKILL.VULNERABLE,
       name: '???',
       desc: '受到伤害时，最终伤害额外 +2 × 课程倍率',
+    },
+  },
+  {
+    id: 'char_11',
+    name: '姜鹏泽',
+    title: '文科之光',
+    subjects: ['chinese', 'math', 'english', 'politics', 'history', 'geography'],
+    electives: ['politics', 'history', 'geography'],
+    image: '/photos/jpz.jpg',
+    hp: 28,
+    dicePool: [6, 6, 8, 8],
+    atkSlots: 3,
+    defSlots: 3,
+    positiveSkill: {
+      id: SKILL.LIBERAL_ARTS,
+      name: '文科之光',
+      desc: '你的骰子点数 × 课程倍率（主场×2，客场×0.5）',
+    },
+    negativeSkill: {
+      id: SKILL.FIRST_BLOOD,
+      name: '偏科',
+      desc: '首次受到伤害时，防御能选择的骰子数永久 -1',
     },
   },
 ];

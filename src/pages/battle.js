@@ -337,6 +337,7 @@ function buildAlerts(data) {
   if (data.noobTriggered) alerts += `<div class="skill-alert negative">✧ 杂鱼反噬 — 血量减半！</div>`;
   if (data.detonateTriggered) alerts += `<div class="skill-alert negative">💥 红温引爆 — ${data.detonateDamage}伤害！</div>`;
   if (data.redHeatApplied > 0) alerts += `<div class="skill-alert negative">🔥 红温 +${data.redHeatApplied}层</div>`;
+  if (data.firstBloodTriggered) alerts += `<div class="skill-alert negative">📉 偏科 — 防御选骰数 -1！</div>`;
 
   return alerts;
 }

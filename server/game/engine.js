@@ -224,7 +224,13 @@ export function confirmAttack(state, keepIndices) {
   const multi = getSkillMultiplier(atk.card.subjects, subj);
 
   const atkRolls = state.turnData.attackRolls;
-  const keptRolls = keepIndices.map(i => atkRolls[i]);
+  let keptRolls = keepIndices.map(i => atkRolls[i]);
+
+  // 姜鹏泽正面: 骰子点数 × 课程倍率
+  if (atk.card.positiveSkill?.id === SKILL.LIBERAL_ARTS) {
+    keptRolls = keptRolls.map(v => Math.floor(v * multi));
+  }
+
   const baseAtk = keptRolls.reduce((s, v) => s + v, 0);
 
   const pos = resolvePositiveSkill(atk.card.positiveSkill, multi, keptRolls, state.totalRound, state.turnData);
@@ -389,6 +395,12 @@ export function confirmDefense(state, keepIndices, options = {}) {
   def.hp = Math.max(0, def.hp - damage);
   atk.hp = Math.max(0, atk.hp - ar.selfDamage);
 
+  // 姜鹏泽负面: 首次受伤时防御选骰数 -1
+  if (damage > 0 && def.card.negativeSkill?.id === SKILL.FIRST_BLOOD && !def.firstBloodTriggered) {
+    def.firstBloodTriggered = true;
+    if (def.card.defSlots > 1) def.card.defSlots -= 1;
+  }
+
   // 红温叠加 (WYC正面: 造成伤害时给对方叠红温)
   let redHeatApplied = 0;
   if (damage > 0 && atk.card.positiveSkill?.id === SKILL.RED_HEAT_APPLY) {
@@ -462,6 +474,7 @@ export function confirmDefense(state, keepIndices, options = {}) {
     noobTriggered, detonateTriggered, detonateDamage, redHeatApplied,
     damage, selfDamage: ar.selfDamage, pierce: ar.pierce,
     lcCounterDamage, healAmount, lcHealTriggered, eatTriggered,
+    firstBloodTriggered: damage > 0 && def.firstBloodTriggered && def.card.negativeSkill?.id === SKILL.FIRST_BLOOD,
     gameOver, winner, classChanged, nextSubject,
     attackerIdx: prevAttackerIdx,
   };
