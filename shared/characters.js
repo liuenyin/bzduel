@@ -233,7 +233,7 @@ export const characters = [
     electives: ['politics', 'history', 'geography'],
     image: '/photos/jpz.jpg',
     hp: 28,
-    dicePool: [6, 6, 8, 8],
+    dicePool: [4, 6, 8, 8],
     atkSlots: 3,
     defSlots: 3,
     positiveSkill: {
@@ -255,7 +255,7 @@ export const characters = [
     electives: ['physics', 'chemistry', 'biology'],
     image: '/photos/zcw.jpg',
     hp: 30,
-    dicePool: [6, 6, 6, 8],
+    dicePool: [6, 6, 6, 8, 8],
     atkSlots: 3,
     defSlots: 3,
     positiveSkill: {

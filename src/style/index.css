@@ -431,5 +431,66 @@ input[type="text"]::placeholder{color:var(--text-muted)}
 
 @media(max-width:680px){
   .lobby-info-grid { grid-template-columns: 1fr; }
-  /* ... existing mobile styles ... */
+}
+
+/* ── 结算画面 player-box ───────────────── */
+.go-stats .player-box {
+  display: flex; align-items: center; gap: 14px; flex: 1;
+}
+.go-stats .avatar-area {
+  position: relative; flex-shrink: 0;
+}
+.go-stats .avatar {
+  width: 72px; height: 72px; border-radius: 50%;
+  object-fit: cover; border: 3px solid var(--bg-inset);
+}
+.go-stats .badge-me {
+  position: absolute; bottom: -2px; right: -2px;
+  background: var(--accent); color: #fff; font-size: 0.65rem;
+  padding: 1px 6px; border-radius: 8px; font-weight: 700;
+}
+.go-stats .player-info { min-width: 0; flex: 1; }
+.go-stats .name-row {
+  display: flex; align-items: baseline; gap: 6px; margin-bottom: 6px;
+}
+.go-stats .nickname { font-weight: 700; font-size: 1rem; color: var(--text); }
+.go-stats .card-name { font-size: 0.8rem; color: var(--text-muted); }
+.go-stats .hp-container { margin-bottom: 4px; }
+.go-stats .hp-bar {
+  height: 8px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden;
+}
+.go-stats .hp-bar-fill {
+  height: 100%; border-radius: 4px;
+  background: linear-gradient(90deg, var(--green), #68d391);
+  transition: width 0.4s;
+}
+.go-stats .player-box.op .hp-bar-fill {
+  background: linear-gradient(90deg, var(--red), #fc8181);
+}
+.go-stats .hp-text { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+.go-stats .buffs-row { font-size: 0.7rem; color: var(--text-muted); }
+
+/* ── 移动端竖屏适配 ───────────────── */
+@media (max-width: 520px) {
+  .go-content {
+    padding: 28px 18px; width: 95%; max-width: none; border-radius: 16px;
+  }
+  .go-title {
+    font-size: 2rem; margin-bottom: 20px;
+  }
+  .go-stats {
+    flex-direction: column; gap: 12px; padding: 16px; margin-bottom: 24px;
+  }
+  .go-stats .player-box {
+    width: 100%;
+  }
+  .go-vs {
+    font-size: 1.2rem; padding: 4px 0;
+  }
+  .go-stats .avatar {
+    width: 56px; height: 56px;
+  }
+  .go-footer button {
+    min-width: 160px !important; font-size: 0.95rem;
+  }
 }

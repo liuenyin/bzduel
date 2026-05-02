@@ -273,6 +273,12 @@ export function confirmAttack(state, keepIndices) {
     state.turnData.atkResult.finalAtk += Math.floor(2 * multi);
   }
 
+  // 张楚唯: 额外回合攻击 +2
+  if (state.turnData.isExtraTurn && atk.card.positiveSkill?.id === SKILL.EXTRA_TURN) {
+    state.turnData.atkResult.bonusDamage += 2;
+    state.turnData.atkResult.finalAtk += 2;
+  }
+
   // Auto-roll defense using pool
   const defRolls = rollDiceGroup(def.card.dicePool);
   state.turnData.defenseRolls = defRolls;
@@ -454,7 +460,7 @@ export function confirmDefense(state, keepIndices, options = {}) {
     if (extraTurnTriggered) {
       state.totalRound++;
       const defIdx = state.turnData.defenderIdx;
-      state.turnData = { attackerIdx: defIdx, defenderIdx: 1 - defIdx, attackRolls: null, defenseRolls: null, hasAttackerRerolled: false, hasDefenderRerolled: false };
+      state.turnData = { attackerIdx: defIdx, defenderIdx: 1 - defIdx, attackRolls: null, defenseRolls: null, hasAttackerRerolled: false, hasDefenderRerolled: false, isExtraTurn: true };
       state.turnPhase = TURN.WAITING_ATK;
     } else {
       state.totalRound++;
