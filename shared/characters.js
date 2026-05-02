@@ -247,6 +247,7 @@ export const characters = [
       desc: '首次受到伤害时，防御能选择的骰子数永久 -1',
     },
   },
+  {
     id: 'char_12',
     name: '张楚唯',
     title: 'hammer',
