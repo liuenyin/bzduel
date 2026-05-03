@@ -187,7 +187,7 @@ export const characters = [
     title: '吃掉!',
     subjects: ['chinese', 'math', 'english', 'physics', 'chemistry', 'biology'],
     electives: ['physics', 'chemistry', 'biology'],
-    image: '/photos/zww.jpg',
+    image: '/photos/zww.png',
     hp: 31,
     dicePool: [6, 10, 10],
     atkSlots: 3,
