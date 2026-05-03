@@ -431,7 +431,7 @@ export function confirmDefense(state, keepIndices, options = {}) {
   // 红温引爆 (WYC负面: 攻击≤防御时引爆对方红温)
   let detonateTriggered = false;
   let detonateDamage = 0;
-  if (ar.finalAtk <= finalDef && atk.card.negativeSkill?.id === SKILL.RED_HEAT_DETONATE) {
+  if (finalBaseAtk <= finalFinalDef && atk.card.negativeSkill?.id === SKILL.RED_HEAT_DETONATE) {
     const opHeat = def.redHeat || 0;
     if (opHeat > 0) {
       detonateDamage = opHeat;
@@ -590,6 +590,8 @@ export function getStateView(state, playerId) {
     defenseRolls: (state.turnData?.defenseRolls && (!isAtk || op.cardId !== 'char_10')) ? [...state.turnData.defenseRolls] : null,
     atkResult: state.turnData?.atkResult || null,
     allergyTriggered: state.turnData?.allergyTriggered || false,
+    isExtraTurn: state.turnData?.isExtraTurn || false,
+    extraTurnFaceBoost: state.turnData?.extraTurnFaceBoost || 0,
     me: {
       nickname: me.nickname, cardId: me.cardId, card: me.card,
       hp: me.hp, maxHp: me.maxHp, ready: me.ready,

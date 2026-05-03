@@ -166,20 +166,26 @@ function renderDice() {
   const myPool = S.me.card.dicePool;
   const opPool = S.opponent.card?.dicePool || myPool;
 
+  const isMeAtk = S.myIndex === S.attackerIdx;
+  const atkPool = isMeAtk ? myPool : (S.opponent.card?.dicePool || []);
+  const defPool = isMeAtk ? (S.opponent.card?.dicePool || []) : myPool;
+
   let html = '';
   if (S.attackRolls) {
-    // 攻击骰始终属于攻击方
-    const isMineAtk = S.isMyAttackTurn;
-    const canSelect = S.turnPhase === 'atk_rolled' && isMineAtk;
-    const atkPool = isMineAtk ? myPool : opPool;
+    // 攻击骰：由 attackerIdx 掷出
+    const canSelect = S.turnPhase === 'atk_rolled' && S.isMyAttackTurn;
     html += `<div class="dice-row"><span class="dice-label" style="color:var(--gold)">攻</span>`;
     html += S.attackRolls.map((v, i) => {
       const isKept = S.atkResult?.keptIndices?.includes(i);
-      const face = atkPool[i] || 6;
-      const isYzx = !isMineAtk && S.opponent.cardId === 'char_10';
+      let face = atkPool[i] || 6;
+      // 额外回合加成显示
+      if (S.isExtraTurn && S.extraTurnFaceBoost) {
+        face += S.extraTurnFaceBoost;
+      }
+      const isYzx = S.myIndex !== S.attackerIdx && S.opponent.cardId === 'char_10';
       const color = DICE_COLORS[face];
       let style = color ? `border-color:${color.border}; color:${color.border};` : '';
-      if (!isMineAtk && S.atkResult && !isKept) style += 'opacity:0.3;';
+      if (S.myIndex !== S.attackerIdx && S.atkResult && !isKept) style += 'opacity:0.3;';
       const displayVal = isYzx ? '?' : v;
       return `<div class="die attack${canSelect ? ' selectable' : ''}${canSelect ? ' rolling' : ''}" style="${style}" data-idx="${i}" data-val="${v}">
         ${color && !isYzx ? `<div class="die-corner" style="color:${color.border};background:${color.bg}">${color.label}</div>` : ''}
@@ -195,15 +201,13 @@ function renderDice() {
     }
   }
   if (S.defenseRolls) {
-    // 防御骰始终属于防御方
-    const isMineDef = S.isMyDefendTurn;
-    const canSelect = S.turnPhase === 'def_rolled' && isMineDef;
-    const defPool = isMineDef ? myPool : opPool;
+    // 防御骰：由 1 - attackerIdx 掷出
+    const canSelect = S.turnPhase === 'def_rolled' && S.isMyDefendTurn;
     html += `<div class="dice-row"><span class="dice-label" style="color:var(--blue)">守</span>`;
     html += S.defenseRolls.map((v, i) => {
       const face = defPool[i] || 6;
       const color = DICE_COLORS[face];
-      const isYzx = !isMineDef && S.opponent.cardId === 'char_10';
+      const isYzx = S.myIndex === S.attackerIdx && S.opponent.cardId === 'char_10';
       let style = color ? `border-color:${color.border}; color:${color.border};` : '';
       const displayVal = isYzx ? '?' : v;
       return `<div class="die defense${canSelect ? ' selectable' : ''}" style="${style}" data-idx="${i}" data-val="${v}">
