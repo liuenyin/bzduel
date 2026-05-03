@@ -94,7 +94,7 @@ export const characters = [
     negativeSkill: {
       id: SKILL.SUGAR_CRASH,
       name: '犯糖 & 全投',
-      desc: '受伤>=8时获得1轮[犯糖]；重投时所有骰子均会重投。[犯糖]: 禁锢重投，回合开始受击',
+      desc: '受伤>=8时获得1轮[犯糖]；重投时所有骰子均会重投。[犯糖]: 禁锢重投，回合开始受到4*课程倍率的伤害',
     },
   },
   {
