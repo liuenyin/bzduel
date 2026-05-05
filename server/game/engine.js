@@ -218,8 +218,13 @@ export function rerollDice(state, playerId, indices) {
     if (state.players[state.turnData.attackerIdx].id !== playerId) return { ok: false };
     rolls = state.turnData.attackRolls;
   } else if (state.turnPhase === TURN.DEF_ROLLED) {
-    if (state.players[state.turnData.defenderIdx].id !== playerId) return { ok: false };
-    rolls = state.turnData.defenseRolls;
+    if (state.turnData.isAoE) {
+      if (!state.turnData.aoeDefenses[playerId] || state.turnData.aoeDefenses[playerId].confirmed) return { ok: false };
+      rolls = state.turnData.aoeDefenses[playerId].rolls;
+    } else {
+      if (state.players[state.turnData.defenderIdx].id !== playerId) return { ok: false };
+      rolls = state.turnData.defenseRolls;
+    }
   } else {
     return { ok: false };
   }
@@ -250,7 +255,11 @@ export function rerollDice(state, playerId, indices) {
   if (state.turnPhase === TURN.ATK_ROLLED) {
     state.turnData.hasAttackerRerolled = true;
   } else if (state.turnPhase === TURN.DEF_ROLLED) {
-    state.turnData.hasDefenderRerolled = true;
+    if (state.turnData.isAoE) {
+      state.turnData.aoeDefenses[playerId].hasRerolled = true;
+    } else {
+      state.turnData.hasDefenderRerolled = true;
+    }
   }
   return { ok: true, rolls: [...rolls], remaining: p.rerolls };
 }
@@ -320,83 +329,225 @@ export function confirmAttack(state, keepIndices) {
   // 张楚唯: 额外回合 → 在 rollAttack 中处理 (+2重投, 面数临时+2)
 
   // Auto-roll defense using pool
-  const defRolls = rollDiceGroup(def.card.dicePool);
-  state.turnData.defenseRolls = defRolls;
-  state.turnPhase = TURN.DEF_ROLLED;
-
-  return { ok: true, atkResult: state.turnData.atkResult, defenseRolls: [...defRolls] };
+  if (state.gameMode === GAME_MODE.MODE_FFA && atk.card.positiveSkill?.id === SKILL.RAPPER) {
+    state.turnData.isAoE = true;
+    state.turnData.aoeDefenses = {};
+    let defenseRollsRecord = {};
+    state.players.forEach(p => {
+      if (!p.isDead && p.id !== atk.id) {
+        const rolls = rollDiceGroup(p.card.dicePool);
+        state.turnData.aoeDefenses[p.id] = {
+          rolls,
+          confirmed: false,
+          keepIndices: null,
+          options: null,
+          hasRerolled: false
+        };
+        defenseRollsRecord[p.id] = [...rolls];
+      }
+    });
+    state.turnPhase = TURN.DEF_ROLLED;
+    return { ok: true, atkResult: state.turnData.atkResult, aoeDefenseRolls: defenseRollsRecord };
+  } else {
+    state.turnData.isAoE = false;
+    const defRolls = rollDiceGroup(def.card.dicePool);
+    state.turnData.defenseRolls = defRolls;
+    state.turnPhase = TURN.DEF_ROLLED;
+    return { ok: true, atkResult: state.turnData.atkResult, defenseRolls: [...defRolls] };
+  }
 }
 
 // ── 阶段4: 防守方确认 → 结算 → 伤害 → 推进回合 ──
-export function confirmDefense(state, keepIndices, options = {}) {
+export function confirmDefense(state, playerId, keepIndices, options = {}) {
   if (state.turnPhase !== TURN.DEF_ROLLED) return { ok: false };
-  const def = state.players[state.turnData.defenderIdx];
-  
-  if (!keepIndices || keepIndices.length !== def.card.defSlots) return { ok: false, error: 'invalid_slots' };
-
-  // 曾无畏负面: 防御时只能选中一个 D10
-  if (def.card.negativeSkill?.id === SKILL.D10_LIMIT) {
-    const d10Count = keepIndices.filter(idx => def.card.dicePool[idx] === 10).length;
-    if (d10Count > 1) return { ok: false, error: 'zww_d10_limit' };
-  }
   
   const atk = state.players[state.turnData.attackerIdx];
   const subj = state.schedule[state.currentClassIndex];
   const atkMulti = getSkillMultiplier(atk.card.subjects, subj);
-  const defMulti = getSkillMultiplier(def.card.subjects, subj);
-
-  const defRolls = state.turnData.defenseRolls;
-  const keptRolls = keepIndices.map(i => defRolls[i]);
-  const baseDef = keptRolls.reduce((s, v) => s + v, 0);
-  const defNeg = resolveDefenderNegativeSkill(def.card.negativeSkill, defMulti, state.totalRound, state.turnData);
-  
-  if (defNeg.addPermanentPenalty) {
-    def.permanentDefPenalty = (def.permanentDefPenalty || 0) + defNeg.addPermanentPenalty;
-  }
-  
-  const penalty = (defNeg.defensePenalty || 0) + (def.permanentDefPenalty || 0);
-  const finalDef = Math.max(0, baseDef - penalty);
-
   const ar = state.turnData.atkResult;
   let finalBaseAtk = ar.finalAtk;
 
-  // 曾无畏正面: “吃掉!” 将对方选定的最大骰子改为 2
-  let eatTriggered = false;
-  if (def.card.positiveSkill?.id === SKILL.EAT_IT) {
-    const atkRolls = state.turnData.attackRolls;
-    const atkKeptIndices = ar.keptIndices;
-    let maxVal = -1, maxIdx = -1;
-    for (let idx of atkKeptIndices) {
-      if (atkRolls[idx] > maxVal) { maxVal = atkRolls[idx]; maxIdx = idx; }
-    }
-    if (maxVal > 2) {
-      finalBaseAtk = finalBaseAtk - maxVal + 2;
-      eatTriggered = true;
-    }
-  }
+  if (state.turnData.isAoE) {
+    if (!state.turnData.aoeDefenses[playerId]) return { ok: false };
+    const defState = state.turnData.aoeDefenses[playerId];
+    if (defState.confirmed) return { ok: false };
+    
+    const def = findPlayer(state, playerId);
+    if (!keepIndices || keepIndices.length !== def.card.defSlots) return { ok: false, error: 'invalid_slots' };
 
-  // 李灿正面B: 献祭骰子回血
-  let lcHealTriggered = false;
-  let healAmount = 0;
-  if (def.card.positiveSkill?.id === SKILL.GAL_PLAYER && options.sacrificeIndex !== undefined) {
-    const sIdx = options.sacrificeIndex;
-    if (keepIndices.includes(sIdx)) {
-      const orig = defRolls[sIdx];
-      if (orig > 1) {
-        healAmount = orig - 1;
-        defRolls[sIdx] = 1; // 变为1
-        def.hp = Math.min(def.maxHp, def.hp + healAmount);
-        lcHealTriggered = true;
+    defState.confirmed = true;
+    defState.keepIndices = keepIndices;
+    defState.options = options;
+
+    // Check if everyone confirmed
+    const allConfirmed = Object.values(state.turnData.aoeDefenses).every(d => d.confirmed);
+    if (!allConfirmed) {
+      return { ok: true, waitingForOthers: true };
+    }
+
+    // Everyone confirmed, process AoE damage
+    let aoeResults = [];
+    let noDamageCount = 0;
+    let extraTurnTriggeredGlobal = false;
+    let firstBloodTriggeredGlobal = false;
+
+    Object.keys(state.turnData.aoeDefenses).forEach(pid => {
+      const p = findPlayer(state, pid);
+      const ds = state.turnData.aoeDefenses[pid];
+      const pMulti = getSkillMultiplier(p.card.subjects, subj);
+      const isPrimary = state.players[state.turnData.defenderIdx].id === pid;
+
+      const pKeptRolls = ds.keepIndices.map(i => ds.rolls[i]);
+      const pBaseDef = pKeptRolls.reduce((s, v) => s + v, 0);
+      
+      const turnDataSimulated = { hasDefenderRerolled: ds.hasRerolled };
+      const defNeg = resolveDefenderNegativeSkill(p.card.negativeSkill, pMulti, state.totalRound, turnDataSimulated);
+      if (defNeg.addPermanentPenalty) p.permanentDefPenalty = (p.permanentDefPenalty || 0) + defNeg.addPermanentPenalty;
+      const penalty = (defNeg.defensePenalty || 0) + (p.permanentDefPenalty || 0);
+      const finalDef = Math.max(0, pBaseDef - penalty);
+
+      // 李灿正面B: 献祭骰子回血
+      let lcHealTriggered = false;
+      let healAmount = 0;
+      if (p.card.positiveSkill?.id === SKILL.GAL_PLAYER && ds.options.sacrificeIndex !== undefined) {
+        const sIdx = ds.options.sacrificeIndex;
+        if (ds.keepIndices.includes(sIdx)) {
+          const orig = ds.rolls[sIdx];
+          if (orig > 1) {
+            healAmount = orig - 1;
+            ds.rolls[sIdx] = 1;
+            p.hp = Math.min(p.maxHp, p.hp + healAmount);
+            lcHealTriggered = true;
+          }
+        }
+      }
+
+      const pFinalKeptRolls = ds.keepIndices.map(i => ds.rolls[i]);
+      const pFinalBaseDef = pFinalKeptRolls.reduce((s, v) => s + v, 0);
+      const pFinalFinalDef = Math.max(0, pFinalBaseDef - penalty);
+
+      let targetFinalBaseAtk = finalBaseAtk;
+      if (!isPrimary) {
+        if (atkMulti === 0.5) targetFinalBaseAtk = Math.floor(finalBaseAtk * 0.33);
+        else if (atkMulti === 1) targetFinalBaseAtk = Math.floor(finalBaseAtk * 0.5);
+        else if (atkMulti === 2) targetFinalBaseAtk = Math.floor(finalBaseAtk * 0.66);
+      }
+
+      let damage = ar.pierce ? targetFinalBaseAtk : Math.max(0, targetFinalBaseAtk - pFinalFinalDef);
+
+      if (damage > 0 && p.card.negativeSkill?.id === SKILL.FIRST_BLOOD && !p.hasTakenDamage) {
+        p.hasTakenDamage = true;
+        if (p.card.defSlots > 1) p.card.defSlots -= 1;
+        firstBloodTriggeredGlobal = true;
+      }
+
+      let pExtraTurnTriggered = false;
+      if (damage >= 8 && p.card.positiveSkill?.id === SKILL.EXTRA_TURN && p.hp > 0) {
+        pExtraTurnTriggered = true;
+        extraTurnTriggeredGlobal = true;
+        if (p.card.negativeSkill?.id === SKILL.BACK_PAIN && p.card.defSlots > 1) p.card.defSlots -= 1;
+      }
+
+      p.hp -= damage;
+      if (damage === 0) noDamageCount++;
+
+      aoeResults.push({
+        playerId: pid,
+        damage, finalDef: pFinalFinalDef, penalty, baseDef: pBaseDef,
+        defNegTriggered: defNeg.triggered, defNegName: defNeg.triggered ? p.card.negativeSkill.name : null,
+        defPosTriggered: lcHealTriggered || pExtraTurnTriggered,
+        defPosName: lcHealTriggered ? "献祭" : (pExtraTurnTriggered ? "死磕" : null),
+        lcHealTriggered, healAmount, extraTurnTriggered: pExtraTurnTriggered
+      });
+    });
+
+    // 忘词惩罚
+    let selfDamage = ar.selfDamage || 0;
+    if (atk.card.negativeSkill?.id === SKILL.FORGET_LYRICS && state.turnData.hasAttackerRerolled && noDamageCount > 0) {
+      const fd = noDamageCount * 2 * atkMulti;
+      selfDamage += fd;
+      atk.hp -= fd;
+    }
+
+    const { gameOver, winner, classChanged, nextSubject } = resolvePhaseEnd(state, extraTurnTriggeredGlobal);
+    
+    return {
+      ok: true,
+      isAoE: true,
+      aoeResults,
+      atkResult: ar,
+      selfDamage,
+      firstBloodTriggered: firstBloodTriggeredGlobal,
+      extraTurnTriggered: extraTurnTriggeredGlobal,
+      gameOver, winner, classChanged, nextSubject,
+      attackerIdx: state.turnData.attackerIdx
+    };
+
+  } else {
+    // 正常 1v1 防御逻辑
+    const defIdx = state.turnData.defenderIdx;
+    if (state.players[defIdx].id !== playerId) return { ok: false };
+    const def = state.players[defIdx];
+    
+    if (!keepIndices || keepIndices.length !== def.card.defSlots) return { ok: false, error: 'invalid_slots' };
+
+    // 曾无畏负面: 防御时只能选中一个 D10
+    if (def.card.negativeSkill?.id === SKILL.D10_LIMIT) {
+      const d10Count = keepIndices.filter(idx => def.card.dicePool[idx] === 10).length;
+      if (d10Count > 1) return { ok: false, error: 'zww_d10_limit' };
+    }
+    
+    const defMulti = getSkillMultiplier(def.card.subjects, subj);
+
+    const defRolls = state.turnData.defenseRolls;
+    const keptRolls = keepIndices.map(i => defRolls[i]);
+    const baseDef = keptRolls.reduce((s, v) => s + v, 0);
+    const defNeg = resolveDefenderNegativeSkill(def.card.negativeSkill, defMulti, state.totalRound, state.turnData);
+    
+    if (defNeg.addPermanentPenalty) {
+      def.permanentDefPenalty = (def.permanentDefPenalty || 0) + defNeg.addPermanentPenalty;
+    }
+    
+    const penalty = (defNeg.defensePenalty || 0) + (def.permanentDefPenalty || 0);
+    const finalDef = Math.max(0, baseDef - penalty);
+
+    // 曾无畏正面: “吃掉!” 将对方选定的最大骰子改为 2
+    let eatTriggered = false;
+    if (def.card.positiveSkill?.id === SKILL.EAT_IT) {
+      const atkRolls = state.turnData.attackRolls;
+      const atkKeptIndices = ar.keptIndices;
+      let maxVal = -1, maxIdx = -1;
+      for (let idx of atkKeptIndices) {
+        if (atkRolls[idx] > maxVal) { maxVal = atkRolls[idx]; maxIdx = idx; }
+      }
+      if (maxVal > 2) {
+        finalBaseAtk = finalBaseAtk - maxVal + 2;
+        eatTriggered = true;
       }
     }
-  }
 
-  // 重新计算最终防御 (因为骰子可能变了)
-  const finalKeptRolls = keepIndices.map(i => defRolls[i]);
-  const finalBaseDef = finalKeptRolls.reduce((s, v) => s + v, 0);
-  const finalFinalDef = Math.max(0, finalBaseDef - penalty);
+    // 李灿正面B: 献祭骰子回血
+    let lcHealTriggered = false;
+    let healAmount = 0;
+    if (def.card.positiveSkill?.id === SKILL.GAL_PLAYER && options.sacrificeIndex !== undefined) {
+      const sIdx = options.sacrificeIndex;
+      if (keepIndices.includes(sIdx)) {
+        const orig = defRolls[sIdx];
+        if (orig > 1) {
+          healAmount = orig - 1;
+          defRolls[sIdx] = 1; // 变为1
+          def.hp = Math.min(def.maxHp, def.hp + healAmount);
+          lcHealTriggered = true;
+        }
+      }
+    }
 
-  let damage = ar.pierce ? finalBaseAtk : Math.max(0, finalBaseAtk - finalFinalDef);
+    // 重新计算最终防御
+    const finalKeptRolls = keepIndices.map(i => defRolls[i]);
+    const finalBaseDef = finalKeptRolls.reduce((s, v) => s + v, 0);
+    const finalFinalDef = Math.max(0, finalBaseDef - penalty);
+
+    let damage = ar.pierce ? finalBaseAtk : Math.max(0, finalBaseAtk - finalFinalDef);
   
   // 殷泽轩负面: 受到伤害时 (即伤害 > 0)，最终伤害额外 +2 × 倍率
   if (damage > 0 && def.card.negativeSkill?.id === SKILL.VULNERABLE) {
@@ -734,9 +885,19 @@ export function getStateView(state, playerId) {
     defenderIdx: state.turnData?.defenderIdx,
     turnPhase: state.turnPhase,
     isMyAttackTurn: isAtk && (state.turnPhase === TURN.WAITING_ATK || state.turnPhase === TURN.ATK_ROLLED || state.turnPhase === TURN.CHOOSE_TARGET),
-    isMyDefendTurn: !isAtk && state.turnPhase === TURN.DEF_ROLLED && state.turnData?.defenderIdx === myIdx,
+    isMyDefendTurn: !isAtk && state.turnPhase === TURN.DEF_ROLLED && (state.turnData?.isAoE ? !!state.turnData?.aoeDefenses[playerId] : state.turnData?.defenderIdx === myIdx),
     attackRolls: state.turnData?.attackRolls ? [...state.turnData.attackRolls] : null,
     defenseRolls: state.turnData?.defenseRolls ? [...state.turnData.defenseRolls] : null,
+    aoeDefenses: state.turnData?.isAoE ? (
+      Object.fromEntries(Object.entries(state.turnData.aoeDefenses).map(([pid, d]) => [
+        pid, {
+          confirmed: d.confirmed,
+          hasRerolled: d.hasRerolled,
+          // Only reveal rolls to the player themselves until the phase is over
+          rolls: (pid === playerId || state.turnPhase !== TURN.DEF_ROLLED) ? [...d.rolls] : null
+        }
+      ]))
+    ) : null,
     atkResult: state.turnData?.atkResult || null,
     allergyTriggered: state.turnData?.allergyTriggered || false,
     isExtraTurn: state.turnData?.isExtraTurn || false,
@@ -746,6 +907,103 @@ export function getStateView(state, playerId) {
     me: playersView[myIdx],
     opponent: state.gameMode === GAME_MODE.MODE_1V1 ? playersView[1 - myIdx] : null,
   };
+}
+
+export function resolvePhaseEnd(state, extraTurnTriggeredGlobal) {
+  let gameOver = false, winner = null, classChanged = false, nextSubject = null;
+  
+  // Handle deaths
+  state.players.forEach(p => {
+    if (p.hp <= 0) {
+      p.hp = 0;
+      if (!p.isDead) {
+        p.isDead = true;
+        // Lord kills Loyalist penalty
+        if (state.gameMode === GAME_MODE.MODE_FFA && state.players[state.turnData.attackerIdx].identity === IDENTITY.LORD && p.identity === IDENTITY.LOYALIST) {
+          state.players[state.turnData.attackerIdx].card.positiveSkill = null;
+          state.log.push({ text: `【系统】主公 ${state.players[state.turnData.attackerIdx].nickname} 误杀忠臣，失去了正面技能！`, type: 'system' });
+        }
+      }
+    }
+  });
+
+  // FFA 胜负
+  const lord = state.players.find(p => p.identity === IDENTITY.LORD);
+  if (lord && lord.isDead) {
+    gameOver = true;
+    state.phase = PHASE.GAME_OVER;
+    const aliveSpies = state.players.filter(p => p.identity === IDENTITY.SPY && !p.isDead);
+    const otherAlive = state.players.filter(p => p.identity !== IDENTITY.SPY && !p.isDead);
+    if (aliveSpies.length === 1 && otherAlive.length === 0) {
+      winner = 'spy';
+    } else {
+      winner = 'rebel';
+    }
+    state.winner = winner;
+  } else {
+    const aliveBadGuys = state.players.filter(p => (p.identity === IDENTITY.REBEL || p.identity === IDENTITY.SPY) && !p.isDead);
+    if (aliveBadGuys.length === 0) {
+      gameOver = true;
+      state.phase = PHASE.GAME_OVER;
+      winner = 'lord';
+      state.winner = winner;
+    }
+  }
+
+  if (!gameOver) {
+    if (extraTurnTriggeredGlobal) {
+      state.totalRound++;
+      const defIdx = state.turnData.defenderIdx; // Note: for AoE this might be just the primary target gaining extra turn?
+      // Actually, if an AoE target gains an extra turn, it goes to them. But if multiple targets gain it?
+      // We will simplify and give it to whoever triggered it last (or first). For now, it's just defIdx.
+      state.turnData = { 
+        attackerIdx: defIdx, 
+        defenderIdx: null, 
+        attackRolls: null, defenseRolls: null, hasAttackerRerolled: false, hasDefenderRerolled: false, isExtraTurn: true 
+      };
+      state.turnPhase = TURN.CHOOSE_TARGET;
+    } else {
+      state.totalRound++;
+      state.currentSubRound++;
+      if (state.currentSubRound >= GAME_CONFIG.SUBROUNDS_PER_CLASS) {
+        state.currentSubRound = 0;
+        state.currentClassIndex++;
+        
+        let nextFirst = (state.firstAttacker + 1) % state.players.length;
+        while (state.players[nextFirst].isDead && nextFirst !== state.firstAttacker) {
+          nextFirst = (nextFirst + 1) % state.players.length;
+        }
+        state.firstAttacker = nextFirst;
+        
+        classChanged = true;
+        if (state.currentClassIndex >= GAME_CONFIG.CLASSES_PER_GAME) {
+          gameOver = true;
+          state.phase = PHASE.GAME_OVER;
+          state.winner = 'lord'; // Simplified timeout winner
+          winner = state.winner;
+        } else {
+          nextSubject = state.schedule[state.currentClassIndex];
+        }
+      }
+      if (!gameOver) {
+        let offset = state.currentSubRound;
+        let ni = state.firstAttacker;
+        while(offset > 0) {
+          ni = (ni + 1) % state.players.length;
+          if (!state.players[ni].isDead) offset--;
+        }
+        
+        state.turnData = { 
+          attackerIdx: ni, 
+          defenderIdx: null, 
+          attackRolls: null, defenseRolls: null, hasAttackerRerolled: false, hasDefenderRerolled: false 
+        };
+        state.turnPhase = TURN.CHOOSE_TARGET;
+      }
+    }
+  }
+
+  return { gameOver, winner, classChanged, nextSubject };
 }
 
 function findPlayer(state, id) { return state.players.find(p => p.id === id); }

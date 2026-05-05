@@ -30,6 +30,10 @@ export const SKILL = {
   FIRST_BLOOD: 'first_blood',               // 偏科 (姜鹏泽: 首次掉血后防御选骰-1)
   EXTRA_TURN: 'extra_turn',                  // 逆袭 (张楚唯: 受重伤后获得额外攻击回合)
   BACK_PAIN: 'back_pain',                    // 腰疼？ (张楚唯: 触发额外回合后防御-1)
+  
+  // 大乱斗特供
+  RAPPER: 'rapper',                          // rapper (刘奕辰: 群攻AOE)
+  FORGET_LYRICS: 'forget_lyrics',            // 忘词 (刘奕辰: 重投后根据未受伤害人数扣血)
 };
 
 /**
@@ -267,6 +271,29 @@ export const characters = [
       id: SKILL.BACK_PAIN,
       name: '腰疼？',
       desc: '每次触发死磕后，防御选骰数永久 -1',
+    },
+  },
+  {
+    id: 'char_13',
+    name: '[十班] 刘奕辰',
+    title: 'Rapper',
+    subjects: ['chinese', 'math', 'english', 'physics', 'chemistry', 'biology'],
+    electives: ['physics', 'chemistry', 'biology'],
+    image: '/photos/lyc.jpg', // 需补充图片
+    hp: 36,
+    dicePool: [4, 8, 12],
+    atkSlots: 3,
+    defSlots: 1,
+    ffaOnly: true, // 仅限三国杀大乱斗模式
+    positiveSkill: {
+      id: SKILL.RAPPER,
+      name: 'rapper',
+      desc: '攻击阶段指定主目标承受100%伤害，其余存活玩家均需防守，并承受33%/50%/66%（根据课程倍率决定）的伤害。',
+    },
+    negativeSkill: {
+      id: SKILL.FORGET_LYRICS,
+      name: '忘词',
+      desc: '当你重投后，攻击结算时每有一个目标未受到伤害，减少2*课程倍率的HP。',
     },
   },
 ];

@@ -254,22 +254,30 @@ function renderDice() {
       html += `</div>`;
     }
   }
-  if (S.defenseRolls) {
-    // 防御骰：由 defenderIdx 掷出
+  if (S.defenseRolls || (S.aoeDefenses && S.aoeDefenses[S.me.id] && S.aoeDefenses[S.me.id].rolls)) {
+    // 防御骰
     const canSelect = S.turnPhase === 'def_rolled' && S.isMyDefendTurn;
+    const rollsToRender = S.aoeDefenses ? S.aoeDefenses[S.me.id].rolls : S.defenseRolls;
+    const isConfirmed = S.aoeDefenses ? S.aoeDefenses[S.me.id].confirmed : false;
+    
     html += `<div class="dice-row"><span class="dice-label" style="color:var(--blue)">守</span>`;
-    html += S.defenseRolls.map((v, i) => {
-      const face = defPool[i] || 6;
-      const color = DICE_COLORS[face];
-      const isYzx = !isMeDef && defPlayer?.cardId === 'char_10';
-      let style = color ? `border-color:${color.border}; color:${color.border};` : '';
-      const displayVal = isYzx ? '?' : v;
-      return `<div class="die defense${canSelect ? ' selectable' : ''}" style="${style}" data-idx="${i}" data-val="${v}">
-        ${color && !isYzx ? `<div class="die-corner" style="color:${color.border};background:${color.bg}">${color.label}</div>` : ''}
-        ${displayVal}
-      </div>`;
-    }).join('');
-    html += `<span class="dice-sum" style="color:var(--blue)"></span></div>`;
+    if (rollsToRender) {
+      html += rollsToRender.map((v, i) => {
+        const face = defPool[i] || 6;
+        const color = DICE_COLORS[face];
+        // In AoE, everyone rolls their own defense, so it's always "me" if I am rendering this
+        // But what if I am an observer? S.aoeDefenses[me.id] would be null, so I won't enter this block unless I'm the target or after turn resolved.
+        // Wait, what if someone is observing? For now, observers just don't see defense dice until resolution.
+        const isYzx = false; // Because I'm rendering my own dice
+        let style = color ? `border-color:${color.border}; color:${color.border};` : '';
+        if (isConfirmed) style += 'opacity:0.5;';
+        return `<div class="die defense${(canSelect && !isConfirmed) ? ' selectable' : ''}" style="${style}" data-idx="${i}" data-val="${v}">
+          ${color && !isYzx ? `<div class="die-corner" style="color:${color.border};background:${color.bg}">${color.label}</div>` : ''}
+          ${v}
+        </div>`;
+      }).join('');
+    }
+    html += `<span class="dice-sum" style="color:var(--blue)">${isConfirmed ? ' 已确认' : ''}</span></div>`;
   }
   area.innerHTML = html;
   area.querySelectorAll('.die.selectable').forEach(d => {
@@ -418,48 +426,95 @@ export function onTurnResolved(data) {
     if (defSumEl) defSumEl.innerHTML = `= ${finalDef}${penalty ? ` <small>(−${penalty})</small>` : ''}`;
   }
 
-  setTimeout(() => {
-    const isMyAtk = S.myIndex === attackerIdx;
-    let atkCard, defCard;
-    if (S.gameMode === '1v1') {
-      atkCard = document.getElementById(isMyAtk ? 'card-me' : 'card-op');
-      defCard = document.getElementById(isMyAtk ? 'card-op' : 'card-me');
-    } else {
+  const isAoE = data.isAoE;
+  
+  if (isAoE) {
+    // FFA 群伤效果动画
+    setTimeout(() => {
+      const isMyAtk = S.myIndex === attackerIdx;
       const atkId = S.players[attackerIdx].id;
-      const defId = S.defenderIdx !== null ? S.players[S.defenderIdx].id : null;
-      atkCard = atkId === S.me.id ? document.getElementById('card-me') : document.querySelector(`.ffa-micro-card[data-pid="${atkId}"]`);
-      defCard = defId === S.me.id ? document.getElementById('card-me') : (defId ? document.querySelector(`.ffa-micro-card[data-pid="${defId}"]`) : null);
-    }
-
-    if (atkCard) atkCard.classList.add('card-attacking');
-    if (defCard) setTimeout(() => defCard.classList.add('card-hit'), 300);
-
-    setTimeout(() => {
-      const dmgEl = document.createElement('div');
-      dmgEl.className = `floating-damage ${damage === 0 ? 'miss' : ''}`;
-      dmgEl.textContent = damage > 0 ? `−${damage}` : 'MISS';
-      if (defCard) defCard.appendChild(dmgEl);
-      setHP('hp-me', newState.me.hp, newState.me.maxHp, 'hp-me-t');
-      if (newState.gameMode === '1v1') {
-        setHP('hp-op', newState.opponent.hp, newState.opponent.maxHp, 'hp-op-t');
-      }
-      setTimeout(() => dmgEl.remove(), 1200);
-    }, 400);
-
-    setTimeout(() => {
-      if (atkCard) atkCard.classList.remove('card-attacking');
-      if (defCard) defCard.classList.remove('card-hit');
-      // 不再在此处 showBanner，由 class_change 事件统一处理
+      const atkCard = atkId === S.me.id ? document.getElementById('card-me') : document.querySelector(`.ffa-micro-card[data-pid="${atkId}"]`);
+      if (atkCard) atkCard.classList.add('card-attacking');
+      
+      data.aoeResults.forEach(res => {
+        const dId = res.playerId;
+        const dCard = dId === S.me.id ? document.getElementById('card-me') : document.querySelector(`.ffa-micro-card[data-pid="${dId}"]`);
+        if (dCard) setTimeout(() => dCard.classList.add('card-hit'), 300);
+        
+        setTimeout(() => {
+          const dmgEl = document.createElement('div');
+          dmgEl.className = `floating-damage ${res.damage === 0 ? 'miss' : ''}`;
+          dmgEl.textContent = res.damage > 0 ? `−${res.damage}` : 'MISS';
+          if (dCard) dCard.appendChild(dmgEl);
+          setTimeout(() => dmgEl.remove(), 1200);
+        }, 400);
+      });
+      
+      setTimeout(() => {
+        setHP('hp-me', newState.me.hp, newState.me.maxHp, 'hp-me-t');
+      }, 400);
 
       setTimeout(() => {
-        S = newState;
-        animLock = false;
-        refreshAll();
-        addLog(data);
-        if (gameOver) setTimeout(() => showGameOver(S), 800);
-      }, data.classChanged ? 1500 : 500);
-    }, 1500);
-  }, 800);
+        if (atkCard) atkCard.classList.remove('card-attacking');
+        data.aoeResults.forEach(res => {
+          const dId = res.playerId;
+          const dCard = dId === S.me.id ? document.getElementById('card-me') : document.querySelector(`.ffa-micro-card[data-pid="${dId}"]`);
+          if (dCard) dCard.classList.remove('card-hit');
+        });
+        
+        setTimeout(() => {
+          S = newState;
+          animLock = false;
+          refreshAll();
+          addLog(data); // TODO aoe log
+          if (data.gameOver) setTimeout(() => showGameOver(S), 800);
+        }, data.classChanged ? 1500 : 500);
+      }, 1500);
+    }, 800);
+  } else {
+    // 1v1 动画
+    setTimeout(() => {
+      const isMyAtk = S.myIndex === attackerIdx;
+      let atkCard, defCard;
+      if (S.gameMode === '1v1') {
+        atkCard = document.getElementById(isMyAtk ? 'card-me' : 'card-op');
+        defCard = document.getElementById(isMyAtk ? 'card-op' : 'card-me');
+      } else {
+        const atkId = S.players[attackerIdx].id;
+        const defId = S.defenderIdx !== null ? S.players[S.defenderIdx].id : null;
+        atkCard = atkId === S.me.id ? document.getElementById('card-me') : document.querySelector(`.ffa-micro-card[data-pid="${atkId}"]`);
+        defCard = defId === S.me.id ? document.getElementById('card-me') : (defId ? document.querySelector(`.ffa-micro-card[data-pid="${defId}"]`) : null);
+      }
+
+      if (atkCard) atkCard.classList.add('card-attacking');
+      if (defCard) setTimeout(() => defCard.classList.add('card-hit'), 300);
+
+      setTimeout(() => {
+        const dmgEl = document.createElement('div');
+        dmgEl.className = `floating-damage ${damage === 0 ? 'miss' : ''}`;
+        dmgEl.textContent = damage > 0 ? `−${damage}` : 'MISS';
+        if (defCard) defCard.appendChild(dmgEl);
+        setHP('hp-me', newState.me.hp, newState.me.maxHp, 'hp-me-t');
+        if (newState.gameMode === '1v1') {
+          setHP('hp-op', newState.opponent.hp, newState.opponent.maxHp, 'hp-op-t');
+        }
+        setTimeout(() => dmgEl.remove(), 1200);
+      }, 400);
+
+      setTimeout(() => {
+        if (atkCard) atkCard.classList.remove('card-attacking');
+        if (defCard) defCard.classList.remove('card-hit');
+        
+        setTimeout(() => {
+          S = newState;
+          animLock = false;
+          refreshAll();
+          addLog(data);
+          if (data.gameOver) setTimeout(() => showGameOver(S), 800);
+        }, data.classChanged ? 1500 : 500);
+      }, 1500);
+    }, 800);
+  }
 }
 
 // ── 换课动画 ──

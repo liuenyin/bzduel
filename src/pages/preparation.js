@@ -25,7 +25,7 @@ export function renderPreparation(container, data) {
 
       <p class="section-title">选择你的角色</p>
       <div class="avatar-grid" id="card-selector">
-        ${characters.map((c) => renderAvatar(c)).join('')}
+        ${characters.map((c) => renderAvatar(c, state.gameMode)).join('')}
       </div>
 
       <div id="prep-status" style="text-align:center; min-height:32px;">
@@ -116,7 +116,7 @@ export function renderPreparation(container, data) {
   };
 
   // ── 选卡交互 ──
-  const avatars = container.querySelectorAll('.avatar-cell');
+  const avatars = container.querySelectorAll('.avatar-cell:not(.disabled)');
   avatars.forEach((avatarEl) => {
     avatarEl.addEventListener('click', () => {
       const charId = avatarEl.dataset.id;
@@ -198,11 +198,13 @@ function renderSchedule(schedule) {
 
 // ── 角色卡渲染 ──────────────────────────────────────
 
-function renderAvatar(char) {
+function renderAvatar(char, gameMode) {
+  const disabled = char.ffaOnly && gameMode === '1v1';
   return `
-    <div class="avatar-cell" data-id="${char.id}">
+    <div class="avatar-cell ${disabled ? 'disabled' : ''}" data-id="${char.id}" style="${disabled ? 'opacity: 0.5; filter: grayscale(1); cursor: not-allowed; position: relative;' : ''}">
       <img src="${char.image || ''}" alt="${char.name}" class="avatar-img">
       <div class="avatar-name">${char.name}</div>
+      ${disabled ? `<div style="position:absolute; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6); border-radius:12px; display:flex; align-items:center; justify-content:center; color:white; font-size:10px; font-weight:bold;">仅大乱斗</div>` : ''}
     </div>
   `;
 }
