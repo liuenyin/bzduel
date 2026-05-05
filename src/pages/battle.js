@@ -3,10 +3,20 @@
 // ============================================================
 import { gameSocket } from '../net/socket.js';
 import { navigate } from '../main.js';
-import { SUBJECTS, CORE_SUBJECTS, ELECTIVE_SUBJECTS, MINOR_SUBJECTS, getSkillMultiplier, DICE_COLORS } from '../../shared/rules.js';
+import { SUBJECTS, CORE_SUBJECTS, ELECTIVE_SUBJECTS, MINOR_SUBJECTS, getSkillMultiplier, DICE_COLORS, IDENTITY } from '../../shared/rules.js';
 
 let S; // module-level state ref
 let animLock = false; // prevent state_update during animations
+
+const identityName = (id) => {
+  switch(id) {
+    case IDENTITY.LORD: return '👑 主公';
+    case IDENTITY.LOYALIST: return '🛡️ 忠臣';
+    case IDENTITY.REBEL: return '🐺 反贼';
+    case IDENTITY.SPY: return '🕵️ 内奸';
+    default: return '❓ 身份';
+  }
+};
 
 export function renderBattle(container, data) {
   S = data.state;
@@ -61,6 +71,7 @@ function buildArena(s) {
               <div class="hp-bar-h enemy" id="hp-op" style="width:${pct(op.hp,op.maxHp)}%"></div>
               <span class="hp-label" id="hp-op-t">${op.hp}</span>
             </div>
+            ${s.gameMode === 'sanguosha' ? `<div class="bc-identity-badge">${identityName(op.identity)}</div>` : ''}
             <div class="skill-desc-box">
               ${op.card?.positiveSkill ? `<div class="skill-desc-line pos">✦ ${op.card.positiveSkill.name}: ${op.card.positiveSkill.desc}</div>` : ''}
               ${op.card?.negativeSkill ? `<div class="skill-desc-line neg">✧ ${op.card.negativeSkill.name}: ${op.card.negativeSkill.desc}</div>` : ''}
@@ -73,16 +84,19 @@ function buildArena(s) {
             <div id="phase-text" class="phase-text">${phasePrompt(s)}</div>
           </div>
 
-          <div class="battle-card-wrap self-side" id="card-me">
+          <div class="battle-card-wrap self-side ${s.attackerIdx === s.myIndex ? 'active-attacker' : ''} ${me.isDead ? 'dead' : ''}" id="card-me">
             <div class="bc-multi" id="multi-me">${multiTag(getM(me,subj))}</div>
-            <div class="battle-card">
+            <div class="battle-card" style="border: 3px solid ${s.attackerIdx === s.myIndex ? 'var(--red)' : 'transparent'}">
               <img src="${me.card?.image||''}" alt="" onerror="this.style.display='none'">
               <div class="bc-name">${me.card?.name||'???'}</div>
+              ${s.attackerIdx === s.myIndex ? `<div class="atk-badge-lg">ATTACKING</div>` : ''}
+              ${me.isDead ? `<div class="dead-overlay">已阵亡</div>` : ''}
             </div>
             <div class="bc-hp">
               <div class="hp-bar-h friendly" id="hp-me" style="width:${pct(me.hp,me.maxHp)}%"></div>
               <span class="hp-label" id="hp-me-t">${me.hp}</span>
             </div>
+            ${s.gameMode === 'sanguosha' ? `<div class="bc-identity-badge">${identityName(me.identity)}</div>` : ''}
             <div class="skill-desc-box">
               ${me.card?.positiveSkill ? `<div class="skill-desc-line pos">✦ ${me.card.positiveSkill.name}: ${me.card.positiveSkill.desc}</div>` : ''}
               ${me.card?.negativeSkill ? `<div class="skill-desc-line neg">✧ ${me.card.negativeSkill.name}: ${me.card.negativeSkill.desc}</div>` : ''}
@@ -182,15 +196,20 @@ function buildFfaGrid(s) {
   let html = `<div class="ffa-opponents-grid" style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:12px;">`;
   others.forEach(p => {
     const isDefender = s.defenderIdx !== null && s.players[s.defenderIdx]?.id === p.id;
+    const isAttacker = s.attackerIdx !== null && s.players[s.attackerIdx]?.id === p.id;
     const canBeTargeted = isTargeting && !p.isDead;
-    const identityDisplay = p.identity === 'lord' ? '👑主' : (p.identity === '?' ? '❓' : p.identity);
+    const identityDisplay = p.identity === 'lord' ? '👑主' : (p.identity === '?' ? '❓' : identityName(p.identity));
     
     html += `
-      <div class="ffa-micro-card ${isDefender ? 'active-target' : ''} ${p.isDead ? 'dead' : ''} ${canBeTargeted ? 'selectable-target' : ''}" 
-           style="position:relative; width:80px; background:var(--bg-card); border:2px solid ${isDefender ? 'var(--red)' : (canBeTargeted ? 'var(--accent)' : 'var(--bg-inset)')}; border-radius:8px; padding:4px; text-align:center; cursor:${canBeTargeted ? 'pointer' : 'default'}; transition:all 0.2s;"
+      <div class="ffa-micro-card ${isDefender ? 'active-target' : ''} ${isAttacker ? 'active-attacker' : ''} ${p.isDead ? 'dead' : ''} ${canBeTargeted ? 'selectable-target' : ''}" 
+           style="position:relative; width:80px; background:var(--bg-card); border:2px solid ${isDefender ? 'var(--red)' : (isAttacker ? 'var(--gold)' : (canBeTargeted ? 'var(--accent)' : 'var(--bg-inset)'))}; border-radius:8px; padding:4px; text-align:center; cursor:${canBeTargeted ? 'pointer' : 'default'}; transition:all 0.2s;"
            ${canBeTargeted ? `onclick="window.selectFfaTarget('${p.id}')"` : ''}>
         <div style="font-size:10px; color:var(--text-secondary); margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p.nickname}</div>
-        <img src="${p.card?.image||''}" alt="" onerror="this.style.display='none'" style="width:40px; height:40px; border-radius:50%; object-fit:cover; margin:0 auto; display:block; filter:${p.isDead ? 'grayscale(1)' : 'none'}">
+        <div class="micro-avatar-wrap" style="position:relative;">
+          <img src="${p.card?.image||''}" alt="" onerror="this.style.display='none'" style="width:40px; height:40px; border-radius:50%; object-fit:cover; margin:0 auto; display:block; filter:${p.isDead ? 'grayscale(1)' : 'none'}">
+          ${isAttacker ? `<div class="atk-badge" style="position:absolute; bottom:-4px; left:50%; transform:translateX(-50%); background:var(--red); color:#fff; font-size:8px; padding:0 4px; border-radius:4px; font-weight:900;">ATK</div>` : ''}
+          ${p.isDead ? `<div style="position:absolute; inset:0; background:rgba(0,0,0,0.4); border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; font-size:10px; font-weight:900;">已阵亡</div>` : ''}
+        </div>
         <div style="position:absolute; top:-4px; right:-4px; background:var(--bg-overlay); border-radius:10px; font-size:10px; padding:0 4px; border:1px solid var(--border);">${identityDisplay}</div>
         <div class="hp-bar-h enemy" style="width:${pct(p.hp,p.maxHp)}%; height:4px; margin-top:4px; border-radius:2px;"></div>
         <div style="font-size:9px; color:var(--text-main); margin-top:2px;">${p.hp}/${p.maxHp}</div>
@@ -232,11 +251,11 @@ function renderDice() {
     html += S.attackRolls.map((v, i) => {
       const isKept = S.atkResult?.keptIndices?.includes(i);
       let face = atkPool[i] || 6;
-      // 额外回合加成显示
       if (S.isExtraTurn && S.extraTurnFaceBoost) {
         face += S.extraTurnFaceBoost;
       }
-      const isYzx = !isMeAtk && atkPlayer?.cardId === 'char_10';
+      // 殷泽轩屏蔽：如果不是我掷出的且对方是 YZX
+      const isYzx = v === -1;
       const color = DICE_COLORS[face];
       let style = color ? `border-color:${color.border}; color:${color.border};` : '';
       if (!isMeAtk && S.atkResult && !isKept) style += 'opacity:0.3;';
@@ -265,15 +284,14 @@ function renderDice() {
       html += rollsToRender.map((v, i) => {
         const face = defPool[i] || 6;
         const color = DICE_COLORS[face];
-        // In AoE, everyone rolls their own defense, so it's always "me" if I am rendering this
-        // But what if I am an observer? S.aoeDefenses[me.id] would be null, so I won't enter this block unless I'm the target or after turn resolved.
-        // Wait, what if someone is observing? For now, observers just don't see defense dice until resolution.
-        const isYzx = false; // Because I'm rendering my own dice
+        // 如果点数是 -1，说明被后端屏蔽了
+        const isYzx = v === -1;
         let style = color ? `border-color:${color.border}; color:${color.border};` : '';
         if (isConfirmed) style += 'opacity:0.5;';
+        const displayVal = isYzx ? '?' : v;
         return `<div class="die defense${(canSelect && !isConfirmed) ? ' selectable' : ''}" style="${style}" data-idx="${i}" data-val="${v}">
           ${color && !isYzx ? `<div class="die-corner" style="color:${color.border};background:${color.bg}">${color.label}</div>` : ''}
-          ${v}
+          ${displayVal}
         </div>`;
       }).join('');
     }
@@ -388,26 +406,30 @@ function onAtkConfirmed(data) {
 
 // ── 辅助：构建提示信息 ──
 function buildAlerts(data) {
-  let alerts = '';
+  let alerts = [];
   const ar = data.atkResult || {};
-  const defPosTriggered = data.defPosTriggered;
-  const defNegTriggered = data.defNegTriggered;
 
-  if (ar.posTriggered) alerts += `<div class="skill-alert positive">✦ ${ar.posName} 发动！</div>`;
-  if (ar.negTriggered) alerts += `<div class="skill-alert negative">✧ ${ar.negName} 发动！</div>`;
-  if (defPosTriggered) alerts += `<div class="skill-alert positive">✦ ${data.defPosName} 发动！</div>`;
-  if (defNegTriggered) alerts += `<div class="skill-alert negative">✧ ${data.defNegName} 发动！</div>`;
-  
-  if (data.lcCounterDamage > 0) alerts += `<div class="skill-alert positive">🗡️ 反击伤害: ${data.lcCounterDamage}</div>`;
-  if (data.lcHealTriggered) alerts += `<div class="skill-alert positive">💚 献祭回复: ${data.healAmount}HP</div>`;
-  if (data.eatTriggered) alerts += `<div class="skill-alert positive">🍴 吃掉！攻击降为 2</div>`;
-  if (data.noobTriggered) alerts += `<div class="skill-alert negative">✧ 杂鱼反噬 — 血量减半！</div>`;
-  if (data.detonateTriggered) alerts += `<div class="skill-alert negative">💥 红温引爆 — ${data.detonateDamage}伤害！</div>`;
-  if (data.redHeatApplied > 0) alerts += `<div class="skill-alert negative">🔥 红温 +${data.redHeatApplied}层</div>`;
-  if (data.firstBloodTriggered) alerts += `<div class="skill-alert negative">📉 偏科 — 防御选骰数 -1！</div>`;
-  if (data.extraTurnTriggered) alerts += `<div class="skill-alert positive">⚡ 死磕 — 获得额外攻击回合！</div>`;
+  if (ar.posTriggered) alerts.push(`<div class="skill-alert positive">✦ ${ar.posName} 发动！</div>`);
+  if (ar.negTriggered) alerts.push(`<div class="skill-alert negative">✧ ${ar.negName} 发动！</div>`);
 
-  return alerts;
+  const results = data.isAoE ? data.aoeResults : [data];
+
+  results.forEach(res => {
+    if (res.defPosTriggered) alerts.push(`<div class="skill-alert positive">✦ ${res.defPosName} 发动！</div>`);
+    if (res.defNegTriggered) alerts.push(`<div class="skill-alert negative">✧ ${res.defNegName} 发动！</div>`);
+    
+    if (res.lcCounterDamage > 0) alerts.push(`<div class="skill-alert positive">🗡️ 反击伤害: ${res.lcCounterDamage}</div>`);
+    if (res.lcHealTriggered) alerts.push(`<div class="skill-alert positive">💚 献祭回复: ${res.healAmount}HP</div>`);
+    if (res.eatTriggered) alerts.push(`<div class="skill-alert positive">🍴 吃掉！攻击降为 2</div>`);
+    if (res.noobTriggered) alerts.push(`<div class="skill-alert negative">✧ 杂鱼反噬 — 血量减半！</div>`);
+    if (res.detonateTriggered) alerts.push(`<div class="skill-alert negative">💥 红温引爆 — ${res.detonateDamage}伤害！</div>`);
+    if (res.redHeatApplied > 0) alerts.push(`<div class="skill-alert negative">🔥 红温 +${res.redHeatApplied}层</div>`);
+    if (res.extraTurnTriggered) alerts.push(`<div class="skill-alert positive">⚡ 死磕 — 获得额外攻击回合！</div>`);
+  });
+
+  if (data.firstBloodTriggered) alerts.push(`<div class="skill-alert negative">📉 偏科 — 防御选骰数 -1！</div>`);
+
+  return [...new Set(alerts)].join('');
 }
 
 // ── 回合结算回调 (含攻击动画) ──

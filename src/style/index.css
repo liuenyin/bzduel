@@ -1,4 +1,4 @@
-/* ============================================================
+﻿/* ============================================================
    校园战力党 — 主样式
    风格：简约书卷气 · 暖白底 · 衬线标题
    ============================================================ */
@@ -788,12 +788,61 @@ input[type="text"]::placeholder{color:var(--text-muted)}
     width: 100%;
   }
   .go-vs {
-    font-size: 1.2rem; padding: 4px 0;
-  }
-  .go-stats .avatar {
-    width: 56px; height: 56px;
-  }
-  .go-footer button {
-    min-width: 160px !important; font-size: 0.95rem;
-  }
+
+/* --- FFA Battle Grid --- */
+.ffa-opponents-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 12px;
 }
+
+.ffa-micro-card {
+  position: relative;
+  width: 80px;
+  background: var(--bg-card);
+  border-radius: 8px;
+  padding: 4px;
+  text-align: center;
+  transition: all 0.2s;
+}
+
+.ffa-micro-card.active-target {
+  border: 2px solid var(--red);
+  box-shadow: 0 0 10px rgba(196, 92, 92, 0.3);
+}
+
+.ffa-micro-card.active-attacker {
+  border: 2px solid var(--gold);
+  animation: attacker-pulse 2s infinite;
+}
+
+.ffa-micro-card.selectable-target {
+  border: 2px solid var(--accent);
+  cursor: pointer;
+}
+
+.ffa-micro-card.dead {
+  filter: grayscale(1);
+  opacity: 0.7;
+}
+
+@keyframes attacker-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(192, 154, 80, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(192, 154, 80, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(192, 154, 80, 0); }
+}
+
+.identity-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: var(--bg-card);
+  border-radius: 10px;
+  font-size: 10px;
+  padding: 0 4px;
+  border: 1px solid var(--bg-inset);
+  box-shadow: var(--shadow);
+}
+

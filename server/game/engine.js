@@ -49,6 +49,7 @@ export function createGame(playerList, gameMode = GAME_MODE.MODE_1V1) {
     totalRound: 1,
     turnPhase: gameMode === GAME_MODE.MODE_FFA ? TURN.CHOOSE_TARGET : TURN.WAITING_ATK,
     turnData: { attackerIdx: 0, defenderIdx: gameMode === GAME_MODE.MODE_FFA ? null : 1, attackRolls: null, defenseRolls: null, hasAttackerRerolled: false, hasDefenderRerolled: false },
+    extraTurnQueue: [],
     log: [],
     winner: null,
   };
@@ -388,9 +389,35 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
     // Everyone confirmed, process AoE damage
     let aoeResults = [];
     let noDamageCount = 0;
-    let extraTurnTriggeredGlobal = false;
+    let extraTurnGainers = [];
     let firstBloodTriggeredGlobal = false;
 
+    // --- 1. ZWW "Eat it!" Global Reduction ---
+    let eatTriggeredBy = null;
+    let maxKeptRoll = -1;
+    let globalAtkReduction = 0;
+    
+    Object.keys(state.turnData.aoeDefenses).forEach(pid => {
+      const p = findPlayer(state, pid);
+      if (p.card.positiveSkill?.id === SKILL.EAT_IT) {
+        // find max kept roll
+        const atkRolls = state.turnData.attackRolls;
+        const atkKeptIndices = ar.keptIndices;
+        for (let idx of atkKeptIndices) {
+          if (atkRolls[idx] > maxKeptRoll) maxKeptRoll = atkRolls[idx];
+        }
+        if (maxKeptRoll > 2) {
+          globalAtkReduction = maxKeptRoll - 2;
+          eatTriggeredBy = pid;
+        }
+      }
+    });
+    
+    if (globalAtkReduction > 0) {
+      finalBaseAtk -= globalAtkReduction;
+    }
+
+    // --- 2. Process each target ---
     Object.keys(state.turnData.aoeDefenses).forEach(pid => {
       const p = findPlayer(state, pid);
       const ds = state.turnData.aoeDefenses[pid];
@@ -435,6 +462,74 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
 
       let damage = ar.pierce ? targetFinalBaseAtk : Math.max(0, targetFinalBaseAtk - pFinalFinalDef);
 
+      // 殷泽轩负面: 受到伤害时，最终伤害额外 +2 × 倍率
+      if (damage > 0 && p.card.negativeSkill?.id === SKILL.VULNERABLE) {
+        damage += Math.floor(2 * pMulti);
+      }
+
+      // 黄佳程正面: 天赋怪 (减伤)
+      let talentTriggered = false;
+      if (damage > 0 && p.card.positiveSkill?.id === SKILL.TALENTED) {
+        const ratio = pMulti === 2 ? 0.5 : (pMulti === 1 ? 0.75 : 1);
+        if (ratio < 1) {
+          damage = Math.floor(damage * ratio);
+          talentTriggered = true;
+        }
+      }
+
+      // 李灿正面A: 反击伤害
+      let lcCounterTriggered = false;
+      let lcCounterDamage = 0;
+      if (p.card.positiveSkill?.id === SKILL.GAL_PLAYER && pFinalFinalDef > targetFinalBaseAtk && !ar.pierce) {
+        lcCounterDamage = pFinalFinalDef - targetFinalBaseAtk;
+        atk.hp = Math.max(0, atk.hp - lcCounterDamage);
+        lcCounterTriggered = true;
+      }
+
+      // 团长大人！触发：防守时未重投 → 获得骰子
+      let commanderTriggered = false;
+      if (!ds.hasRerolled && p.card.positiveSkill?.id === SKILL.COMMANDER_RECRUIT && !ar.pierce) {
+        const newFace = pMulti === 0.5 ? 4 : (pMulti === 1 ? 6 : 8);
+        p.card.dicePool.push(newFace);
+        commanderTriggered = true;
+      }
+
+      // 杂鱼自残判定 (HJC: 攻击力 < 防御力 → 自身血量减半)
+      let noobTriggered = false;
+      if (targetFinalBaseAtk < pFinalFinalDef && atk.card.negativeSkill?.id === 'hjc_neg') {
+        atk.hp -= Math.floor(atk.hp / 2);
+        noobTriggered = true;
+      }
+
+      // 红温引爆 (WYC负面: 攻击≤防御时引爆对方红温)
+      let detonateTriggered = false;
+      let detonateDamage = 0;
+      if (targetFinalBaseAtk <= pFinalFinalDef && atk.card.negativeSkill?.id === SKILL.RED_HEAT_DETONATE) {
+        const opHeat = p.redHeat || 0;
+        if (opHeat > 0) {
+          detonateDamage = opHeat;
+          damage += detonateDamage;
+          p.redHeat = 0;
+          detonateTriggered = true;
+        }
+      }
+
+      p.hp = Math.max(0, p.hp - damage);
+      if (damage === 0) noDamageCount++;
+
+      // 红温叠加 (WYC正面: 造成伤害时给对方叠红温)
+      let redHeatApplied = 0;
+      if (damage > 0 && atk.card.positiveSkill?.id === SKILL.RED_HEAT_APPLY) {
+        redHeatApplied = 1 + Math.floor(2 * atkMulti);
+        p.redHeat = (p.redHeat || 0) + redHeatApplied;
+      }
+
+      // 触发 SUGAR_CRASH 负面效果
+      if (damage >= 8 && p.card.negativeSkill?.id === SKILL.SUGAR_CRASH) {
+        if (!p.buffs) p.buffs = [];
+        p.buffs.push({ id: SKILL.SUGAR_CRASH, expireRound: state.totalRound + 2 });
+      }
+
       if (damage > 0 && p.card.negativeSkill?.id === SKILL.FIRST_BLOOD && !p.hasTakenDamage) {
         p.hasTakenDamage = true;
         if (p.card.defSlots > 1) p.card.defSlots -= 1;
@@ -444,20 +539,26 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
       let pExtraTurnTriggered = false;
       if (damage >= 8 && p.card.positiveSkill?.id === SKILL.EXTRA_TURN && p.hp > 0) {
         pExtraTurnTriggered = true;
-        extraTurnTriggeredGlobal = true;
+        extraTurnGainers.push(pid);
         if (p.card.negativeSkill?.id === SKILL.BACK_PAIN && p.card.defSlots > 1) p.card.defSlots -= 1;
       }
 
-      p.hp -= damage;
-      if (damage === 0) noDamageCount++;
+      let pEatTriggered = eatTriggeredBy === pid;
 
       aoeResults.push({
         playerId: pid,
         damage, finalDef: pFinalFinalDef, penalty, baseDef: pBaseDef,
-        defNegTriggered: defNeg.triggered, defNegName: defNeg.triggered ? p.card.negativeSkill.name : null,
-        defPosTriggered: lcHealTriggered || pExtraTurnTriggered,
-        defPosName: lcHealTriggered ? "献祭" : (pExtraTurnTriggered ? "死磕" : null),
-        lcHealTriggered, healAmount, extraTurnTriggered: pExtraTurnTriggered
+        defNegTriggered: defNeg.triggered, 
+        defNegName: defNeg.triggered ? p.card.negativeSkill.name : null,
+        defPosTriggered: lcHealTriggered || pExtraTurnTriggered || pEatTriggered || talentTriggered || lcCounterTriggered || commanderTriggered,
+        defPosName: talentTriggered ? "天赋怪" : (commanderTriggered ? "团长大人!" : (pEatTriggered ? "吃掉!" : (lcHealTriggered ? "献祭" : (lcCounterTriggered ? "反击" : (pExtraTurnTriggered ? "死磕" : null))))),
+        lcHealTriggered, healAmount, 
+        eatTriggered: pEatTriggered,
+        extraTurnTriggered: pExtraTurnTriggered,
+        lcCounterDamage, lcCounterTriggered,
+        noobTriggered,
+        detonateTriggered, detonateDamage,
+        redHeatApplied,
       });
     });
 
@@ -466,10 +567,18 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
     if (atk.card.negativeSkill?.id === SKILL.FORGET_LYRICS && state.turnData.hasAttackerRerolled && noDamageCount > 0) {
       const fd = noDamageCount * 2 * atkMulti;
       selfDamage += fd;
-      atk.hp -= fd;
+      atk.hp = Math.max(0, atk.hp - fd);
+    }
+    
+    // Add extraTurnGainers to queue
+    if (extraTurnGainers.length > 0) {
+      if (!state.extraTurnQueue) state.extraTurnQueue = [];
+      extraTurnGainers.forEach(pid => {
+        state.extraTurnQueue.push({ attackerId: pid, targetId: atk.id });
+      });
     }
 
-    const { gameOver, winner, classChanged, nextSubject } = resolvePhaseEnd(state, extraTurnTriggeredGlobal);
+    const { gameOver, winner, classChanged, nextSubject } = resolvePhaseEnd(state);
     
     return {
       ok: true,
@@ -688,6 +797,8 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
   let extraTurnTriggered = false;
   if (damage >= 8 && def.card.positiveSkill?.id === SKILL.EXTRA_TURN && !gameOver && def.hp > 0) {
     extraTurnTriggered = true;
+    if (!state.extraTurnQueue) state.extraTurnQueue = [];
+    state.extraTurnQueue.push({ attackerId: def.id, targetId: atk.id });
     // 张楚唯负面: 腰疼？ — 每次逆袭后防御选骰 -1
     if (def.card.negativeSkill?.id === SKILL.BACK_PAIN && def.card.defSlots > 1) {
       def.card.defSlots -= 1;
@@ -695,17 +806,25 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
   }
 
   if (!gameOver) {
-    // 额外回合: 不推进 subRound，直接让防御方变成下一轮的攻击方
-    if (extraTurnTriggered) {
-      state.totalRound++;
-      const defIdx = state.turnData.defenderIdx;
-      state.turnData = { 
-        attackerIdx: defIdx, 
-        defenderIdx: state.gameMode === GAME_MODE.MODE_FFA ? null : (1 - defIdx), 
-        attackRolls: null, defenseRolls: null, hasAttackerRerolled: false, hasDefenderRerolled: false, isExtraTurn: true 
-      };
-      state.turnPhase = state.gameMode === GAME_MODE.MODE_FFA ? TURN.CHOOSE_TARGET : TURN.WAITING_ATK;
-    } else {
+    let extraTurnSet = false;
+    while (state.extraTurnQueue && state.extraTurnQueue.length > 0) {
+      const nextExtra = state.extraTurnQueue.shift();
+      const atkIdx = state.players.findIndex(p => p.id === nextExtra.attackerId);
+      const defIdx = state.players.findIndex(p => p.id === nextExtra.targetId);
+      if (atkIdx !== -1 && defIdx !== -1 && !state.players[atkIdx].isDead && !state.players[defIdx].isDead) {
+        state.totalRound++;
+        state.turnData = { 
+          attackerIdx: atkIdx, 
+          defenderIdx: defIdx, 
+          attackRolls: null, defenseRolls: null, hasAttackerRerolled: false, hasDefenderRerolled: false, isExtraTurn: true 
+        };
+        state.turnPhase = TURN.WAITING_ATK;
+        extraTurnSet = true;
+        break;
+      }
+    }
+
+    if (!extraTurnSet) {
       state.totalRound++;
       state.currentSubRound++;
       if (state.currentSubRound >= GAME_CONFIG.SUBROUNDS_PER_CLASS) {
@@ -856,15 +975,20 @@ export function getStateView(state, playerId) {
   const isAtk = state.turnData?.attackerIdx === myIdx;
 
   const mapPlayerView = (p, pIdx) => {
-    const isChar10 = p.cardId === 'char_10' && state.phase !== PHASE.GAME_OVER;
-    const hideIdentity = state.gameMode === GAME_MODE.MODE_FFA && pIdx !== myIdx && p.identity !== IDENTITY.LORD && !p.isDead && state.phase !== PHASE.GAME_OVER;
+    // 殷泽轩 (char_10) 技能：对方无法查看你的 HP 与掷骰点数
+    const isYZX = p.cardId === 'char_10';
+    const isMe = pIdx === myIdx;
+    const hideHP = isYZX && !isMe && state.phase !== PHASE.GAME_OVER;
+    
+    // 身份隐藏逻辑 (大乱斗模式下，非主公且非自己的身份对他人隐藏)
+    const hideIdentity = state.gameMode === GAME_MODE.MODE_FFA && !isMe && p.identity !== IDENTITY.LORD && !p.isDead && state.phase !== PHASE.GAME_OVER;
     
     return {
       id: p.id, nickname: p.nickname,
       cardId: (state.phase === PHASE.BATTLE || state.phase === PHASE.GAME_OVER) ? p.cardId : null,
       card: (state.phase === PHASE.BATTLE || state.phase === PHASE.GAME_OVER) ? p.card : null,
-      hp: isChar10 ? '??' : p.hp,
-      maxHp: isChar10 ? '??' : p.maxHp,
+      hp: hideHP ? '??' : p.hp,
+      maxHp: hideHP ? '??' : p.maxHp,
       ready: p.ready,
       hasReschedule: p.hasReschedule, rerolls: p.rerolls, buffs: p.buffs,
       permanentDefPenalty: p.permanentDefPenalty, redHeat: p.redHeat || 0,
@@ -887,19 +1011,36 @@ export function getStateView(state, playerId) {
     turnPhase: state.turnPhase,
     isMyAttackTurn: isAtk && (state.turnPhase === TURN.WAITING_ATK || state.turnPhase === TURN.ATK_ROLLED || state.turnPhase === TURN.CHOOSE_TARGET),
     isMyDefendTurn: !isAtk && state.turnPhase === TURN.DEF_ROLLED && (state.turnData?.isAoE ? !!state.turnData?.aoeDefenses[playerId] : state.turnData?.defenderIdx === myIdx),
-    attackRolls: state.turnData?.attackRolls ? [...state.turnData.attackRolls] : null,
-    defenseRolls: state.turnData?.defenseRolls ? [...state.turnData.defenseRolls] : null,
-    aoeDefenses: state.turnData?.isAoE ? (
-      Object.fromEntries(Object.entries(state.turnData.aoeDefenses).map(([pid, d]) => [
-        pid, {
-          confirmed: d.confirmed,
-          hasRerolled: d.hasRerolled,
-          // Only reveal rolls to the player themselves until the phase is over
-          rolls: (pid === playerId || state.turnPhase !== TURN.DEF_ROLLED) ? [...d.rolls] : null
-        }
-      ]))
+    // 殷泽轩屏蔽点数逻辑：如果是 YZX 在掷骰且不是我，点数显示为 null
+    attackRolls: (state.turnData?.attackRolls) ? (
+      (state.players[state.turnData.attackerIdx].cardId === 'char_10' && state.turnData.attackerIdx !== myIdx && state.phase !== PHASE.GAME_OVER) 
+      ? state.turnData.attackRolls.map(() => -1) 
+      : [...state.turnData.attackRolls]
     ) : null,
-    atkResult: state.turnData?.atkResult || null,
+    defenseRolls: state.turnData?.defenseRolls ? (
+       (state.players[state.turnData.defenderIdx]?.cardId === 'char_10' && state.turnData.defenderIdx !== myIdx && state.phase !== PHASE.GAME_OVER)
+       ? state.turnData.defenseRolls.map(() => -1)
+       : [...state.turnData.defenseRolls]
+    ) : null,
+    aoeDefenses: state.turnData?.isAoE ? (
+      Object.fromEntries(Object.entries(state.turnData.aoeDefenses).map(([pid, d]) => {
+        const pIdx = state.players.findIndex(x => x.id === pid);
+        const isTargetYZX = state.players[pIdx].cardId === 'char_10';
+        const hideRolls = isTargetYZX && pid !== playerId && state.phase !== PHASE.GAME_OVER;
+        return [
+          pid, {
+            confirmed: d.confirmed,
+            hasRerolled: d.hasRerolled,
+            rolls: (pid === playerId || (state.turnPhase !== TURN.DEF_ROLLED && !hideRolls)) ? [...d.rolls] : (hideRolls ? d.rolls.map(() => -1) : null)
+          }
+        ];
+      }))
+    ) : null,
+    atkResult: (state.turnData?.atkResult) ? (
+      (state.players[state.turnData.attackerIdx].cardId === 'char_10' && state.turnData.attackerIdx !== myIdx && state.phase !== PHASE.GAME_OVER)
+      ? { ...state.turnData.atkResult, baseAtk: '??', finalAtk: '??' }
+      : state.turnData.atkResult
+    ) : null,
     allergyTriggered: state.turnData?.allergyTriggered || false,
     isExtraTurn: state.turnData?.isExtraTurn || false,
     extraTurnFaceBoost: state.turnData?.extraTurnFaceBoost || 0,
@@ -910,7 +1051,7 @@ export function getStateView(state, playerId) {
   };
 }
 
-export function resolvePhaseEnd(state, extraTurnTriggeredGlobal) {
+export function resolvePhaseEnd(state) {
   let gameOver = false, winner = null, classChanged = false, nextSubject = null;
   
   // Handle deaths
@@ -952,18 +1093,25 @@ export function resolvePhaseEnd(state, extraTurnTriggeredGlobal) {
   }
 
   if (!gameOver) {
-    if (extraTurnTriggeredGlobal) {
-      state.totalRound++;
-      const defIdx = state.turnData.defenderIdx; // Note: for AoE this might be just the primary target gaining extra turn?
-      // Actually, if an AoE target gains an extra turn, it goes to them. But if multiple targets gain it?
-      // We will simplify and give it to whoever triggered it last (or first). For now, it's just defIdx.
-      state.turnData = { 
-        attackerIdx: defIdx, 
-        defenderIdx: null, 
-        attackRolls: null, defenseRolls: null, hasAttackerRerolled: false, hasDefenderRerolled: false, isExtraTurn: true 
-      };
-      state.turnPhase = TURN.CHOOSE_TARGET;
-    } else {
+    let extraTurnSet = false;
+    while (state.extraTurnQueue && state.extraTurnQueue.length > 0) {
+      const nextExtra = state.extraTurnQueue.shift();
+      const atkIdx = state.players.findIndex(p => p.id === nextExtra.attackerId);
+      const defIdx = state.players.findIndex(p => p.id === nextExtra.targetId);
+      if (atkIdx !== -1 && defIdx !== -1 && !state.players[atkIdx].isDead && !state.players[defIdx].isDead) {
+        state.totalRound++;
+        state.turnData = { 
+          attackerIdx: atkIdx, 
+          defenderIdx: defIdx, 
+          attackRolls: null, defenseRolls: null, hasAttackerRerolled: false, hasDefenderRerolled: false, isExtraTurn: true 
+        };
+        state.turnPhase = TURN.WAITING_ATK; // Skip CHOOSE_TARGET since the target is locked
+        extraTurnSet = true;
+        break;
+      }
+    }
+
+    if (!extraTurnSet) {
       state.totalRound++;
       state.currentSubRound++;
       if (state.currentSubRound >= GAME_CONFIG.SUBROUNDS_PER_CLASS) {

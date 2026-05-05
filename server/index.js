@@ -337,26 +337,34 @@ io.on('connection', (socket) => {
     if (roomId) {
       const room = rooms.get(roomId);
       if (room && !room.isAI && room.game && room.game.players) {
-        // Mark as dead
-        const player = room.game.players.find(p => p.id === socket.id);
-        if (player) {
-          player.hp = 0;
-          player.isDead = true;
-          
-          // Auto-confirm AoE defense if they are currently supposed to be rolling
-          if (room.game.turnPhase === TURN.DEF_ROLLED && room.game.turnData?.isAoE) {
-            const defState = room.game.turnData.aoeDefenses[socket.id];
-            if (defState && !defState.confirmed) {
-              const res = confirmDefense(room.game, socket.id, defState.rolls.map((_, i) => i).slice(0, player.card.defSlots));
-              if (res.ok && !res.waitingForOthers) {
-                emitToAll(room, 'turn_resolved', (pid) => ({ ...res, state: getStateView(room.game, pid) }));
+        if (room.game.pending) {
+          // Remove from list if game hasn't started
+          room.game.players = room.game.players.filter(p => p.id !== socket.id);
+          room.playerSockets = room.playerSockets.filter(sid => sid !== socket.id);
+          if (room.playerSockets.length === 0) {
+            rooms.delete(roomId);
+          } else {
+            io.to(roomId).emit('ffa_room_update', { players: room.game.players });
+          }
+        } else {
+          // Battle started: Mark as dead
+          const player = room.game.players.find(p => p.id === socket.id);
+          if (player) {
+            player.hp = 0;
+            player.isDead = true;
+            // Auto-confirm AoE defense if they are currently supposed to be rolling
+            if (room.game.turnPhase === TURN.DEF_ROLLED && room.game.turnData?.isAoE) {
+              const defState = room.game.turnData.aoeDefenses[socket.id];
+              if (defState && !defState.confirmed) {
+                const res = confirmDefense(room.game, socket.id, defState.rolls.map((_, i) => i).slice(0, player.card.defSlots));
+                if (res.ok && !res.waitingForOthers) {
+                  emitToAll(room, 'turn_resolved', (pid) => ({ ...res, state: getStateView(room.game, pid) }));
+                }
               }
             }
+            emitToAll(room, 'opponent_disconnected', { disconnectedId: socket.id });
+            emitStateToAll(room);
           }
-          
-          // Notify everyone else
-          emitToAll(room, 'opponent_disconnected', { disconnectedId: socket.id });
-          emitStateToAll(room);
         }
       }
       socketToRoom.delete(socket.id);
