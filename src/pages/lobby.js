@@ -21,10 +21,21 @@ export function renderLobby(container) {
         <hr style="border:none; border-top:1px solid var(--bg-inset); margin:12px 0;" />
 
         <div class="btn-group">
-          <button id="btn-create" class="btn btn-secondary">创建房间</button>
+          <button id="btn-create" class="btn btn-secondary">创建 1v1 房间</button>
           <div class="room-row">
             <input id="room-input" type="text" placeholder="房间号" maxlength="8" />
-            <button id="btn-join" class="btn btn-secondary">加入</button>
+            <button id="btn-join" class="btn btn-secondary">加入 1v1</button>
+          </div>
+        </div>
+
+        <div style="margin-top:20px; padding-top:16px; border-top:1px dashed var(--bg-inset);">
+          <p style="font-family:var(--font-display); font-weight:700; color:var(--accent); text-align:center; margin-bottom:12px;">三国杀？ (3~8人)</p>
+          <div class="btn-group">
+            <button id="btn-create-ffa" class="btn btn-primary" style="flex:1">创建大乱斗</button>
+            <div class="room-row" style="flex:2">
+              <input id="room-input-ffa" type="text" placeholder="大乱斗房间号" maxlength="8" />
+              <button id="btn-join-ffa" class="btn btn-primary">加入</button>
+            </div>
           </div>
         </div>
       </div>
@@ -105,7 +116,7 @@ export function renderLobby(container) {
   document.getElementById('btn-create').addEventListener('click', () => {
     const n = getNick(); if (!n) return;
     gameSocket.createRoom(n);
-    statusDiv.innerHTML = '<p class="status-msg">创建房间中…</p>';
+    statusDiv.innerHTML = '<p class="status-msg">创建 1v1 房间中…</p>';
   });
 
   document.getElementById('btn-join').addEventListener('click', () => {
@@ -118,17 +129,54 @@ export function renderLobby(container) {
     gameSocket.joinRoom(n, roomId);
   });
 
+  document.getElementById('btn-create-ffa').addEventListener('click', () => {
+    const n = getNick(); if (!n) return;
+    gameSocket.createFfaRoom(n);
+    statusDiv.innerHTML = '<p class="status-msg">创建大乱斗房间中…</p>';
+  });
+
+  document.getElementById('btn-join-ffa').addEventListener('click', () => {
+    const n = getNick(); if (!n) return;
+    const roomId = document.getElementById('room-input-ffa').value.trim();
+    if (!roomId) {
+      statusDiv.innerHTML = '<p style="color:var(--red);">请输入大乱斗房间号</p>';
+      return;
+    }
+    gameSocket.joinFfaRoom(n, roomId);
+  });
+
   // ── 服务端事件 ──
-  gameSocket.on('room_created', ({ roomId }) => {
+  gameSocket.on('room_created', ({ roomId, mode }) => {
     gameSocket.currentRoomId = roomId;
     showGlobalChat('房间已创建，等待对手加入...');
+    const modeName = mode === 'sanguosha' ? '大乱斗' : '1v1';
     statusDiv.innerHTML = `
       <div class="panel" style="text-align:center; padding:16px;">
-        <p style="color:var(--text-secondary);">房间已创建，将房间号发给好友：</p>
+        <p style="color:var(--text-secondary);">${modeName} 房间已创建，将房间号发给好友：</p>
         <p style="font-family:var(--font-display); font-size:2rem; font-weight:900; color:var(--accent); margin:8px 0;">${roomId}</p>
         <p class="status-msg">等待好友加入…</p>
+        ${mode === 'sanguosha' ? `<button id="btn-start-ffa" class="btn btn-primary" style="margin-top:12px; width:100%;">全员准备完毕，开始游戏</button>` : ''}
       </div>
     `;
+
+    if (mode === 'sanguosha') {
+      document.getElementById('btn-start-ffa').addEventListener('click', () => {
+        gameSocket.startFfaGame();
+      });
+    }
+  });
+
+  gameSocket.on('ffa_room_update', ({ players }) => {
+    // 仅在房主端显示或者全员大厅显示
+    const list = players.map(p => `<li>${p.nickname}</li>`).join('');
+    const listEl = document.getElementById('ffa-player-list');
+    if(listEl) listEl.innerHTML = `已加入: <ul>${list}</ul>`;
+    else {
+      const p = document.createElement('div');
+      p.id = 'ffa-player-list';
+      p.innerHTML = `已加入: <ul>${list}</ul>`;
+      statusDiv.appendChild(p);
+    }
   });
 
   gameSocket.on('matchmaking_waiting', () => {

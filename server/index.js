@@ -8,7 +8,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import {
   createGame, selectCard, setReady, useReschedule,
-  rollAttack, rerollDice, confirmAttack, confirmDefense,
+  rollAttack, rerollDice, confirmAttack, confirmDefense, selectTarget,
   getCurrentAttackerId, getCurrentDefenderId, getStateView, TURN,
 } from './game/engine.js';
 import { aiSelectCard } from './game/ai.js';
@@ -36,7 +36,10 @@ io.on('connection', (socket) => {
   socket.on('start_pve', ({ nickname }) => {
     const roomId = newRoomId();
     const aiId = 'AI_' + roomId;
-    const game = createGame(socket.id, nickname, aiId, '🤖 电脑');
+    const game = createGame([
+      { id: socket.id, nickname },
+      { id: aiId, nickname: '🤖 电脑' }
+    ]);
     rooms.set(roomId, { game, playerSockets: [socket.id, null], isAI: true, aiId });
     socketToRoom.set(socket.id, roomId);
     socket.emit('match_found', {
@@ -61,21 +64,24 @@ io.on('connection', (socket) => {
   socket.on('create_room', ({ nickname }) => {
     const roomId = newRoomId();
     rooms.set(roomId, {
-      game: { pending: true, creatorId: socket.id, creatorName: nickname },
+      game: { pending: true, creatorId: socket.id, creatorName: nickname, mode: '1v1' },
       playerSockets: [socket.id, null], isAI: false,
     });
     socketToRoom.set(socket.id, roomId);
     socket.join(roomId);
-    socket.emit('room_created', { roomId });
+    socket.emit('room_created', { roomId, mode: '1v1' });
   });
 
   // ── 加入房间 ──
   socket.on('join_room', ({ nickname, roomId }) => {
     const room = rooms.get(roomId);
-    if (!room || !room.game.pending) {
+    if (!room || !room.game.pending || room.game.mode !== '1v1') {
       socket.emit('error_msg', { message: '房间不存在或已开始' }); return;
     }
-    const game = createGame(room.game.creatorId, room.game.creatorName, socket.id, nickname);
+    const game = createGame([
+      { id: room.game.creatorId, nickname: room.game.creatorName },
+      { id: socket.id, nickname }
+    ]);
     room.game = game; room.playerSockets[1] = socket.id;
     socketToRoom.set(socket.id, roomId);
     socket.join(roomId);
@@ -99,7 +105,10 @@ io.on('connection', (socket) => {
       }
       const other = matchQueue.splice(idx, 1)[0];
       const roomId = newRoomId();
-      const game = createGame(other.socketId, other.nickname, socket.id, nickname);
+      const game = createGame([
+        { id: other.socketId, nickname: other.nickname },
+        { id: socket.id, nickname }
+      ]);
       rooms.set(roomId, { game, playerSockets: [other.socketId, socket.id], isAI: false });
       socketToRoom.set(socket.id, roomId);
       socketToRoom.set(other.socketId, roomId);
@@ -120,11 +129,72 @@ io.on('connection', (socket) => {
   });
 
   socket.on('cancel_matchmaking', () => {
-    const idx = matchQueue.findIndex(q => q.socketId === socket.id);
-    if (idx >= 0) matchQueue.splice(idx, 1);
+    const idx = matchQueue.findIndex(p => p.socketId === socket.id);
+    if (idx !== -1) matchQueue.splice(idx, 1);
   });
 
-  // ── 选卡 ──
+  // ── FFA 大乱斗房间 ──
+  socket.on('create_ffa_room', ({ nickname }) => {
+    const roomId = newRoomId();
+    rooms.set(roomId, {
+      game: { pending: true, mode: 'sanguosha', players: [{ id: socket.id, nickname }] },
+      playerSockets: [socket.id], isAI: false,
+    });
+    socketToRoom.set(socket.id, roomId);
+    socket.join(roomId);
+    socket.emit('room_created', { roomId, mode: 'sanguosha' });
+    io.to(roomId).emit('ffa_room_update', { players: [{ id: socket.id, nickname }] });
+  });
+
+  socket.on('join_ffa_room', ({ nickname, roomId }) => {
+    const room = rooms.get(roomId);
+    if (!room || !room.game.pending || room.game.mode !== 'sanguosha') {
+      socket.emit('error_msg', { message: '房间不存在或已开始' }); return;
+    }
+    if (room.game.players.length >= 8) {
+      socket.emit('error_msg', { message: '房间已满 (最多8人)' }); return;
+    }
+    room.game.players.push({ id: socket.id, nickname });
+    room.playerSockets.push(socket.id);
+    socketToRoom.set(socket.id, roomId);
+    socket.join(roomId);
+    
+    // 通知所有人更新房间玩家列表
+    io.to(roomId).emit('ffa_room_update', { players: room.game.players });
+  });
+
+  socket.on('start_ffa_game', ({ roomId }) => {
+    const room = rooms.get(roomId);
+    if (!room || !room.game.pending || room.game.mode !== 'sanguosha') return;
+    // 只有房主可以开始
+    if (room.game.players[0].id !== socket.id) return;
+    if (room.game.players.length < 3) {
+      socket.emit('error_msg', { message: '大乱斗至少需要 3 名玩家' }); return;
+    }
+
+    const game = createGame(room.game.players, 'sanguosha');
+    room.game = game;
+
+    for (const pid of room.playerSockets) {
+      io.to(pid).emit('match_found', {
+        roomId, 
+        opponent: '大乱斗模式', // placeholder
+        schedule: game.schedule, 
+        state: getStateView(game, pid),
+      });
+    }
+  });
+
+  // ── 战斗内交互 ──
+  socket.on('select_target', ({ targetId }) => {
+    const room = getRoom(socket.id); if (!room) return;
+    if (selectTarget(room.game, socket.id, targetId).ok) {
+      room.playerSockets.forEach(pid => {
+        io.to(pid).emit('state_update', getStateView(room.game, pid));
+      });
+    }
+  });
+
   socket.on('select_card', ({ cardId }) => {
     const room = getRoom(socket.id); if (!room) return;
     if (selectCard(room.game, socket.id, cardId).ok) {

@@ -22,6 +22,11 @@ class GameSocket {
   joinMatchmaking(n) { this.socket.emit('join_matchmaking', { nickname: n }); }
   cancelMatchmaking() { this.socket.emit('cancel_matchmaking'); }
 
+  createFfaRoom(n) { this.socket.emit('create_ffa_room', { nickname: n }); }
+  joinFfaRoom(n, r) { this.socket.emit('join_ffa_room', { nickname: n, roomId: r }); }
+  startFfaGame() { if(this.currentRoomId) this.socket.emit('start_ffa_game', { roomId: this.currentRoomId }); }
+
+  selectTarget(id) { this.socket.emit('select_target', { targetId: id }); }
   selectCard(id) { this.socket.emit('select_card', { cardId: id }); }
   setReady() { this.socket.emit('ready'); }
   useReschedule(idx, subj) { this.socket.emit('use_reschedule', { classIndex: idx, newType: subj }); }

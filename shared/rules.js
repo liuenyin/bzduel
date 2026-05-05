@@ -47,6 +47,20 @@ export const PHASE = {
   GAME_OVER: 'game_over',
 };
 
+/** 游戏模式 */
+export const GAME_MODE = {
+  MODE_1V1: '1v1',
+  MODE_FFA: 'sanguosha',
+};
+
+/** 身份 (SanGuoSha FFA 模式专属) */
+export const IDENTITY = {
+  LORD: 'lord',         // 主公
+  LOYALIST: 'loyalist', // 忠臣
+  SPY: 'spy',           // 内奸
+  REBEL: 'rebel',       // 反贼
+};
+
 /** 固定配置 */
 export const GAME_CONFIG = {
   CLASSES_PER_GAME: 6,

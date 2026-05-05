@@ -3,12 +3,13 @@
 // ============================================================
 import {
   SUBJECTS, CORE_SUBJECTS, ELECTIVE_SUBJECTS, MINOR_SUBJECTS,
-  GAME_CONFIG, PHASE, getSkillMultiplier,
+  GAME_CONFIG, PHASE, GAME_MODE, IDENTITY, getSkillMultiplier,
 } from '../../shared/rules.js';
 import { characterMap, SKILL } from '../../shared/characters.js';
 
 // ── 回合子阶段 ──
 export const TURN = {
+  CHOOSE_TARGET: 'choose_target', // 大乱斗专属
   WAITING_ATK: 'waiting_atk',
   ATK_ROLLED: 'atk_rolled',
   DEF_ROLLED: 'def_rolled',
@@ -36,17 +37,18 @@ export function generateSchedule() {
 }
 
 // ── 创建游戏 ──
-export function createGame(p1Id, p1Name, p2Id, p2Name) {
+export function createGame(playerList, gameMode = GAME_MODE.MODE_1V1) {
   return {
     phase: PHASE.PREPARATION,
-    players: [makePlayer(p1Id, p1Name), makePlayer(p2Id, p2Name)],
+    gameMode,
+    players: playerList.map(p => makePlayer(p.id, p.nickname)),
     schedule: generateSchedule(),
     currentClassIndex: 0,
     firstAttacker: 0,
     currentSubRound: 0,
     totalRound: 1,
-    turnPhase: TURN.WAITING_ATK,
-    turnData: { attackerIdx: 0, defenderIdx: 1, attackRolls: null, defenseRolls: null, hasAttackerRerolled: false, hasDefenderRerolled: false },
+    turnPhase: gameMode === GAME_MODE.MODE_FFA ? TURN.CHOOSE_TARGET : TURN.WAITING_ATK,
+    turnData: { attackerIdx: 0, defenderIdx: gameMode === GAME_MODE.MODE_FFA ? null : 1, attackRolls: null, defenseRolls: null, hasAttackerRerolled: false, hasDefenderRerolled: false },
     log: [],
     winner: null,
   };
@@ -85,9 +87,35 @@ export function setReady(state, playerId) {
     state.currentSubRound = 0;
     state.firstAttacker = 0;
     state.totalRound = 1;
+
+    // ── SanGuoSha 身份分配 ──
+    if (state.gameMode === GAME_MODE.MODE_FFA) {
+      const n = state.players.length;
+      let roles = [];
+      if (n === 3) roles = [IDENTITY.LORD, IDENTITY.REBEL, IDENTITY.SPY];
+      else if (n === 4) roles = [IDENTITY.LORD, IDENTITY.LOYALIST, IDENTITY.REBEL, IDENTITY.SPY];
+      else if (n === 5) roles = [IDENTITY.LORD, IDENTITY.LOYALIST, IDENTITY.REBEL, IDENTITY.REBEL, IDENTITY.SPY];
+      else if (n === 6) roles = [IDENTITY.LORD, IDENTITY.LOYALIST, IDENTITY.REBEL, IDENTITY.REBEL, IDENTITY.REBEL, IDENTITY.SPY];
+      else if (n === 7) roles = [IDENTITY.LORD, IDENTITY.LOYALIST, IDENTITY.LOYALIST, IDENTITY.REBEL, IDENTITY.REBEL, IDENTITY.REBEL, IDENTITY.SPY];
+      else if (n >= 8) roles = [IDENTITY.LORD, IDENTITY.LOYALIST, IDENTITY.LOYALIST, IDENTITY.REBEL, IDENTITY.REBEL, IDENTITY.REBEL, IDENTITY.REBEL, IDENTITY.SPY];
+      
+      roles = shuffle(roles.slice(0, n));
+      for (let i = 0; i < n; i++) {
+        state.players[i].identity = roles[i];
+        if (roles[i] === IDENTITY.LORD) {
+          state.players[i].hp += 2;
+          state.players[i].maxHp += 2;
+        }
+      }
+    }
+
     const atkIdx = 0;
-    state.turnPhase = TURN.WAITING_ATK;
-    state.turnData = { attackerIdx: atkIdx, defenderIdx: 1 - atkIdx, attackRolls: null, defenseRolls: null, hasAttackerRerolled: false, hasDefenderRerolled: false };
+    state.turnPhase = state.gameMode === GAME_MODE.MODE_FFA ? TURN.CHOOSE_TARGET : TURN.WAITING_ATK;
+    state.turnData = { 
+      attackerIdx: atkIdx, 
+      defenderIdx: state.gameMode === GAME_MODE.MODE_FFA ? null : (1 - atkIdx), 
+      attackRolls: null, defenseRolls: null, hasAttackerRerolled: false, hasDefenderRerolled: false 
+    };
     return { ok: true, battleStarted: true };
   }
   return { ok: true, battleStarted: false };
@@ -447,16 +475,62 @@ export function confirmDefense(state, keepIndices, options = {}) {
     def.buffs.push({ id: SKILL.SUGAR_CRASH, expireRound: state.totalRound + 2 });
   }
 
-  // Check game over
+  // Check game over & handle deaths
   let gameOver = false, winner = null, classChanged = false, nextSubject = null;
   const prevAttackerIdx = state.turnData.attackerIdx;
-  if (atk.hp <= 0 || def.hp <= 0) {
-    gameOver = true;
-    if (atk.hp <= 0 && def.hp <= 0) winner = 'draw';
-    else if (def.hp <= 0) winner = state.turnData.attackerIdx;
-    else winner = state.turnData.defenderIdx;
-    state.phase = PHASE.GAME_OVER;
-    state.winner = winner;
+  
+  if (atk.hp <= 0) {
+    atk.hp = 0;
+    if (!atk.isDead) {
+      atk.isDead = true;
+      // atk caused their own death
+    }
+  }
+  if (def.hp <= 0) {
+    def.hp = 0;
+    if (!def.isDead) {
+      def.isDead = true;
+      // Lord kills Loyalist penalty
+      if (state.gameMode === GAME_MODE.MODE_FFA && atk.identity === IDENTITY.LORD && def.identity === IDENTITY.LOYALIST) {
+        atk.card.positiveSkill = null; // 主公误杀忠臣，失去正面技能
+        state.log.push({ text: `【系统】主公 ${atk.nickname} 误杀忠臣，失去了正面技能！`, type: 'system' });
+      }
+    }
+  }
+
+  // 结算胜负
+  if (state.gameMode === GAME_MODE.MODE_1V1) {
+    if (atk.isDead || def.isDead) {
+      gameOver = true;
+      if (atk.isDead && def.isDead) winner = 'draw';
+      else if (def.isDead) winner = state.turnData.attackerIdx;
+      else winner = state.turnData.defenderIdx;
+      state.phase = PHASE.GAME_OVER;
+      state.winner = winner;
+    }
+  } else {
+    // FFA 胜负
+    const lord = state.players.find(p => p.identity === IDENTITY.LORD);
+    if (lord && lord.isDead) {
+      gameOver = true;
+      state.phase = PHASE.GAME_OVER;
+      const aliveSpies = state.players.filter(p => p.identity === IDENTITY.SPY && !p.isDead);
+      const otherAlive = state.players.filter(p => p.identity !== IDENTITY.SPY && !p.isDead);
+      if (aliveSpies.length === 1 && otherAlive.length === 0) {
+        winner = 'spy';
+      } else {
+        winner = 'rebel';
+      }
+      state.winner = winner;
+    } else {
+      const aliveBadGuys = state.players.filter(p => (p.identity === IDENTITY.REBEL || p.identity === IDENTITY.SPY) && !p.isDead);
+      if (aliveBadGuys.length === 0) {
+        gameOver = true;
+        state.phase = PHASE.GAME_OVER;
+        winner = 'lord';
+        state.winner = winner;
+      }
+    }
   }
 
   // 张楚唯正面: 逆袭 — 受到 >=8 伤害时获得额外攻击回合
@@ -474,30 +548,70 @@ export function confirmDefense(state, keepIndices, options = {}) {
     if (extraTurnTriggered) {
       state.totalRound++;
       const defIdx = state.turnData.defenderIdx;
-      state.turnData = { attackerIdx: defIdx, defenderIdx: 1 - defIdx, attackRolls: null, defenseRolls: null, hasAttackerRerolled: false, hasDefenderRerolled: false, isExtraTurn: true };
-      state.turnPhase = TURN.WAITING_ATK;
+      state.turnData = { 
+        attackerIdx: defIdx, 
+        defenderIdx: state.gameMode === GAME_MODE.MODE_FFA ? null : (1 - defIdx), 
+        attackRolls: null, defenseRolls: null, hasAttackerRerolled: false, hasDefenderRerolled: false, isExtraTurn: true 
+      };
+      state.turnPhase = state.gameMode === GAME_MODE.MODE_FFA ? TURN.CHOOSE_TARGET : TURN.WAITING_ATK;
     } else {
       state.totalRound++;
       state.currentSubRound++;
       if (state.currentSubRound >= GAME_CONFIG.SUBROUNDS_PER_CLASS) {
         state.currentSubRound = 0;
         state.currentClassIndex++;
-        state.firstAttacker = 1 - state.firstAttacker;
+        
+        // 推进 attacker 逻辑
+        if (state.gameMode === GAME_MODE.MODE_1V1) {
+          state.firstAttacker = 1 - state.firstAttacker;
+        } else {
+          // FFA 寻找下一个活着的玩家作为 firstAttacker
+          let nextFirst = (state.firstAttacker + 1) % state.players.length;
+          while (state.players[nextFirst].isDead && nextFirst !== state.firstAttacker) {
+            nextFirst = (nextFirst + 1) % state.players.length;
+          }
+          state.firstAttacker = nextFirst;
+        }
+        
         classChanged = true;
         if (state.currentClassIndex >= GAME_CONFIG.CLASSES_PER_GAME) {
           gameOver = true;
-          const h0 = state.players[0].hp, h1 = state.players[1].hp;
-          state.winner = h0 > h1 ? 0 : h1 > h0 ? 1 : 'draw';
           state.phase = PHASE.GAME_OVER;
+          if (state.gameMode === GAME_MODE.MODE_1V1) {
+            const h0 = state.players[0].hp, h1 = state.players[1].hp;
+            state.winner = h0 > h1 ? 0 : h1 > h0 ? 1 : 'draw';
+          } else {
+            // FFA 打满6节课，如果还没结束，算反贼赢？还是按血量？三国杀通常没有回合上限，但这里有。
+            // 简单处理：算作主公防守成功
+            state.winner = 'lord';
+          }
           winner = state.winner;
         } else {
           nextSubject = state.schedule[state.currentClassIndex];
         }
       }
       if (!gameOver) {
-        const ni = (state.firstAttacker + state.currentSubRound) % 2;
-        state.turnData = { attackerIdx: ni, defenderIdx: 1 - ni, attackRolls: null, defenseRolls: null, hasAttackerRerolled: false, hasDefenderRerolled: false };
-        state.turnPhase = TURN.WAITING_ATK;
+        let ni;
+        if (state.gameMode === GAME_MODE.MODE_1V1) {
+          ni = (state.firstAttacker + state.currentSubRound) % 2;
+        } else {
+          // 在 FFA 中，subRound 可能失去原本的意义，每个人轮流。或者沿用 subRound 表示当前课程的交手次数。
+          // 我们这里让每节课还是打2轮？或者 FFA 模式一节课应该每个活人都出手一次！
+          // 需要特别处理 FFA 的回合流转。为了简单，直接按活着的人顺序。
+          let offset = state.currentSubRound;
+          ni = state.firstAttacker;
+          while(offset > 0) {
+            ni = (ni + 1) % state.players.length;
+            if (!state.players[ni].isDead) offset--;
+          }
+        }
+        
+        state.turnData = { 
+          attackerIdx: ni, 
+          defenderIdx: state.gameMode === GAME_MODE.MODE_FFA ? null : (1 - ni), 
+          attackRolls: null, defenseRolls: null, hasAttackerRerolled: false, hasDefenderRerolled: false 
+        };
+        state.turnPhase = state.gameMode === GAME_MODE.MODE_FFA ? TURN.CHOOSE_TARGET : TURN.WAITING_ATK;
       }
     }
   }
@@ -568,16 +682,49 @@ export function getCurrentAttackerId(state) {
 
 export function getCurrentDefenderId(state) {
   if (state.phase !== PHASE.BATTLE) return null;
+  if (state.turnData.defenderIdx === null) return null;
   return state.players[state.turnData.defenderIdx].id;
+}
+
+export function selectTarget(state, playerId, targetId) {
+  if (state.gameMode !== GAME_MODE.MODE_FFA || state.phase !== PHASE.BATTLE || state.turnPhase !== TURN.CHOOSE_TARGET) return { ok: false };
+  const pIdx = state.players.findIndex(p => p.id === playerId);
+  if (pIdx === -1 || pIdx !== state.turnData.attackerIdx) return { ok: false };
+  
+  const tIdx = state.players.findIndex(p => p.id === targetId);
+  if (tIdx === -1 || tIdx === pIdx || state.players[tIdx].isDead) return { ok: false };
+  
+  state.turnData.defenderIdx = tIdx;
+  state.turnPhase = TURN.WAITING_ATK;
+  return { ok: true };
 }
 
 export function getStateView(state, playerId) {
   const myIdx = state.players.findIndex(p => p.id === playerId);
-  const opIdx = 1 - myIdx;
-  const me = state.players[myIdx], op = state.players[opIdx];
   const isAtk = state.turnData?.attackerIdx === myIdx;
 
+  const mapPlayerView = (p, pIdx) => {
+    const isChar10 = p.cardId === 'char_10' && state.phase !== PHASE.GAME_OVER;
+    const hideIdentity = state.gameMode === GAME_MODE.MODE_FFA && pIdx !== myIdx && p.identity !== IDENTITY.LORD && !p.isDead && state.phase !== PHASE.GAME_OVER;
+    
+    return {
+      id: p.id, nickname: p.nickname,
+      cardId: (state.phase === PHASE.BATTLE || state.phase === PHASE.GAME_OVER) ? p.cardId : null,
+      card: (state.phase === PHASE.BATTLE || state.phase === PHASE.GAME_OVER) ? p.card : null,
+      hp: isChar10 ? '??' : p.hp,
+      maxHp: isChar10 ? '??' : p.maxHp,
+      ready: p.ready,
+      hasReschedule: p.hasReschedule, rerolls: p.rerolls, buffs: p.buffs,
+      permanentDefPenalty: p.permanentDefPenalty, redHeat: p.redHeat || 0,
+      isDead: !!p.isDead,
+      identity: hideIdentity ? '?' : p.identity,
+    };
+  };
+
+  const playersView = state.players.map(mapPlayerView);
+
   return {
+    gameMode: state.gameMode,
     phase: state.phase, schedule: state.schedule,
     currentClassIndex: state.currentClassIndex,
     currentSubRound: state.currentSubRound,
@@ -586,31 +733,18 @@ export function getStateView(state, playerId) {
     attackerIdx: state.turnData?.attackerIdx,
     defenderIdx: state.turnData?.defenderIdx,
     turnPhase: state.turnPhase,
-    isMyAttackTurn: isAtk && (state.turnPhase === TURN.WAITING_ATK || state.turnPhase === TURN.ATK_ROLLED),
-    isMyDefendTurn: !isAtk && state.turnPhase === TURN.DEF_ROLLED,
-    attackRolls: (state.turnData?.attackRolls && (isAtk || op.cardId !== 'char_10')) ? [...state.turnData.attackRolls] : null,
-    defenseRolls: (state.turnData?.defenseRolls && (!isAtk || op.cardId !== 'char_10')) ? [...state.turnData.defenseRolls] : null,
+    isMyAttackTurn: isAtk && (state.turnPhase === TURN.WAITING_ATK || state.turnPhase === TURN.ATK_ROLLED || state.turnPhase === TURN.CHOOSE_TARGET),
+    isMyDefendTurn: !isAtk && state.turnPhase === TURN.DEF_ROLLED && state.turnData?.defenderIdx === myIdx,
+    attackRolls: state.turnData?.attackRolls ? [...state.turnData.attackRolls] : null,
+    defenseRolls: state.turnData?.defenseRolls ? [...state.turnData.defenseRolls] : null,
     atkResult: state.turnData?.atkResult || null,
     allergyTriggered: state.turnData?.allergyTriggered || false,
     isExtraTurn: state.turnData?.isExtraTurn || false,
     extraTurnFaceBoost: state.turnData?.extraTurnFaceBoost || 0,
-    me: {
-      nickname: me.nickname, cardId: me.cardId, card: me.card,
-      hp: me.hp, maxHp: me.maxHp, ready: me.ready,
-      hasReschedule: me.hasReschedule, rerolls: me.rerolls, buffs: me.buffs,
-      permanentDefPenalty: me.permanentDefPenalty, redHeat: me.redHeat || 0,
-    },
-    opponent: {
-      nickname: op.nickname,
-      cardId: (state.phase === PHASE.BATTLE || state.phase === PHASE.GAME_OVER) ? op.cardId : null,
-      card: (state.phase === PHASE.BATTLE || state.phase === PHASE.GAME_OVER) ? op.card : null,
-      hp: (op.cardId === 'char_10' && state.phase !== PHASE.GAME_OVER) ? '??' : op.hp, 
-      maxHp: (op.cardId === 'char_10' && state.phase !== PHASE.GAME_OVER) ? '??' : op.maxHp,
-      ready: op.ready,
-      hasReschedule: op.hasReschedule, rerolls: op.rerolls, buffs: op.buffs,
-      permanentDefPenalty: op.permanentDefPenalty, redHeat: op.redHeat || 0,
-    },
+    players: playersView,
     winner: state.winner,
+    me: playersView[myIdx],
+    opponent: state.gameMode === GAME_MODE.MODE_1V1 ? playersView[1 - myIdx] : null,
   };
 }
 

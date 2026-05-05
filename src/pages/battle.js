@@ -34,6 +34,12 @@ export function renderBattle(container, data) {
 function buildArena(s) {
   const me = s.me, op = s.opponent;
   const subj = s.schedule[s.currentClassIndex];
+  
+  window.selectFfaTarget = (pid) => {
+    if (S.turnPhase === 'choose_target' && S.isMyAttackTurn) {
+      gameSocket.selectTarget(pid);
+    }
+  };
   return `
     <div class="arena">
       <aside class="sidebar sidebar-left" id="sidebar-schedule">
@@ -44,6 +50,7 @@ function buildArena(s) {
 
       <main class="arena-center">
         <div class="card-row">
+          ${ s.gameMode === 'sanguosha' ? `<div id="ffa-grid-container">${buildFfaGrid(s)}</div>` : `
           <div class="battle-card-wrap" id="card-op">
             <div class="bc-multi" id="multi-op">${multiTag(getM(op,subj))}</div>
             <div class="battle-card">
@@ -60,6 +67,7 @@ function buildArena(s) {
             </div>
             <div class="bc-buffs" id="buffs-op">${buffIcons(op)}</div>
           </div>
+          `}
 
           <div class="vs-area" id="vs-area">
             <div id="phase-text" class="phase-text">${phasePrompt(s)}</div>
@@ -135,13 +143,19 @@ function rebindActionButtons() {
 function refreshAll() {
   const subj = curSubj();
   // HP
+  // HP
   setHP('hp-me', S.me.hp, S.me.maxHp, 'hp-me-t');
-  setHP('hp-op', S.opponent.hp, S.opponent.maxHp, 'hp-op-t');
+  if (S.gameMode === '1v1') {
+    setHP('hp-op', S.opponent.hp, S.opponent.maxHp, 'hp-op-t');
+    setText('multi-op', multiTag(getM(S.opponent, subj)));
+    const bOp = document.getElementById('buffs-op'); if (bOp) bOp.innerHTML = buffIcons(S.opponent);
+  } else {
+    const grid = document.getElementById('ffa-grid-container');
+    if (grid) grid.innerHTML = buildFfaGrid(S);
+  }
   // Multipliers & Buffs
   setText('multi-me', multiTag(getM(S.me, subj)));
-  setText('multi-op', multiTag(getM(S.opponent, subj)));
   const bMe = document.getElementById('buffs-me'); if (bMe) bMe.innerHTML = buffIcons(S.me);
-  const bOp = document.getElementById('buffs-op'); if (bOp) bOp.innerHTML = buffIcons(S.opponent);
   // Schedule
   const sb = document.getElementById('sidebar-schedule');
   if (sb) {
@@ -159,16 +173,56 @@ function refreshAll() {
   renderDice();
 }
 
+// ── FFA UI ──
+function buildFfaGrid(s) {
+  const me = s.me;
+  const others = s.players.filter(p => p.id !== me.id);
+  const isTargeting = s.turnPhase === 'choose_target' && s.isMyAttackTurn;
+  
+  let html = `<div class="ffa-opponents-grid" style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:12px;">`;
+  others.forEach(p => {
+    const isDefender = s.defenderIdx !== null && s.players[s.defenderIdx]?.id === p.id;
+    const canBeTargeted = isTargeting && !p.isDead;
+    const identityDisplay = p.identity === 'lord' ? '👑主' : (p.identity === '?' ? '❓' : p.identity);
+    
+    html += `
+      <div class="ffa-micro-card ${isDefender ? 'active-target' : ''} ${p.isDead ? 'dead' : ''} ${canBeTargeted ? 'selectable-target' : ''}" 
+           style="position:relative; width:80px; background:var(--bg-card); border:2px solid ${isDefender ? 'var(--red)' : (canBeTargeted ? 'var(--accent)' : 'var(--bg-inset)')}; border-radius:8px; padding:4px; text-align:center; cursor:${canBeTargeted ? 'pointer' : 'default'}; transition:all 0.2s;"
+           ${canBeTargeted ? `onclick="window.selectFfaTarget('${p.id}')"` : ''}>
+        <div style="font-size:10px; color:var(--text-secondary); margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p.nickname}</div>
+        <img src="${p.card?.image||''}" alt="" onerror="this.style.display='none'" style="width:40px; height:40px; border-radius:50%; object-fit:cover; margin:0 auto; display:block; filter:${p.isDead ? 'grayscale(1)' : 'none'}">
+        <div style="position:absolute; top:-4px; right:-4px; background:var(--bg-overlay); border-radius:10px; font-size:10px; padding:0 4px; border:1px solid var(--border);">${identityDisplay}</div>
+        <div class="hp-bar-h enemy" style="width:${pct(p.hp,p.maxHp)}%; height:4px; margin-top:4px; border-radius:2px;"></div>
+        <div style="font-size:9px; color:var(--text-main); margin-top:2px;">${p.hp}/${p.maxHp}</div>
+      </div>
+    `;
+  });
+  html += `</div>`;
+  if (isTargeting) {
+    html += `<div style="text-align:center; color:var(--accent); font-weight:bold; font-size:1.1rem; animation:pulse 1s infinite;">请选择你要攻击的目标！</div>`;
+  }
+  return html;
+}
+
 // ── 掷骰展示 ──
 function renderDice() {
   const area = document.getElementById('dice-area');
   if (!area) return;
-  const myPool = S.me.card.dicePool;
-  const opPool = S.opponent.card?.dicePool || myPool;
 
   const isMeAtk = S.myIndex === S.attackerIdx;
-  const atkPool = isMeAtk ? myPool : (S.opponent.card?.dicePool || []);
-  const defPool = isMeAtk ? (S.opponent.card?.dicePool || []) : myPool;
+  const isMeDef = S.myIndex === S.defenderIdx;
+
+  let atkPlayer, defPlayer;
+  if (S.gameMode === '1v1') {
+    atkPlayer = isMeAtk ? S.me : S.opponent;
+    defPlayer = isMeAtk ? S.opponent : S.me;
+  } else {
+    atkPlayer = S.players[S.attackerIdx];
+    defPlayer = S.defenderIdx !== null ? S.players[S.defenderIdx] : null;
+  }
+
+  const atkPool = atkPlayer?.card?.dicePool || [];
+  const defPool = defPlayer?.card?.dicePool || [];
 
   let html = '';
   if (S.attackRolls) {
@@ -182,10 +236,10 @@ function renderDice() {
       if (S.isExtraTurn && S.extraTurnFaceBoost) {
         face += S.extraTurnFaceBoost;
       }
-      const isYzx = S.myIndex !== S.attackerIdx && S.opponent.cardId === 'char_10';
+      const isYzx = !isMeAtk && atkPlayer?.cardId === 'char_10';
       const color = DICE_COLORS[face];
       let style = color ? `border-color:${color.border}; color:${color.border};` : '';
-      if (S.myIndex !== S.attackerIdx && S.atkResult && !isKept) style += 'opacity:0.3;';
+      if (!isMeAtk && S.atkResult && !isKept) style += 'opacity:0.3;';
       const displayVal = isYzx ? '?' : v;
       return `<div class="die attack${canSelect ? ' selectable' : ''}${canSelect ? ' rolling' : ''}" style="${style}" data-idx="${i}" data-val="${v}">
         ${color && !isYzx ? `<div class="die-corner" style="color:${color.border};background:${color.bg}">${color.label}</div>` : ''}
@@ -201,13 +255,13 @@ function renderDice() {
     }
   }
   if (S.defenseRolls) {
-    // 防御骰：由 1 - attackerIdx 掷出
+    // 防御骰：由 defenderIdx 掷出
     const canSelect = S.turnPhase === 'def_rolled' && S.isMyDefendTurn;
     html += `<div class="dice-row"><span class="dice-label" style="color:var(--blue)">守</span>`;
     html += S.defenseRolls.map((v, i) => {
       const face = defPool[i] || 6;
       const color = DICE_COLORS[face];
-      const isYzx = S.myIndex === S.attackerIdx && S.opponent.cardId === 'char_10';
+      const isYzx = !isMeDef && defPlayer?.cardId === 'char_10';
       let style = color ? `border-color:${color.border}; color:${color.border};` : '';
       const displayVal = isYzx ? '?' : v;
       return `<div class="die defense${canSelect ? ' selectable' : ''}" style="${style}" data-idx="${i}" data-val="${v}">
@@ -366,8 +420,16 @@ export function onTurnResolved(data) {
 
   setTimeout(() => {
     const isMyAtk = S.myIndex === attackerIdx;
-    const atkCard = document.getElementById(isMyAtk ? 'card-me' : 'card-op');
-    const defCard = document.getElementById(isMyAtk ? 'card-op' : 'card-me');
+    let atkCard, defCard;
+    if (S.gameMode === '1v1') {
+      atkCard = document.getElementById(isMyAtk ? 'card-me' : 'card-op');
+      defCard = document.getElementById(isMyAtk ? 'card-op' : 'card-me');
+    } else {
+      const atkId = S.players[attackerIdx].id;
+      const defId = S.defenderIdx !== null ? S.players[S.defenderIdx].id : null;
+      atkCard = atkId === S.me.id ? document.getElementById('card-me') : document.querySelector(`.ffa-micro-card[data-pid="${atkId}"]`);
+      defCard = defId === S.me.id ? document.getElementById('card-me') : (defId ? document.querySelector(`.ffa-micro-card[data-pid="${defId}"]`) : null);
+    }
 
     if (atkCard) atkCard.classList.add('card-attacking');
     if (defCard) setTimeout(() => defCard.classList.add('card-hit'), 300);
@@ -378,7 +440,9 @@ export function onTurnResolved(data) {
       dmgEl.textContent = damage > 0 ? `−${damage}` : 'MISS';
       if (defCard) defCard.appendChild(dmgEl);
       setHP('hp-me', newState.me.hp, newState.me.maxHp, 'hp-me-t');
-      setHP('hp-op', newState.opponent.hp, newState.opponent.maxHp, 'hp-op-t');
+      if (newState.gameMode === '1v1') {
+        setHP('hp-op', newState.opponent.hp, newState.opponent.maxHp, 'hp-op-t');
+      }
       setTimeout(() => dmgEl.remove(), 1200);
     }, 400);
 
@@ -462,24 +526,41 @@ function showGameOver(s) {
   const o = document.createElement('div');
   o.className = 'game-over-screen';
   
-  const isWin = s.winner === s.myIndex;
-  const isDraw = s.winner === 'draw';
-  const statusStr = isDraw ? '平 局' : (isWin ? '胜 利' : '败 北');
-  const statusClass = isDraw ? 'draw' : (isWin ? 'win' : 'lose');
+  let isWin = false;
+  let statusStr = '';
   
-  const me = s.me;
-  const op = s.opponent;
+  if (s.gameMode === '1v1') {
+    isWin = s.winner === s.myIndex;
+    const isDraw = s.winner === 'draw';
+    statusStr = isDraw ? '平 局' : (isWin ? '胜 利' : '败 北');
+  } else {
+    // FFA
+    if (s.winner === 'lord') {
+      isWin = s.me.identity === 'lord' || s.me.identity === 'loyalist';
+      statusStr = isWin ? '胜 利 (主公/忠臣 赢)' : '败 北 (主公/忠臣 赢)';
+    } else if (s.winner === 'rebel') {
+      isWin = s.me.identity === 'rebel';
+      statusStr = isWin ? '胜 利 (反贼 赢)' : '败 北 (反贼 赢)';
+    } else if (s.winner === 'spy') {
+      isWin = s.me.identity === 'spy';
+      statusStr = isWin ? '胜 利 (内奸 赢)' : '败 北 (内奸 赢)';
+    }
+  }
+
+  const statusClass = (s.gameMode === '1v1' && s.winner === 'draw') ? 'draw' : (isWin ? 'win' : 'lose');
 
   function renderPlayer(p, index) {
+    if (!p) return '';
     const isMe = index === s.myIndex;
     const card = p.card;
     const isYzx = p.cardId === 'char_10' && !isMe;
     const hpText = isYzx ? '??' : p.hp;
     const maxHpText = isYzx ? '??' : p.maxHp;
     const hpPercent = isYzx ? 100 : (p.hp / p.maxHp) * 100;
+    const identityHtml = s.gameMode === 'sanguosha' ? `<div style="color:var(--accent);font-size:0.8rem;margin-top:4px;">身份: ${p.identity==='lord'?'👑主公':(p.identity==='?'?'❓':p.identity)}</div>` : '';
 
     return `
-      <div class="player-box ${isMe ? 'me' : 'op'} ${isYzx ? 'stealth' : ''}">
+      <div class="player-box ${isMe ? 'me' : 'op'} ${isYzx ? 'stealth' : ''}" style="${s.gameMode === 'sanguosha' ? 'width:45%; margin-bottom:10px;' : ''}">
         <div class="avatar-area">
           <img src="${card.image}" class="avatar" />
           ${isMe ? `<div class="badge-me">我</div>` : ''}
@@ -489,6 +570,7 @@ function showGameOver(s) {
             <span class="nickname">${p.nickname}</span>
             <span class="card-name">${card.name}</span>
           </div>
+          ${identityHtml}
           <div class="hp-container">
             <div class="hp-bar">
               <div class="hp-bar-fill" style="width:${hpPercent}%"></div>
@@ -501,13 +583,26 @@ function showGameOver(s) {
     `;
   }
   
+  let statsHtml = '';
+  if (s.gameMode === '1v1') {
+    statsHtml = `
+      ${renderPlayer(s.me, s.myIndex)}
+      <div class="go-vs">VS</div>
+      ${renderPlayer(s.opponent, (s.myIndex + 1) % 2)}
+    `;
+  } else {
+    statsHtml = `<div style="display:flex; flex-wrap:wrap; justify-content:space-between; max-height:400px; overflow-y:auto; width:100%;">`;
+    s.players.forEach((p, idx) => {
+      statsHtml += renderPlayer(p, idx);
+    });
+    statsHtml += `</div>`;
+  }
+
   o.innerHTML = `
-    <div class="go-content ${statusClass}">
+    <div class="go-content ${statusClass}" style="${s.gameMode==='sanguosha'?'width:90%; max-width:800px;':''}">
       <h1 class="go-title">${statusStr}</h1>
-      <div class="go-stats">
-        ${renderPlayer(me, s.myIndex)}
-        <div class="go-vs">VS</div>
-        ${renderPlayer(op, (s.myIndex + 1) % 2)}
+      <div class="go-stats" style="${s.gameMode==='sanguosha'?'flex-direction:row; flex-wrap:wrap;':''}">
+        ${statsHtml}
       </div>
       <div class="go-footer">
         <button class="btn btn-primary btn-lg" id="btn-back" style="min-width: 200px; padding: 12px 0;">返回大厅</button>
@@ -543,7 +638,8 @@ function multiTag(m) {
 
 function phasePrompt(s) {
   let p = '';
-  if (s.turnPhase === 'waiting_atk') p = s.isMyAttackTurn ? '你的攻击回合' : '对手攻击中…';
+  if (s.turnPhase === 'choose_target') p = s.isMyAttackTurn ? '选择目标' : '等待攻击方选择目标…';
+  if (s.turnPhase === 'waiting_atk') p = s.isMyAttackTurn ? '你的攻击回合' : '等待攻击…';
   if (s.turnPhase === 'atk_rolled') p = s.isMyAttackTurn ? '选择骰子重投或确认' : '对手选择中…';
   if (s.turnPhase === 'def_rolled') p = s.isMyDefendTurn ? '你的防御 — 重投或确认' : '对手防御中…';
   
