@@ -2,7 +2,7 @@
 // 校园战力党 — 大厅页面
 // ============================================================
 import { gameSocket } from '../net/socket.js';
-import { navigate } from '../main.js';
+import { navigate, showGlobalChat } from '../main.js';
 
 export function renderLobby(container) {
   container.innerHTML = `
@@ -120,6 +120,8 @@ export function renderLobby(container) {
 
   // ── 服务端事件 ──
   gameSocket.on('room_created', ({ roomId }) => {
+    gameSocket.currentRoomId = roomId;
+    showGlobalChat('房间已创建，等待对手加入...');
     statusDiv.innerHTML = `
       <div class="panel" style="text-align:center; padding:16px;">
         <p style="color:var(--text-secondary);">房间已创建，将房间号发给好友：</p>
@@ -134,6 +136,8 @@ export function renderLobby(container) {
   });
 
   gameSocket.on('match_found', (data) => {
+    gameSocket.currentRoomId = data.roomId;
+    showGlobalChat('已连接到对局！');
     navigate('preparation', data);
   });
 

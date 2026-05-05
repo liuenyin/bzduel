@@ -8,6 +8,8 @@ import { renderBattle } from './pages/battle.js';
 
 const app = document.getElementById('app');
 let currentCleanup = null;
+let chatWidgetEl = null;
+let chatMessagesEl = null;
 
 /**
  * 切换页面
@@ -42,11 +44,11 @@ navigate('lobby');
 // 全局聊天系统
 // ============================================================
 function initGlobalChat() {
-  const chatWidget = document.createElement('div');
-  chatWidget.className = 'chat-widget collapsed';
-  chatWidget.style.display = 'none'; // 初始隐藏，进入房间后显示
+  chatWidgetEl = document.createElement('div');
+  chatWidgetEl.className = 'chat-widget collapsed';
+  chatWidgetEl.style.display = 'none'; // 初始隐藏，进入房间后显示
 
-  chatWidget.innerHTML = `
+  chatWidgetEl.innerHTML = `
     <div class="chat-header" id="chat-header">
       <span>💬 房间聊天</span>
       <span class="chat-toggle-icon">▼</span>
@@ -59,17 +61,17 @@ function initGlobalChat() {
       <button class="btn btn-primary" id="btn-chat-send">发送</button>
     </div>
   `;
-  document.body.appendChild(chatWidget);
+  document.body.appendChild(chatWidgetEl);
 
   const header = document.getElementById('chat-header');
-  const messagesDiv = document.getElementById('chat-messages');
+  chatMessagesEl = document.getElementById('chat-messages');
   const input = document.getElementById('chat-input');
   const btnSend = document.getElementById('btn-chat-send');
 
   // 展开/收起聊天框
   header.addEventListener('click', () => {
-    chatWidget.classList.toggle('collapsed');
-    if (!chatWidget.classList.contains('collapsed')) {
+    chatWidgetEl.classList.toggle('collapsed');
+    if (!chatWidgetEl.classList.contains('collapsed')) {
       input.focus();
     }
   });
@@ -98,19 +100,18 @@ function initGlobalChat() {
       <span class="chat-msg-sender" style="${isMe ? 'color:var(--green)' : ''}">${sender}:</span> 
       <span>${msg}</span>
     `;
-    messagesDiv.appendChild(msgEl);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-  });
-
-  // 当进入房间时显示聊天框
-  gameSocket.on('match_found', () => {
-    chatWidget.style.display = 'flex';
-    messagesDiv.innerHTML = '<div class="chat-msg system">已连接到房间</div>';
-  });
-  gameSocket.on('room_created', () => {
-    chatWidget.style.display = 'flex';
-    messagesDiv.innerHTML = '<div class="chat-msg system">房间已创建，等待对手...</div>';
+    chatMessagesEl.appendChild(msgEl);
+    chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
   });
 }
 
 initGlobalChat();
+
+export function showGlobalChat(message) {
+  if (chatWidgetEl) {
+    chatWidgetEl.style.display = 'flex';
+    if (message) {
+      chatMessagesEl.innerHTML = \`<div class="chat-msg system">\${message}</div>\`;
+    }
+  }
+}
