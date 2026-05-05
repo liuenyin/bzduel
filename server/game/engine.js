@@ -583,6 +583,8 @@ export function getStateView(state, playerId) {
     currentSubRound: state.currentSubRound,
     totalRound: state.totalRound,
     myIndex: myIdx,
+    attackerIdx: state.turnData?.attackerIdx,
+    defenderIdx: state.turnData?.defenderIdx,
     turnPhase: state.turnPhase,
     isMyAttackTurn: isAtk && (state.turnPhase === TURN.WAITING_ATK || state.turnPhase === TURN.ATK_ROLLED),
     isMyDefendTurn: !isAtk && state.turnPhase === TURN.DEF_ROLLED,
