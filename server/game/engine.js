@@ -49,7 +49,6 @@ export function createGame(playerList, gameMode = GAME_MODE.MODE_1V1) {
     totalRound: 1,
     turnPhase: gameMode === GAME_MODE.MODE_FFA ? TURN.CHOOSE_TARGET : TURN.WAITING_ATK,
     turnData: { attackerIdx: 0, defenderIdx: gameMode === GAME_MODE.MODE_FFA ? null : 1, attackRolls: null, defenseRolls: null, hasAttackerRerolled: false, hasDefenderRerolled: false },
-    extraTurnQueue: [],
     log: [],
     winner: null,
   };
