@@ -787,8 +787,8 @@ input[type="text"]::placeholder{color:var(--text-muted)}
   .go-stats .player-box {
     width: 100%;
   }
-  .go-vs {
-
+  .go-vs { padding: 10px 0; font-size: 1.5rem; }
+}
 /* --- FFA Battle Grid --- */
 .ffa-opponents-grid {
   display: flex;
