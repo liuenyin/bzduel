@@ -111,7 +111,7 @@ export function showGlobalChat(message) {
   if (chatWidgetEl) {
     chatWidgetEl.style.display = 'flex';
     if (message) {
-      chatMessagesEl.innerHTML = \`<div class="chat-msg system">\${message}</div>\`;
+      chatMessagesEl.innerHTML = `<div class="chat-msg system">${message}</div>`;
     }
   }
 }
