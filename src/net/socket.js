@@ -6,11 +6,14 @@ import { io } from 'socket.io-client';
 class GameSocket {
   constructor() {
     this.socket = io({ reconnection: true, reconnectionDelay: 500, reconnectionDelayMax: 5000, reconnectionAttempts: Infinity, timeout: 20000 });
+    this.currentRoomId = null;
     this.socket.on('connect', () => {
       console.log('[socket] connected', this.socket.id);
       this.socket.emit('request_state');
     });
     this.socket.on('disconnect', () => console.log('[socket] disconnected'));
+    this.socket.on('match_found', (data) => { this.currentRoomId = data.roomId; });
+    this.socket.on('room_created', (data) => { this.currentRoomId = data.roomId; });
   }
 
   startPVE(n) { this.socket.emit('start_pve', { nickname: n }); }
@@ -27,6 +30,8 @@ class GameSocket {
   rerollDice(indices) { this.socket.emit('reroll_dice', { indices }); }
   confirmDice(indices, options = {}) { this.socket.emit('confirm_dice', { indices, options }); }
 
+  sendChat(n, msg) { if (this.currentRoomId) this.socket.emit('chat_msg', { roomId: this.currentRoomId, sender: n, msg }); }
+
   on(e, cb) { this.socket.on(e, cb); }
   off(e, cb) { this.socket.off(e, cb); }
 
@@ -37,6 +42,7 @@ class GameSocket {
       'battle_start', 'schedule_updated',
       'atk_confirmed', 'turn_resolved', 'class_change',
       'opponent_disconnected', 'error_msg',
+      // chat_msg_receive is NOT removed here because the global chat widget handles it
     ];
     for (const e of events) this.socket.removeAllListeners(e);
   }

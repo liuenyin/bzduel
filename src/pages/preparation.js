@@ -24,12 +24,12 @@ export function renderPreparation(container, data) {
       </div>
 
       <p class="section-title">选择你的角色</p>
-      <div class="card-grid" id="card-selector">
-        ${characters.map((c) => renderCard(c, schedule)).join('')}
+      <div class="avatar-grid" id="card-selector">
+        ${characters.map((c) => renderAvatar(c)).join('')}
       </div>
 
       <div id="prep-status" style="text-align:center; min-height:32px;">
-        <p style="color:var(--text-muted); font-size:0.88rem;">点击角色卡选择，然后点击准备</p>
+        <p style="color:var(--text-muted); font-size:0.88rem;">点击头像查看角色并确认选择</p>
       </div>
 
       <div style="text-align:center; padding-bottom:20px;">
@@ -38,15 +38,106 @@ export function renderPreparation(container, data) {
     </div>
   `;
 
+  // ── 模态框容器 ──
+  const modalContainer = document.createElement('div');
+  modalContainer.id = 'char-modal-container';
+  document.body.appendChild(modalContainer);
+
+  const renderModal = (charId) => {
+    const char = characters.find(c => c.id === charId);
+    if (!char) return '';
+    
+    // 计算主客场
+    let home = 0, away = 0, neutral = 0;
+    for (const subj of schedule) {
+      const m = getSkillMultiplier(char.subjects, subj);
+      if (m === 2) home++;
+      else if (m === 0.5) away++;
+      else neutral++;
+    }
+    const diceDesc = char.dicePool.map(d => `D${d}`).join('+');
+    const electLabel = char.electives.map(e => SUBJECTS[e]?.label || e).join('·');
+
+    return `
+      <div class="modal-overlay" id="char-modal">
+        <div class="modal-content">
+          <div class="modal-close" id="modal-close-btn">&times;</div>
+          <div class="modal-header">
+            <img src="${char.image || ''}" class="modal-avatar" alt="${char.name}">
+            <div class="modal-title">
+              <div class="modal-name">${char.name}</div>
+              <div class="modal-sub">${char.title}</div>
+              <div class="modal-tags">
+                <span class="modal-tag">${electLabel}</span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="modal-stats">
+            <div class="modal-stat">
+              <div class="modal-stat-val hp">${char.hp}</div>
+              <div class="modal-stat-lbl">HP</div>
+            </div>
+            <div class="modal-stat">
+              <div class="modal-stat-val">${char.dicePool.length}</div>
+              <div class="modal-stat-lbl">骰子数</div>
+            </div>
+            <div class="modal-stat" style="flex: 1.5">
+              <div class="modal-stat-val" style="font-size:0.9rem">${diceDesc}</div>
+              <div class="modal-stat-lbl">骰池 (攻${char.atkSlots === -1 ? '全选' : char.atkSlots} 守${char.defSlots})</div>
+            </div>
+          </div>
+
+          <div style="text-align:center; font-size:0.75rem; color:var(--text-muted); margin-bottom:16px;">
+            <span class="multiplier x2">主场×2 ${home}节</span>
+            <span class="multiplier x05">客场 ${away}节</span>
+            <span class="multiplier x1">中立 ${neutral}节</span>
+          </div>
+
+          <div class="modal-skills">
+            ${char.positiveSkill ? `
+              <div class="modal-skill pos">
+                <div class="modal-skill-title">✦ ${char.positiveSkill.name}</div>
+                <div class="modal-skill-desc">${char.positiveSkill.desc}</div>
+              </div>` : ''}
+            ${char.negativeSkill ? `
+              <div class="modal-skill neg">
+                <div class="modal-skill-title">✧ ${char.negativeSkill.name}</div>
+                <div class="modal-skill-desc">${char.negativeSkill.desc}</div>
+              </div>` : ''}
+          </div>
+
+          <div class="modal-action">
+            <button id="modal-select-btn" class="btn btn-primary btn-lg" style="width: 100%">就决定是你了！</button>
+          </div>
+        </div>
+      </div>
+    `;
+  };
+
   // ── 选卡交互 ──
-  const cards = container.querySelectorAll('.card');
-  cards.forEach((cardEl) => {
-    cardEl.addEventListener('click', () => {
-      selectedCardId = cardEl.dataset.id;
-      cards.forEach((c) => c.classList.remove('selected'));
-      cardEl.classList.add('selected');
-      document.getElementById('btn-ready').disabled = false;
-      gameSocket.selectCard(selectedCardId);
+  const avatars = container.querySelectorAll('.avatar-cell');
+  avatars.forEach((avatarEl) => {
+    avatarEl.addEventListener('click', () => {
+      const charId = avatarEl.dataset.id;
+      modalContainer.innerHTML = renderModal(charId);
+      
+      document.getElementById('modal-close-btn').addEventListener('click', () => {
+        modalContainer.innerHTML = '';
+      });
+
+      document.getElementById('char-modal').addEventListener('click', (e) => {
+        if(e.target.id === 'char-modal') modalContainer.innerHTML = '';
+      });
+
+      document.getElementById('modal-select-btn').addEventListener('click', () => {
+        selectedCardId = charId;
+        avatars.forEach((c) => c.classList.remove('selected'));
+        avatarEl.classList.add('selected');
+        document.getElementById('btn-ready').disabled = false;
+        gameSocket.selectCard(selectedCardId);
+        modalContainer.innerHTML = '';
+      });
     });
   });
 
@@ -74,6 +165,9 @@ export function renderPreparation(container, data) {
 
   gameSocket.on('state_update', (newState) => {
     if (newState.phase === 'battle') {
+      if(document.getElementById('char-modal-container')) {
+        document.getElementById('char-modal-container').remove();
+      }
       navigate('battle', { state: newState });
     } else {
       // Refresh schedule if it changed
@@ -82,7 +176,11 @@ export function renderPreparation(container, data) {
     }
   });
 
-  return () => {};
+  return () => {
+    if(document.getElementById('char-modal-container')) {
+      document.getElementById('char-modal-container').remove();
+    }
+  };
 }
 
 // ── 课程表渲染 ──────────────────────────────────────
@@ -100,49 +198,11 @@ function renderSchedule(schedule) {
 
 // ── 角色卡渲染 ──────────────────────────────────────
 
-function renderCard(char, schedule) {
-  // 统计主场/客场/中立
-  let home = 0, away = 0, neutral = 0;
-  for (const subj of schedule) {
-    const m = getSkillMultiplier(char.subjects, subj);
-    if (m === 2) home++;
-    else if (m === 0.5) away++;
-    else neutral++;
-  }
-
-  const diceDesc = (dice) => dice.map((d) => `D${d}`).join('+');
-  const electLabel = char.electives.map(e => SUBJECTS[e]?.label || e).join('·');
-
+function renderAvatar(char) {
   return `
-    <div class="card" data-id="${char.id}">
-      <div class="card-image-wrap">
-        <img src="${char.image || ''}" alt="${char.name}"
-             onerror="this.style.display='none'">
-        <div class="card-badge">${electLabel}</div>
-      </div>
-      <div class="card-body">
-        <div class="card-name">${char.name}</div>
-        <div class="card-title">${char.title}</div>
-        <div class="card-stats">
-          <div class="stat">
-            <div class="stat-val" style="color:var(--green);">${char.hp}</div>
-            <div class="stat-lbl">HP</div>
-          </div>
-          <div class="stat" style="flex:1; padding-left:8px;">
-            <div class="stat-val" style="color:var(--text); letter-spacing:1px;">${diceDesc(char.dicePool)}</div>
-            <div class="stat-lbl">骰池 (攻${char.atkSlots === -1 ? '全选' : char.atkSlots} 守${char.defSlots})</div>
-          </div>
-        </div>
-        <div style="text-align:center; font-size:0.72rem; color:var(--text-muted); margin-bottom:8px;">
-          <span class="multiplier x2">主场×2 ${home}节</span>
-          <span class="multiplier x05">客场 ${away}节</span>
-          <span class="multiplier x1">中立 ${neutral}节</span>
-        </div>
-        <div class="card-skills">
-          ${char.positiveSkill ? `<div class="skill-line pos">✦ <strong>${char.positiveSkill.name}</strong> — ${char.positiveSkill.desc}</div>` : ''}
-          ${char.negativeSkill ? `<div class="skill-line neg">✧ <strong>${char.negativeSkill.name}</strong> — ${char.negativeSkill.desc}</div>` : ''}
-        </div>
-      </div>
+    <div class="avatar-cell" data-id="${char.id}">
+      <img src="${char.image || ''}" alt="${char.name}" class="avatar-img">
+      <div class="avatar-name">${char.name}</div>
     </div>
   `;
 }

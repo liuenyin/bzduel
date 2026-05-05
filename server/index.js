@@ -242,6 +242,12 @@ io.on('connection', (socket) => {
   });
 
   // ── 断线 ──
+  // ── 聊天系统 ──
+  socket.on('chat_msg', ({ roomId, sender, msg }) => {
+    if (!roomId) return;
+    io.to(roomId).emit('chat_msg_receive', { sender, msg, time: new Date().toLocaleTimeString('en-US', {hour12: false}) });
+  });
+
   socket.on('disconnect', () => {
     const idx = matchQueue.findIndex(q => q.socketId === socket.id);
     if (idx >= 0) matchQueue.splice(idx, 1);
