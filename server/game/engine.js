@@ -782,7 +782,8 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
     gameOver, winner, classChanged, nextSubject,
     attackerIdx: prevAttackerIdx,
   };
-}
+} // end of else block
+} // end of confirmDefense
 
 // ── 技能结算 ──
 function resolvePositiveSkill(skill, multi, rolls, totalRound, turnData) {
