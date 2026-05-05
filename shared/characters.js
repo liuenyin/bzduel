@@ -69,12 +69,12 @@ export const characters = [
     positiveSkill: {
       id: SKILL.NO_REROLL_BONUS,
       name: '记号',
-      desc: '攻击开始时+1重投。若选择点数全为奇数，参与骰子永久+2面，无上限',
+      desc: '<ul><li>攻击开始时，获得 <span style="color:var(--rose-gold)">+1</span> 次重投机会</li><li>若选择防守的点数全为奇数，参与的骰子面数永久 <span style="color:var(--rose-gold)">+2</span> (无上限)</li></ul>',
     },
     negativeSkill: {
       id: SKILL.REROLL_PENALTY,
       name: '体力透支',
-      desc: '若防御时使用了重投，防御力永久 -2',
+      desc: '<ul><li>若防御时使用了重投，防御力永久 <span style="color:var(--rose-gold)">-2</span></li></ul>',
       baseValue: 2,
     },
   },
@@ -93,12 +93,12 @@ export const characters = [
     positiveSkill: {
       id: SKILL.STAR_SHOWOFF,
       name: '观星 & 显眼包',
-      desc: '攻击回合开始时+2次重投。若选取的4个骰子极差<=2，最终伤害乘以(0.5+课程倍率)',
+      desc: '<ul><li>攻击回合开始时，获得 <span style="color:var(--rose-gold)">+2</span> 次重投机会</li><li>若选取的4个骰子极差 ≤ 2，最终伤害乘以 <span style="color:var(--rose-gold)">(0.5 + 课程倍率)</span></li></ul>',
     },
     negativeSkill: {
       id: SKILL.SUGAR_CRASH,
       name: '犯糖 & 全投',
-      desc: '受伤>=8时获得1轮[犯糖]；重投时所有骰子均会重投。[犯糖]: 禁锢重投，回合开始受到4*课程倍率的伤害',
+      desc: '<ul><li>受到最终伤害 ≥ 8 时，获得1轮【犯糖】状态</li><li>【犯糖】：期间无法重投，且回合开始时直接受到 <span style="color:var(--rose-gold)">4 × 课程倍率</span> 的伤害</li><li>重投时，必须重投所有骰子</li></ul>',
     },
   },
   {
@@ -115,12 +115,12 @@ export const characters = [
     positiveSkill: {
       id: SKILL.COMMANDER_RECRUIT,
       name: '团长大人！',
-      desc: '防御时未重投，将一枚 4/6/8 面骰子永久加入骰池（面数取决于课程倍率）',
+      desc: '<ul><li>防御时若未重投，将一枚 <span style="color:var(--rose-gold)">4/6/8</span> 面骰子永久加入骰池（面数由课程倍率 0.5/1/2 决定）</li></ul>',
     },
     negativeSkill: {
       id: SKILL.UNSUSTAINABLE,
       name: '不可持续发展',
-      desc: '每次攻击回合开始时，立刻受到 2 × 当前课程倍率 的伤害',
+      desc: '<ul><li>每次攻击回合开始时，立刻受到 <span style="color:var(--rose-gold)">2 × 课程倍率</span> 的伤害</li></ul>',
     },
   },
   {
@@ -137,12 +137,12 @@ export const characters = [
     positiveSkill: {
       id: SKILL.TALENTED,
       name: '天赋怪',
-      desc: '受到的最终伤害变为原来的 1 / 0.75 / 0.5 倍 (随课程倍率决定)',
+      desc: '<ul><li>受到的最终伤害按比例减免，变为原伤害的 <span style="color:var(--rose-gold)">1 / 0.75 / 0.5</span> 倍（由课程倍率 0.5/1/2 决定）</li></ul>',
     },
     negativeSkill: {
       id: 'hjc_neg',
       name: '过敏 & 杂鱼',
-      desc: '过敏: 攻击开始有10%概率锁定伤害为 2/4/8; 杂鱼: 若攻击力 < 对方防御力，自身血量减半',
+      desc: '<ul><li>【过敏】：攻击开始时，有 10% 概率锁定攻击力为 <span style="color:var(--rose-gold)">2/4/8</span>（由课程倍率 0.5/1/2 决定）</li><li>【杂鱼】：若攻击力 < 对方防御力，自身当前 HP 减半</li></ul>',
     },
   },
   {
@@ -159,12 +159,12 @@ export const characters = [
     positiveSkill: {
       id: SKILL.RED_HEAT_APPLY,
       name: '玩（）玩的',
-      desc: '攻击造成伤害时，对对方施加 1+2×课程倍率 层[红温]；红温: 攻击回合开始受等同层数伤害，然后减2层',
+      desc: '<ul><li>攻击造成伤害时，对对方施加 <span style="color:var(--rose-gold)">1 + 2×课程倍率</span> 层【红温】</li><li>【红温】：携带者攻击回合开始时受到等同层数的伤害，随后层数 -2</li></ul>',
     },
     negativeSkill: {
       id: SKILL.RED_HEAT_DETONATE,
       name: '你怎么急了',
-      desc: '若攻击≤对方防御，立刻对对方造成等同于其红温层数的伤害，然后红温归零',
+      desc: '<ul><li>若攻击力 ≤ 对方防御力，立刻对对方造成等同于其当前【红温】层数的伤害，随后对方【红温】归零</li></ul>',
     },
   },
   {
@@ -181,7 +181,7 @@ export const characters = [
     positiveSkill: {
       id: SKILL.GAL_PLAYER,
       name: '休眠火山',
-      desc: '防御时若防守>攻击，反伤差值。防御确认前可点[献祭]将一颗骰子变1，回复等额HP',
+      desc: '<ul><li>防御时，若防御力 > 对方攻击力（且对方未穿透），立刻对对方造成差值的反击伤害</li><li>确认防御前，可点击【献祭】将其中一颗防守骰子变为1点，并回复其原点数 <span style="color:var(--rose-gold)">-1</span> 的 HP</li></ul>',
     },
     negativeSkill: null,
   },
@@ -199,12 +199,12 @@ export const characters = [
     positiveSkill: {
       id: SKILL.EAT_IT,
       name: '吃掉!',
-      desc: '防御时，将对方选定的最大骰子强制变为 2',
+      desc: '<ul><li>防御时，将对方保留的最大骰子强制变为 <span style="color:var(--rose-gold)">2</span> 点</li></ul>',
     },
     negativeSkill: {
       id: SKILL.D10_LIMIT,
       name: '???',
-      desc: '防御时，最多只能选中一个 D10 骰子',
+      desc: '<ul><li>防御时，最多只能选中保留 <span style="color:var(--rose-gold)">1</span> 个 D10 骰子</li></ul>',
     },
   },
   {
@@ -221,12 +221,12 @@ export const characters = [
     positiveSkill: {
       id: SKILL.STEALTH_STRIKE,
       name: '隐藏信息',
-      desc: '对方无法查看你的HP和掷骰点数；攻击力额外 +2 × 课程倍率',
+      desc: '<ul><li>对方无法查看你的 HP 与掷骰点数</li><li>攻击力额外 <span style="color:var(--rose-gold)">+ 2 × 课程倍率</span></li></ul>',
     },
     negativeSkill: {
       id: SKILL.VULNERABLE,
       name: '???',
-      desc: '受到伤害时，最终伤害额外 +2 × 课程倍率',
+      desc: '<ul><li>受到最终伤害时（即伤害 > 0），伤害值额外 <span style="color:var(--rose-gold)">+ 2 × 课程倍率</span></li></ul>',
     },
   },
   {
@@ -243,12 +243,12 @@ export const characters = [
     positiveSkill: {
       id: SKILL.LIBERAL_ARTS,
       name: '文科之光',
-      desc: '你的骰子点数 × 课程倍率（主场×2，客场×0.5）',
+      desc: '<ul><li>你的骰子点数始终乘以 <span style="color:var(--rose-gold)">课程倍率</span>（主场 ×2，中立 ×1，客场 ×0.5）</li></ul>',
     },
     negativeSkill: {
       id: SKILL.FIRST_BLOOD,
       name: '偏科',
-      desc: '首次受到伤害时，防御能选择的骰子数永久 -1',
+      desc: '<ul><li>首次受到最终伤害时，防御能保留的骰子数永久 <span style="color:var(--rose-gold)">-1</span></li></ul>',
     },
   },
   {
@@ -265,12 +265,12 @@ export const characters = [
     positiveSkill: {
       id: SKILL.EXTRA_TURN,
       name: '死磕',
-      desc: '防御时若受到 ≥8 点伤害，立刻获得一个额外攻击回合（+2重投，骰子面数临时+2）',
+      desc: '<ul><li>防御时若受到 ≥ 8 点的最终伤害，立刻获得一个额外攻击回合</li><li>额外回合中：重投次数 <span style="color:var(--rose-gold)">+2</span>，所有骰子面数临时 <span style="color:var(--rose-gold)">+2</span></li></ul>',
     },
     negativeSkill: {
       id: SKILL.BACK_PAIN,
       name: '腰疼？',
-      desc: '每次触发死磕后，防御选骰数永久 -1',
+      desc: '<ul><li>每次触发【死磕】获得额外回合后，防御能保留的骰子数永久 <span style="color:var(--rose-gold)">-1</span></li></ul>',
     },
   },
   {
@@ -288,12 +288,12 @@ export const characters = [
     positiveSkill: {
       id: SKILL.RAPPER,
       name: 'rapper',
-      desc: '攻击阶段指定主目标承受100%伤害，其余存活玩家均需防守，并承受33%/50%/66%（根据课程倍率决定）的伤害。',
+      desc: '<ul><li>攻击阶段，指定的主目标承受 <span style="color:var(--rose-gold)">100%</span> 伤害</li><li>其余所有存活玩家成为副目标，强制进行防守，并承受 <span style="color:var(--rose-gold)">33% / 50% / 66%</span>（由课程倍率 0.5/1/2 决定）的伤害</li></ul>',
     },
     negativeSkill: {
       id: SKILL.FORGET_LYRICS,
       name: '忘词',
-      desc: '当你重投后，攻击结算时每有一个目标未受到伤害，减少2*课程倍率的HP。',
+      desc: '<ul><li>如果攻击时使用了重投，结算时每有一个目标（含主副）未受到伤害，自身扣除 <span style="color:var(--rose-gold)">2 × 课程倍率</span> 的 HP</li></ul>',
     },
   },
 ];

@@ -336,7 +336,29 @@ io.on('connection', (socket) => {
     const roomId = socketToRoom.get(socket.id);
     if (roomId) {
       const room = rooms.get(roomId);
-      if (room && !room.isAI) broadcastToOpponent(room, socket.id, 'opponent_disconnected');
+      if (room && !room.isAI && room.game && room.game.players) {
+        // Mark as dead
+        const player = room.game.players.find(p => p.id === socket.id);
+        if (player) {
+          player.hp = 0;
+          player.isDead = true;
+          
+          // Auto-confirm AoE defense if they are currently supposed to be rolling
+          if (room.game.turnPhase === TURN.DEF_ROLLED && room.game.turnData?.isAoE) {
+            const defState = room.game.turnData.aoeDefenses[socket.id];
+            if (defState && !defState.confirmed) {
+              const res = confirmDefense(room.game, socket.id, defState.rolls.map((_, i) => i).slice(0, player.card.defSlots));
+              if (res.ok && !res.waitingForOthers) {
+                emitToAll(room, 'turn_resolved', (pid) => ({ ...res, state: getStateView(room.game, pid) }));
+              }
+            }
+          }
+          
+          // Notify everyone else
+          emitToAll(room, 'opponent_disconnected', { disconnectedId: socket.id });
+          emitStateToAll(room);
+        }
+      }
       socketToRoom.delete(socket.id);
     }
   });
@@ -479,8 +501,11 @@ function getRoom(sid) {
 
 function broadcastToOpponent(room, mySid, event, data = {}) {
   if (!room.game.players) return;
-  const op = room.game.players.find(p => p.id !== mySid);
-  if (op && !op.id.startsWith('AI_')) io.to(op.id).emit(event, data);
+  for (const op of room.game.players) {
+    if (op.id !== mySid && !op.id.startsWith('AI_')) {
+      io.to(op.id).emit(event, data);
+    }
+  }
 }
 
 function emitStateToAll(room) {

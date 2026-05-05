@@ -60,56 +60,28 @@ export function renderPreparation(container, data) {
 
     return `
       <div class="modal-overlay" id="char-modal">
-        <div class="modal-content">
-          <div class="modal-close" id="modal-close-btn">&times;</div>
-          <div class="modal-header">
-            <img src="${char.image || ''}" class="modal-avatar" alt="${char.name}">
-            <div class="modal-title">
-              <div class="modal-name">${char.name}</div>
-              <div class="modal-sub">${char.title}</div>
-              <div class="modal-tags">
-                <span class="modal-tag">${electLabel}</span>
-              </div>
+        <div class="battle-card-wrap" style="transform: scale(1.5); position: relative;" id="modal-card">
+          <div class="modal-close" id="modal-close-btn" style="position:absolute; top:-20px; right:-20px; color:#fff; z-index:100; font-size:1.5rem; cursor:pointer;">&times;</div>
+          <div style="font-size: 0.6rem; color: #fff; text-shadow: 1px 1px 2px #000; text-align: center; margin-bottom: 4px;">
+            ${electLabel} | HP: ${char.hp} | 骰数: ${char.dicePool.length}
+          </div>
+          <div class="battle-card" style="box-shadow: 0 8px 32px rgba(0,0,0,0.5);">
+            <img src="${char.image || ''}" alt="" onerror="this.style.display='none'">
+            <div class="bc-name">
+              <div style="font-size:0.5rem; color:var(--text-muted); font-weight:normal;">${char.title}</div>
+              ${char.name}
             </div>
           </div>
-          
-          <div class="modal-stats">
-            <div class="modal-stat">
-              <div class="modal-stat-val hp">${char.hp}</div>
-              <div class="modal-stat-lbl">HP</div>
-            </div>
-            <div class="modal-stat">
-              <div class="modal-stat-val">${char.dicePool.length}</div>
-              <div class="modal-stat-lbl">骰子数</div>
-            </div>
-            <div class="modal-stat" style="flex: 1.5">
-              <div class="modal-stat-val" style="font-size:0.9rem">${diceDesc}</div>
-              <div class="modal-stat-lbl">骰池 (攻${char.atkSlots === -1 ? '全选' : char.atkSlots} 守${char.defSlots})</div>
-            </div>
+          <div style="text-align:center; font-size:0.5rem; color:#fff; text-shadow: 1px 1px 2px #000; margin-top:2px;">
+            <span class="multiplier x2">主场×2 ${home}</span>
+            <span class="multiplier x1">中立 ${neutral}</span>
+            <span class="multiplier x05">客场 ${away}</span>
           </div>
-
-          <div style="text-align:center; font-size:0.75rem; color:var(--text-muted); margin-bottom:16px;">
-            <span class="multiplier x2">主场×2 ${home}节</span>
-            <span class="multiplier x05">客场 ${away}节</span>
-            <span class="multiplier x1">中立 ${neutral}节</span>
+          <div class="skill-desc-box" style="margin-top: 6px; text-align: left; background: rgba(255,255,255,0.95); max-height: 120px; overflow-y: auto;">
+            ${char.positiveSkill ? `<div class="skill-desc-line pos">✦ ${char.positiveSkill.name}: ${char.positiveSkill.desc}</div>` : ''}
+            ${char.negativeSkill ? `<div class="skill-desc-line neg">✧ ${char.negativeSkill.name}: ${char.negativeSkill.desc}</div>` : ''}
           </div>
-
-          <div class="modal-skills">
-            ${char.positiveSkill ? `
-              <div class="modal-skill pos">
-                <div class="modal-skill-title">✦ ${char.positiveSkill.name}</div>
-                <div class="modal-skill-desc">${char.positiveSkill.desc}</div>
-              </div>` : ''}
-            ${char.negativeSkill ? `
-              <div class="modal-skill neg">
-                <div class="modal-skill-title">✧ ${char.negativeSkill.name}</div>
-                <div class="modal-skill-desc">${char.negativeSkill.desc}</div>
-              </div>` : ''}
-          </div>
-
-          <div class="modal-action">
-            <button id="modal-select-btn" class="btn btn-primary btn-lg" style="width: 100%">就决定是你了！</button>
-          </div>
+          <button id="modal-select-btn" class="btn btn-primary" style="margin-top: 10px; width: 100%; font-size: 0.7rem; padding: 6px 0;">就决定是你了！</button>
         </div>
       </div>
     `;

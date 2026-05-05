@@ -12,6 +12,7 @@ export function aiSelectCard(schedule) {
   let bestScore = -Infinity;
 
   for (const char of characters) {
+    if (char.ffaOnly) continue;
     let score = 0;
     for (const subject of schedule) {
       score += getSkillMultiplier(char.subjects, subject);
