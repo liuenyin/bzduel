@@ -59,29 +59,43 @@ export function renderPreparation(container, data) {
     const electLabel = char.electives.map(e => SUBJECTS[e]?.label || e).join('·');
 
     return `
-      <div class="modal-overlay" id="char-modal">
-        <div class="battle-card-wrap" style="transform: scale(1.5); position: relative;" id="modal-card">
-          <div class="modal-close" id="modal-close-btn" style="position:absolute; top:-20px; right:-20px; color:#fff; z-index:100; font-size:1.5rem; cursor:pointer;">&times;</div>
-          <div style="font-size: 0.6rem; color: #fff; text-shadow: 1px 1px 2px #000; text-align: center; margin-bottom: 4px;">
-            ${electLabel} | HP: ${char.hp} | 骰数: ${char.dicePool.length}
-          </div>
-          <div class="battle-card" style="box-shadow: 0 8px 32px rgba(0,0,0,0.5);">
-            <img src="${char.image || ''}" alt="" onerror="this.style.display='none'">
-            <div class="bc-name">
-              <div style="font-size:0.5rem; color:var(--text-muted); font-weight:normal;">${char.title}</div>
-              ${char.name}
+      <div class="modal-overlay" id="char-modal" style="align-items: center; padding: 20px;">
+        <div class="modal-content-card">
+          <div class="modal-close" id="modal-close-btn" style="position:absolute; top:-40px; right:0; color:#fff; font-size:2rem; cursor:pointer;">&times;</div>
+          <div class="card">
+            <div class="card-image-wrap">
+              <img src="${char.image || ''}" alt="${char.name}" onerror="this.style.display='none'">
+              <div class="card-badge">${electLabel}</div>
+            </div>
+            <div class="card-body">
+              <div class="card-name">${char.name}</div>
+              <div class="card-title">${char.title}</div>
+              
+              <div class="card-stats">
+                <div class="stat">
+                  <div class="stat-val" style="color:var(--green);">${char.hp}</div>
+                  <div class="stat-lbl">HP</div>
+                </div>
+                <div class="stat" style="flex:1; padding-left:12px; text-align:right;">
+                  <div class="stat-val" style="color:var(--text); letter-spacing:1px; font-size:0.9rem;">${diceDesc}</div>
+                  <div class="stat-lbl">骰池 (攻${char.atkSlots === -1 ? '全选' : char.atkSlots} 守${char.defSlots})</div>
+                </div>
+              </div>
+
+              <div style="text-align:center; font-size:0.72rem; color:var(--text-muted); margin: 4px 0 8px;">
+                <span class="multiplier x2">主场×2 ${home}节</span>
+                <span class="multiplier x05">客场 ${away}节</span>
+                <span class="multiplier x1">中立 ${neutral}节</span>
+              </div>
+
+              <div class="card-skills">
+                ${char.positiveSkill ? `<div class="skill-line pos">✦ <strong>${char.positiveSkill.name}</strong> — ${char.positiveSkill.desc}</div>` : ''}
+                ${char.negativeSkill ? `<div class="skill-line neg">✧ <strong>${char.negativeSkill.name}</strong> — ${char.negativeSkill.desc}</div>` : ''}
+              </div>
+
+              <button id="modal-select-btn" class="btn btn-primary btn-lg" style="width: 100%; margin-top: 16px;">就决定是你了！</button>
             </div>
           </div>
-          <div style="text-align:center; font-size:0.5rem; color:#fff; text-shadow: 1px 1px 2px #000; margin-top:2px;">
-            <span class="multiplier x2">主场×2 ${home}</span>
-            <span class="multiplier x1">中立 ${neutral}</span>
-            <span class="multiplier x05">客场 ${away}</span>
-          </div>
-          <div class="skill-desc-box" style="margin-top: 6px; text-align: left; background: rgba(255,255,255,0.95); max-height: 120px; overflow-y: auto;">
-            ${char.positiveSkill ? `<div class="skill-desc-line pos">✦ ${char.positiveSkill.name}: ${char.positiveSkill.desc}</div>` : ''}
-            ${char.negativeSkill ? `<div class="skill-desc-line neg">✧ ${char.negativeSkill.name}: ${char.negativeSkill.desc}</div>` : ''}
-          </div>
-          <button id="modal-select-btn" class="btn btn-primary" style="margin-top: 10px; width: 100%; font-size: 0.7rem; padding: 6px 0;">就决定是你了！</button>
         </div>
       </div>
     `;
