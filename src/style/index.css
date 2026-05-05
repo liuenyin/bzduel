@@ -94,91 +94,20 @@ input[type="text"]::placeholder{color:var(--text-muted)}
   font-family: var(--font-display);
 }
 
-/* ── 角色卡样式 (最初版) ── */
-.card {
-  background: var(--bg-card);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  box-shadow: var(--shadow);
-  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  border: 1px solid var(--bg-inset);
-  display: flex;
-  flex-direction: column;
-}
-.card-image-wrap {
-  width: 100%;
-  height: 180px;
-  position: relative;
-  background: var(--bg-inset);
-}
-.card-image-wrap img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.card-badge {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  background: rgba(0, 0, 0, 0.6);
-  color: white;
-  padding: 2px 10px;
-  border-radius: 999px;
-  font-size: 0.7rem;
-  font-weight: 700;
-  backdrop-filter: blur(4px);
-}
-.card-body {
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.card-name {
-  font-family: var(--font-display);
-  font-size: 1.5rem;
-  font-weight: 900;
-  color: var(--text);
-  text-align: center;
-}
-.card-title {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  text-align: center;
-  margin-top: -4px;
-}
-.card-stats {
-  display: flex;
-  justify-content: space-between;
-  background: var(--bg-inset);
-  padding: 8px 12px;
-  border-radius: var(--radius);
-  margin: 4px 0;
-}
-.card-stats .stat {
-  text-align: center;
-}
-.card-stats .stat-val {
-  font-size: 1.1rem;
-  font-weight: 800;
-}
-.card-stats .stat-lbl {
-  font-size: 0.65rem;
-  color: var(--text-muted);
-  text-transform: uppercase;
-}
-.card-skills {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.skill-line {
-  font-size: 0.78rem;
-  line-height: 1.4;
-  color: var(--text-secondary);
-}
-.skill-line.pos { color: #3d6e40; }
-.skill-line.neg { color: #944; }
+/* ── 角色卡样式 (最初版 - 7b0b4f07) ── */
+.card{width:230px;background:var(--bg-card);border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow);cursor:pointer;transition:all .25s;border:2px solid transparent}
+.card:hover{transform:translateY(-5px);box-shadow:var(--shadow-lg)}.card.selected{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft),var(--shadow-lg)}
+.card-image-wrap{width:100%;height:190px;overflow:hidden;position:relative;background:var(--bg-inset)}
+.card-image-wrap img{width:100%;height:100%;object-fit:cover;transition:transform .4s}.card:hover .card-image-wrap img{transform:scale(1.06)}
+.card-image-wrap::after{content:'';position:absolute;bottom:0;left:0;right:0;height:50px;background:linear-gradient(to top,var(--bg-card),transparent)}
+.card-badge{position:absolute;top:8px;right:8px;background:rgba(255,255,255,.88);backdrop-filter:blur(4px);padding:2px 9px;border-radius:999px;font-size:.72rem;font-weight:700;color:var(--text-secondary)}
+.card-body{padding:10px 14px 14px}.card-name{font-family:var(--font-display);font-size:1.15rem;font-weight:700}.card-title{font-size:.75rem;color:var(--text-secondary);margin-bottom:8px}
+.card-stats{display:flex;justify-content:space-between;background:var(--bg-inset);padding:7px 9px;border-radius:var(--radius);margin-bottom:8px}
+.card-stats .stat-val{font-size:1rem;font-weight:800}
+.card-stats .stat-lbl{font-size:.6rem;color:var(--text-muted);text-transform:uppercase}
+.card-skills{display:flex;flex-direction:column;gap:5px}
+.skill-line{font-size:.78rem;line-height:1.4;color:var(--text-secondary)}
+.skill-line.pos{color:#3d6e40}.skill-line.neg{color:#944}
 
 .modal-content-card {
   width: 100%;

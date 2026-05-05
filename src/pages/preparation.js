@@ -70,29 +70,25 @@ export function renderPreparation(container, data) {
             <div class="card-body">
               <div class="card-name">${char.name}</div>
               <div class="card-title">${char.title}</div>
-              
               <div class="card-stats">
                 <div class="stat">
                   <div class="stat-val" style="color:var(--green);">${char.hp}</div>
                   <div class="stat-lbl">HP</div>
                 </div>
-                <div class="stat" style="flex:1; padding-left:12px; text-align:right;">
-                  <div class="stat-val" style="color:var(--text); letter-spacing:1px; font-size:0.9rem;">${diceDesc}</div>
+                <div class="stat" style="flex:1; padding-left:8px; text-align:right;">
+                  <div class="stat-val" style="color:var(--text); letter-spacing:1px;">${diceDesc}</div>
                   <div class="stat-lbl">骰池 (攻${char.atkSlots === -1 ? '全选' : char.atkSlots} 守${char.defSlots})</div>
                 </div>
               </div>
-
-              <div style="text-align:center; font-size:0.72rem; color:var(--text-muted); margin: 4px 0 8px;">
+              <div style="text-align:center; font-size:0.72rem; color:var(--text-muted); margin-bottom:8px;">
                 <span class="multiplier x2">主场×2 ${home}节</span>
                 <span class="multiplier x05">客场 ${away}节</span>
                 <span class="multiplier x1">中立 ${neutral}节</span>
               </div>
-
               <div class="card-skills">
                 ${char.positiveSkill ? `<div class="skill-line pos">✦ <strong>${char.positiveSkill.name}</strong> — ${char.positiveSkill.desc}</div>` : ''}
                 ${char.negativeSkill ? `<div class="skill-line neg">✧ <strong>${char.negativeSkill.name}</strong> — ${char.negativeSkill.desc}</div>` : ''}
               </div>
-
               <button id="modal-select-btn" class="btn btn-primary btn-lg" style="width: 100%; margin-top: 16px;">就决定是你了！</button>
             </div>
           </div>
