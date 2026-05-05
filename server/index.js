@@ -19,8 +19,17 @@ const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, { cors: { origin: '*' }, pingTimeout: 30000, pingInterval: 10000 });
 
-app.use(express.static(join(__dirname, '..', 'dist')));
-app.get('*', (req, res) => res.sendFile(join(__dirname, '..', 'dist', 'index.html')));
+if (process.env.NODE_ENV !== "production") {
+  const { createServer: createViteServer } = await import('vite');
+  const vite = await createViteServer({
+    server: { middlewareMode: true },
+    appType: "spa",
+  });
+  app.use(vite.middlewares);
+} else {
+  app.use(express.static(join(__dirname, '..', 'dist')));
+  app.get('*', (req, res) => res.sendFile(join(__dirname, '..', 'dist', 'index.html')));
+}
 
 const rooms = new Map();
 const matchQueue = [];
@@ -47,7 +56,7 @@ io.on('connection', (socket) => {
       schedule: game.schedule, state: getStateView(game, socket.id),
     });
     console.log(`[PVE] 房间 ${roomId} 已创建, AI: ${aiId}`);
-    
+
     // AI 预选卡片 (增加体验，让玩家看到 AI 已选)
     setTimeout(() => {
       const room = rooms.get(roomId);
@@ -116,9 +125,9 @@ io.on('connection', (socket) => {
       io.sockets.sockets.get(other.socketId)?.join(roomId);
       for (const pid of [other.socketId, socket.id]) {
         io.to(pid).emit('match_found', {
-          roomId, 
+          roomId,
           opponent: game.players.find(p => p.id !== pid)?.nickname || "未知对手",
-          schedule: game.schedule, 
+          schedule: game.schedule,
           state: getStateView(game, pid),
         });
       }
@@ -158,7 +167,7 @@ io.on('connection', (socket) => {
     room.playerSockets.push(socket.id);
     socketToRoom.set(socket.id, roomId);
     socket.join(roomId);
-    
+
     // 通知所有人更新房间玩家列表
     io.to(roomId).emit('ffa_room_update', { players: room.game.players });
   });
@@ -177,9 +186,9 @@ io.on('connection', (socket) => {
 
     for (const pid of room.playerSockets) {
       io.to(pid).emit('match_found', {
-        roomId, 
+        roomId,
         opponent: '大乱斗模式', // placeholder
-        schedule: game.schedule, 
+        schedule: game.schedule,
         state: getStateView(game, pid),
       });
     }
@@ -282,7 +291,7 @@ io.on('connection', (socket) => {
       } else {
         if (getCurrentDefenderId(g) !== socket.id) return;
       }
-      
+
       const res = confirmDefense(g, socket.id, indices, options);
       if (!res.ok) {
         if (res.error === 'zww_d10_limit') {
@@ -292,7 +301,7 @@ io.on('connection', (socket) => {
         }
         return;
       }
-      
+
       if (res.waitingForOthers) {
         emitStateToAll(room);
         return;
@@ -327,7 +336,7 @@ io.on('connection', (socket) => {
   // ── 聊天系统 ──
   socket.on('chat_msg', ({ roomId, sender, msg }) => {
     if (!roomId) return;
-    io.to(roomId).emit('chat_msg_receive', { sender, msg, time: new Date().toLocaleTimeString('en-US', {hour12: false}) });
+    io.to(roomId).emit('chat_msg_receive', { sender, msg, time: new Date().toLocaleTimeString('en-US', { hour12: false }) });
   });
 
   socket.on('disconnect', () => {
@@ -336,34 +345,38 @@ io.on('connection', (socket) => {
     const roomId = socketToRoom.get(socket.id);
     if (roomId) {
       const room = rooms.get(roomId);
-      if (room && !room.isAI && room.game && room.game.players) {
-        if (room.game.pending) {
-          // Remove from list if game hasn't started
-          room.game.players = room.game.players.filter(p => p.id !== socket.id);
-          room.playerSockets = room.playerSockets.filter(sid => sid !== socket.id);
-          if (room.playerSockets.length === 0) {
-            rooms.delete(roomId);
-          } else {
-            io.to(roomId).emit('ffa_room_update', { players: room.game.players });
-          }
+      if (room && room.game && room.game.players) {
+        if (room.isAI) {
+          rooms.delete(roomId);
         } else {
-          // Battle started: Mark as dead
-          const player = room.game.players.find(p => p.id === socket.id);
-          if (player) {
-            player.hp = 0;
-            player.isDead = true;
-            // Auto-confirm AoE defense if they are currently supposed to be rolling
-            if (room.game.turnPhase === TURN.DEF_ROLLED && room.game.turnData?.isAoE) {
-              const defState = room.game.turnData.aoeDefenses[socket.id];
-              if (defState && !defState.confirmed) {
-                const res = confirmDefense(room.game, socket.id, defState.rolls.map((_, i) => i).slice(0, player.card.defSlots));
-                if (res.ok && !res.waitingForOthers) {
-                  emitToAll(room, 'turn_resolved', (pid) => ({ ...res, state: getStateView(room.game, pid) }));
+          if (room.game.pending) {
+            // Remove from list if game hasn't started
+            room.game.players = room.game.players.filter(p => p.id !== socket.id);
+            room.playerSockets = room.playerSockets.filter(sid => sid !== socket.id);
+            if (room.playerSockets.length === 0) {
+              rooms.delete(roomId);
+            } else {
+              io.to(roomId).emit('ffa_room_update', { players: room.game.players });
+            }
+          } else {
+            // Battle started: Mark as dead
+            const player = room.game.players.find(p => p.id === socket.id);
+            if (player) {
+              player.hp = 0;
+              player.isDead = true;
+              // Auto-confirm AoE defense if they are currently supposed to be rolling
+              if (room.game.turnPhase === TURN.DEF_ROLLED && room.game.turnData?.isAoE) {
+                const defState = room.game.turnData.aoeDefenses[socket.id];
+                if (defState && !defState.confirmed) {
+                  const res = confirmDefense(room.game, socket.id, defState.rolls.map((_, i) => i).slice(0, player.card.defSlots));
+                  if (res.ok && !res.waitingForOthers) {
+                    emitToAll(room, 'turn_resolved', (pid) => ({ ...res, state: getStateView(room.game, pid) }));
+                  }
                 }
               }
+              emitToAll(room, 'opponent_disconnected', { disconnectedId: socket.id });
+              emitStateToAll(room);
             }
-            emitToAll(room, 'opponent_disconnected', { disconnectedId: socket.id });
-            emitStateToAll(room);
           }
         }
       }
@@ -408,7 +421,7 @@ function triggerAiPhase(roomId) {
       if (g.phase !== 'battle' || g.turnPhase !== TURN.ATK_ROLLED) return;
       const atk = g.players[g.turnData.attackerIdx];
       const rolls = g.turnData.attackRolls;
-      
+
       // AI 决定是否重投 (如果点数太小则尝试)
       if (atk.rerolls > 0) {
         const badIndices = rolls.map((v, i) => v <= (atk.card.dicePool[i] / 2) ? i : -1).filter(i => i !== -1);
@@ -424,7 +437,7 @@ function triggerAiPhase(roomId) {
 
       // 不重投或重投完，则确认攻击
       const slots = atk.card.atkSlots === -1 ? rolls.length : atk.card.atkSlots;
-      const indices = rolls.map((v, i) => ({v, i})).sort((a,b) => b.v - a.v).slice(0, slots).map(x => x.i);
+      const indices = rolls.map((v, i) => ({ v, i })).sort((a, b) => b.v - a.v).slice(0, slots).map(x => x.i);
       const res = confirmAttack(g, indices);
       if (!res.ok) { console.error("AI confirmAttack failed", res, indices, atk.card); return; }
       emitToAll(room, 'atk_confirmed', (pid) => ({
@@ -456,8 +469,8 @@ function triggerAiPhase(roomId) {
       }
 
       // AI 选择最高的骰子
-      let candidates = rolls.map((v, i) => ({v, i, face: def.card.dicePool[i]})).sort((a,b) => b.v - a.v);
-      
+      let candidates = rolls.map((v, i) => ({ v, i, face: def.card.dicePool[i] })).sort((a, b) => b.v - a.v);
+
       let indices;
       if (def.card.negativeSkill?.id === SKILL.D10_LIMIT) {
         let chosenIndices = [];
@@ -485,7 +498,7 @@ function triggerAiPhase(roomId) {
         if (maxVal >= 4) options.sacrificeIndex = bestSac;
       }
 
-      const res = confirmDefense(g, indices, options);
+      const res = confirmDefense(g, def.id, indices, options);
       if (!res.ok) { console.error("AI confirmDefense failed", res, indices, def.card); return; }
       emitToAll(room, 'turn_resolved', (pid) => ({ ...res, state: getStateView(g, pid) }));
 
@@ -529,7 +542,22 @@ function emitToAll(room, event, buildData) {
   }
 }
 
-function cleanupRoom() { /* keep room alive for reconnects */ }
+function cleanupRoom(room) {
+  for (const [rid, r] of rooms.entries()) {
+    if (r === room) {
+      rooms.delete(rid);
+      // Remove all player sockets associated with this room
+      if (r.playerSockets) {
+        for (const sid of r.playerSockets) {
+          if (sid && socketToRoom.get(sid) === rid) {
+            socketToRoom.delete(sid);
+          }
+        }
+      }
+      break;
+    }
+  }
+}
 
 const PORT = process.env.PORT || 3000;
-httpServer.listen(PORT, () => console.log(`🎲 校园战力党 → http://localhost:${PORT}`));
+httpServer.listen(PORT, "0.0.0.0", () => console.log(`🎲 校园战力党 → http://localhost:${PORT}`));
