@@ -61,8 +61,8 @@ export function renderPreparation(container, data) {
     return `
       <div class="modal-overlay" id="char-modal" style="align-items: center; padding: 20px;">
         <div class="modal-content-card">
-          <div class="modal-close" id="modal-close-btn" style="position:absolute; top:-40px; right:0; color:#fff; font-size:2rem; cursor:pointer;">&times;</div>
-          <div class="card">
+          <div class="modal-close" id="modal-close-btn">&times;</div>
+          <div class="card" style="width: 100%; cursor: default;">
             <div class="card-image-wrap">
               <img src="${char.image || ''}" alt="${char.name}" onerror="this.style.display='none'">
               <div class="card-badge">${electLabel}</div>

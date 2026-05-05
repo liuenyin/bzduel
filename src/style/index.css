@@ -105,15 +105,46 @@ input[type="text"]::placeholder{color:var(--text-muted)}
 .card-stats{display:flex;justify-content:space-between;background:var(--bg-inset);padding:7px 9px;border-radius:var(--radius);margin-bottom:8px}
 .card-stats .stat-val{font-size:1rem;font-weight:800}
 .card-stats .stat-lbl{font-size:.6rem;color:var(--text-muted);text-transform:uppercase}
-.card-skills{display:flex;flex-direction:column;gap:5px}
-.skill-line{font-size:.78rem;line-height:1.4;color:var(--text-secondary)}
-.skill-line.pos{color:#3d6e40}.skill-line.neg{color:#944}
+.card-skills{display:flex;flex-direction:column;gap:5px;padding-top:4px}
+.skill-line{font-size:.75rem;line-height:1.4;color:var(--text-secondary)}
+.skill-line strong{color:var(--text-main)}
+.skill-line.pos{color:#3d6e40;background:rgba(61,110,64,.05);padding:4px 8px;border-radius:4px}
+.skill-line.neg{color:#944;background:rgba(153,68,68,.05);padding:4px 8px;border-radius:4px}
+
+/* 技能列表适配 */
+.skill-line ul { padding-left: 16px; margin: 2px 0; list-style-type: disc; }
+.skill-line li { margin-bottom: 2px; }
 
 .modal-content-card {
-  width: 100%;
-  max-width: 380px;
+  width: 90%;
+  max-width: 300px;
   animation: popUp 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   position: relative;
+}
+
+.modal-close {
+  position: absolute;
+  top: -12px;
+  right: -12px;
+  width: 32px;
+  height: 32px;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  cursor: pointer;
+  box-shadow: var(--shadow-lg);
+  z-index: 1001;
+  border: 1px solid var(--bg-inset);
+  transition: all 0.2s;
+}
+.modal-close:hover {
+  background: var(--red);
+  color: #fff;
+  transform: rotate(90deg);
 }
 
 /* ── 底部抽屉/模态框 ──────────────────────── */
