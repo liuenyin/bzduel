@@ -379,6 +379,7 @@ export function confirmAttack(state, keepIndices) {
 // ── 阶段4: 防守方确认 → 结算 → 伤害 → 推进回合 ──
 export function confirmDefense(state, playerId, keepIndices, options = {}) {
   if (state.turnPhase !== TURN.DEF_ROLLED) return { ok: false };
+  const prevAttackerIdx = state.turnData.attackerIdx;
   
   const atk = state.players[state.turnData.attackerIdx];
   const subj = state.schedule[state.currentClassIndex];
@@ -609,7 +610,7 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
       });
     }
 
-    const { gameOver, winner, classChanged, nextSubject } = resolvePhaseEnd(state);
+    const next = advanceTurnState(state);
     
     return {
       ok: true,
@@ -619,8 +620,11 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
       selfDamage,
       firstBloodTriggered: firstBloodTriggeredGlobal,
       extraTurnTriggered: extraTurnTriggeredGlobal,
-      gameOver, winner, classChanged, nextSubject,
-      attackerIdx: state.turnData.attackerIdx
+      gameOver: next.gameOver,
+      winner: next.winner,
+      classChanged: next.classChanged,
+      nextSubject: next.nextSubject,
+      attackerIdx: prevAttackerIdx
     };
 
   } else {
@@ -790,25 +794,68 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
       // atk caused their own death
     }
   }
-  if (def.hp <= 0) {
-    def.hp = 0;
-    if (!def.isDead) {
-      def.isDead = true;
-      // Lord kills Loyalist penalty
-      if (state.gameMode === GAME_MODE.MODE_FFA && atk.identity === IDENTITY.LORD && def.identity === IDENTITY.LOYALIST) {
-        atk.card.positiveSkill = null; // 主公误杀忠臣，失去正面技能
-        state.log.push({ text: `【系统】主公 ${atk.nickname} 误杀忠臣，失去了正面技能！`, type: 'system' });
-      }
-    }
+  }
+  
+  // 1v1 路径不再手动处理死亡，全部交给 advanceTurnState
+
+  if (!gameOver) {
+    const next = advanceTurnState(state);
+    gameOver = next.gameOver;
+    winner = next.winner;
+    classChanged = next.classChanged;
+    nextSubject = next.nextSubject;
   }
 
-  // 结算胜负
+  return {
+    ok: true, baseDef: finalBaseDef, finalDef: finalFinalDef, penalty, keptIndices: keepIndices,
+    atkResult: ar,
+    defNegTriggered: defNeg.triggered,
+    defNegName: defNeg.triggered ? def.card.negativeSkill.name : null,
+    defPosTriggered: commanderTriggered || talentTriggered || eatTriggered || lcHealTriggered || lcCounterTriggered || extraTurnTriggered,
+    defPosName: talentTriggered ? "天赋怪" : (commanderTriggered ? "团长大人!" : (eatTriggered ? "吃掉!" : (lcHealTriggered ? "献祭" : (lcCounterTriggered ? "反击" : (extraTurnTriggered ? "死磕" : null))))),
+    noobTriggered, detonateTriggered, detonateDamage, redHeatApplied,
+    damage, selfDamage: ar.selfDamage, pierce: ar.pierce,
+    lcCounterDamage, healAmount, lcHealTriggered, eatTriggered,
+    extraTurnTriggered,
+    firstBloodTriggered: firstBloodTriggeredThisTurn,
+    gameOver, winner, classChanged, nextSubject,
+    attackerIdx: prevAttackerIdx,
+  };
+}
+
+/**
+ * 推进游戏到下一个回合的状态逻辑 (内部复用)
+ */
+function advanceTurnState(state) {
+  let gameOver = false;
+  let winner = null;
+  let classChanged = false;
+  let nextSubject = null;
+  let extraTurnSet = false;
+
+  // 1. 处理所有人死亡状态 (通用逻辑)
+  state.players.forEach(p => {
+    if (p.hp <= 0) {
+      p.hp = 0;
+      if (!p.isDead) {
+        p.isDead = true;
+        // 主公误杀忠臣惩罚
+        if (state.gameMode === GAME_MODE.MODE_FFA && state.players[state.turnData.attackerIdx].identity === IDENTITY.LORD && p.identity === IDENTITY.LOYALIST) {
+          state.players[state.turnData.attackerIdx].card.positiveSkill = null;
+          state.log.push({ text: `【系统】主公 ${state.players[state.turnData.attackerIdx].nickname} 误杀忠臣，失去了正面技能！`, type: 'system' });
+        }
+      }
+    }
+  });
+
+  // 2. 胜负判定
   if (state.gameMode === GAME_MODE.MODE_1V1) {
-    if (atk.isDead || def.isDead) {
+    const p0 = state.players[0], p1 = state.players[1];
+    if (p0.isDead || p1.isDead) {
       gameOver = true;
-      if (atk.isDead && def.isDead) winner = 'draw';
-      else if (def.isDead) winner = state.turnData.attackerIdx;
-      else winner = state.turnData.defenderIdx;
+      if (p0.isDead && p1.isDead) winner = 'draw';
+      else if (p1.isDead) winner = 0;
+      else winner = 1;
       state.phase = PHASE.GAME_OVER;
       state.winner = winner;
     }
@@ -837,123 +884,77 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
     }
   }
 
-  // 张楚唯正面: 逆袭 — 受到 >=8 伤害时获得额外攻击回合
-  let extraTurnTriggered = false;
-  if (damage >= 8 && def.card.positiveSkill?.id === SKILL.EXTRA_TURN && !gameOver && def.hp > 0) {
-    extraTurnTriggered = true;
-    if (!state.extraTurnQueue) state.extraTurnQueue = [];
-    state.extraTurnQueue.push({ attackerId: def.id, targetId: atk.id });
-    // 张楚唯负面: 腰疼？ — 每次逆袭后防御选骰 -1
-    if (def.card.negativeSkill?.id === SKILL.BACK_PAIN && def.card.defSlots > 1) {
-      def.card.defSlots -= 1;
+  if (!gameOver) {
+    // 处理额外回合队列
+    while (state.extraTurnQueue && state.extraTurnQueue.length > 0) {
+      const nextExtra = state.extraTurnQueue.shift();
+      const atkIdx = state.players.findIndex(p => p.id === nextExtra.attackerId);
+      const defIdx = state.players.findIndex(p => p.id === nextExtra.targetId);
+      if (atkIdx !== -1 && defIdx !== -1 && !state.players[atkIdx].isDead && !state.players[defIdx].isDead) {
+        state.totalRound++;
+        state.turnData = { 
+          attackerIdx: atkIdx, 
+          defenderIdx: defIdx, 
+          attackRolls: null, defenseRolls: null, hasAttackerRerolled: false, hasDefenderRerolled: false, isExtraTurn: true 
+        };
+        state.turnPhase = TURN.WAITING_ATK;
+        extraTurnSet = true;
+        break;
+      }
     }
-  }
 
-    const next = advanceTurnState(state);
-    gameOver = next.gameOver;
-    winner = next.winner;
-    classChanged = next.classChanged;
-    nextSubject = next.nextSubject;
-  }
-
-  return {
-    ok: true, baseDef, finalDef, penalty, keptIndices: keepIndices,
-    atkResult: ar,
-    defNegTriggered: defNeg.triggered,
-    defNegName: defNeg.triggered ? def.card.negativeSkill.name : null,
-    defPosTriggered: commanderTriggered || talentTriggered || eatTriggered || lcHealTriggered || lcCounterTriggered || extraTurnTriggered,
-    defPosName: talentTriggered ? "天赋怪" : (commanderTriggered ? "团长大人!" : (eatTriggered ? "吃掉!" : (lcHealTriggered ? "献祭" : (lcCounterTriggered ? "反击" : (extraTurnTriggered ? "死磕" : null))))),
-    noobTriggered, detonateTriggered, detonateDamage, redHeatApplied,
-    damage, selfDamage: ar.selfDamage, pierce: ar.pierce,
-    lcCounterDamage, healAmount, lcHealTriggered, eatTriggered,
-    extraTurnTriggered,
-    firstBloodTriggered: firstBloodTriggeredThisTurn,
-    gameOver, winner, classChanged, nextSubject,
-    attackerIdx: prevAttackerIdx,
-  };
-}
-
-/**
- * 推进游戏到下一个回合的状态逻辑 (内部复用)
- */
-function advanceTurnState(state) {
-  let gameOver = false;
-  let winner = null;
-  let classChanged = false;
-  let nextSubject = null;
-  let extraTurnSet = false;
-
-  // 处理额外回合队列
-  while (state.extraTurnQueue && state.extraTurnQueue.length > 0) {
-    const nextExtra = state.extraTurnQueue.shift();
-    const atkIdx = state.players.findIndex(p => p.id === nextExtra.attackerId);
-    const defIdx = state.players.findIndex(p => p.id === nextExtra.targetId);
-    if (atkIdx !== -1 && defIdx !== -1 && !state.players[atkIdx].isDead && !state.players[defIdx].isDead) {
+    if (!extraTurnSet) {
       state.totalRound++;
-      state.turnData = { 
-        attackerIdx: atkIdx, 
-        defenderIdx: defIdx, 
-        attackRolls: null, defenseRolls: null, hasAttackerRerolled: false, hasDefenderRerolled: false, isExtraTurn: true 
-      };
-      state.turnPhase = TURN.WAITING_ATK;
-      extraTurnSet = true;
-      break;
-    }
-  }
-
-  if (!extraTurnSet) {
-    state.totalRound++;
-    state.currentSubRound++;
-    if (state.currentSubRound >= GAME_CONFIG.SUBROUNDS_PER_CLASS) {
-      state.currentSubRound = 0;
-      state.currentClassIndex++;
-      
-      // 推进 attacker 逻辑
-      if (state.gameMode === GAME_MODE.MODE_1V1) {
-        state.firstAttacker = 1 - state.firstAttacker;
-      } else {
-        // FFA 寻找下一个活着的玩家作为 firstAttacker
-        let nextFirst = (state.firstAttacker + 1) % state.players.length;
-        while (state.players[nextFirst].isDead && nextFirst !== state.firstAttacker) {
-          nextFirst = (nextFirst + 1) % state.players.length;
-        }
-        state.firstAttacker = nextFirst;
-      }
-      
-      classChanged = true;
-      if (state.currentClassIndex >= GAME_CONFIG.CLASSES_PER_GAME) {
-        gameOver = true;
-        state.phase = PHASE.GAME_OVER;
+      state.currentSubRound++;
+      if (state.currentSubRound >= GAME_CONFIG.SUBROUNDS_PER_CLASS) {
+        state.currentSubRound = 0;
+        state.currentClassIndex++;
+        
         if (state.gameMode === GAME_MODE.MODE_1V1) {
-          const h0 = state.players[0].hp, h1 = state.players[1].hp;
-          state.winner = h0 > h1 ? 0 : h1 > h0 ? 1 : 'draw';
+          state.firstAttacker = 1 - state.firstAttacker;
         } else {
-          state.winner = 'lord';
+          let nextFirst = (state.firstAttacker + 1) % state.players.length;
+          while (state.players[nextFirst].isDead && nextFirst !== state.firstAttacker) {
+            nextFirst = (nextFirst + 1) % state.players.length;
+          }
+          state.firstAttacker = nextFirst;
         }
-        winner = state.winner;
-      } else {
-        nextSubject = state.schedule[state.currentClassIndex];
-      }
-    }
-    if (!gameOver) {
-      let ni;
-      if (state.gameMode === GAME_MODE.MODE_1V1) {
-        ni = (state.firstAttacker + state.currentSubRound) % 2;
-      } else {
-        let offset = state.currentSubRound;
-        ni = state.firstAttacker;
-        while(offset > 0) {
-          ni = (ni + 1) % state.players.length;
-          if (!state.players[ni].isDead) offset--;
+        
+        classChanged = true;
+        if (state.currentClassIndex >= GAME_CONFIG.CLASSES_PER_GAME) {
+          gameOver = true;
+          state.phase = PHASE.GAME_OVER;
+          if (state.gameMode === GAME_MODE.MODE_1V1) {
+            const h0 = state.players[0].hp, h1 = state.players[1].hp;
+            state.winner = h0 > h1 ? 0 : h1 > h0 ? 1 : 'draw';
+          } else {
+            state.winner = 'lord';
+          }
+          winner = state.winner;
+        } else {
+          nextSubject = state.schedule[state.currentClassIndex];
         }
       }
-      
-      state.turnData = { 
-        attackerIdx: ni, 
-        defenderIdx: state.gameMode === GAME_MODE.MODE_FFA ? null : (1 - ni), 
-        attackRolls: null, defenseRolls: null, hasAttackerRerolled: false, hasDefenderRerolled: false 
-      };
-      state.turnPhase = state.gameMode === GAME_MODE.MODE_FFA ? TURN.CHOOSE_TARGET : TURN.WAITING_ATK;
+      if (!gameOver) {
+        let ni;
+        if (state.gameMode === GAME_MODE.MODE_1V1) {
+          ni = (state.firstAttacker + state.currentSubRound) % 2;
+        } else {
+          let offset = state.currentSubRound;
+          ni = state.firstAttacker;
+          while(offset > 0) {
+            ni = (ni + 1) % state.players.length;
+            if (!state.players[ni].isDead) offset--;
+          }
+        }
+        
+        state.turnData = { 
+          attackerIdx: ni, 
+          defenderIdx: state.gameMode === GAME_MODE.MODE_FFA ? null : (1 - ni), 
+          attackRolls: null, defenseRolls: null, hasAttackerRerolled: false, hasDefenderRerolled: false 
+        };
+        state.turnPhase = state.gameMode === GAME_MODE.MODE_FFA ? TURN.CHOOSE_TARGET : TURN.WAITING_ATK;
+      }
     }
   }
 
@@ -1141,108 +1142,6 @@ export function getStateView(state, playerId) {
   };
 }
 
-export function resolvePhaseEnd(state) {
-  let gameOver = false, winner = null, classChanged = false, nextSubject = null;
-  
-  // Handle deaths
-  state.players.forEach(p => {
-    if (p.hp <= 0) {
-      p.hp = 0;
-      if (!p.isDead) {
-        p.isDead = true;
-        // Lord kills Loyalist penalty
-        if (state.gameMode === GAME_MODE.MODE_FFA && state.players[state.turnData.attackerIdx].identity === IDENTITY.LORD && p.identity === IDENTITY.LOYALIST) {
-          state.players[state.turnData.attackerIdx].card.positiveSkill = null;
-          state.log.push({ text: `【系统】主公 ${state.players[state.turnData.attackerIdx].nickname} 误杀忠臣，失去了正面技能！`, type: 'system' });
-        }
-      }
-    }
-  });
 
-  // FFA 胜负
-  const lord = state.players.find(p => p.identity === IDENTITY.LORD);
-  if (lord && lord.isDead) {
-    gameOver = true;
-    state.phase = PHASE.GAME_OVER;
-    const aliveSpies = state.players.filter(p => p.identity === IDENTITY.SPY && !p.isDead);
-    const otherAlive = state.players.filter(p => p.identity !== IDENTITY.SPY && !p.isDead);
-    if (aliveSpies.length === 1 && otherAlive.length === 0) {
-      winner = 'spy';
-    } else {
-      winner = 'rebel';
-    }
-    state.winner = winner;
-  } else {
-    const aliveBadGuys = state.players.filter(p => (p.identity === IDENTITY.REBEL || p.identity === IDENTITY.SPY) && !p.isDead);
-    if (aliveBadGuys.length === 0) {
-      gameOver = true;
-      state.phase = PHASE.GAME_OVER;
-      winner = 'lord';
-      state.winner = winner;
-    }
-  }
-
-  if (!gameOver) {
-    let extraTurnSet = false;
-    while (state.extraTurnQueue && state.extraTurnQueue.length > 0) {
-      const nextExtra = state.extraTurnQueue.shift();
-      const atkIdx = state.players.findIndex(p => p.id === nextExtra.attackerId);
-      const defIdx = state.players.findIndex(p => p.id === nextExtra.targetId);
-      if (atkIdx !== -1 && defIdx !== -1 && !state.players[atkIdx].isDead && !state.players[defIdx].isDead) {
-        state.totalRound++;
-        state.turnData = { 
-          attackerIdx: atkIdx, 
-          defenderIdx: defIdx, 
-          attackRolls: null, defenseRolls: null, hasAttackerRerolled: false, hasDefenderRerolled: false, isExtraTurn: true 
-        };
-        state.turnPhase = TURN.WAITING_ATK; // Skip CHOOSE_TARGET since the target is locked
-        extraTurnSet = true;
-        break;
-      }
-    }
-
-    if (!extraTurnSet) {
-      state.totalRound++;
-      state.currentSubRound++;
-      if (state.currentSubRound >= GAME_CONFIG.SUBROUNDS_PER_CLASS) {
-        state.currentSubRound = 0;
-        state.currentClassIndex++;
-        
-        let nextFirst = (state.firstAttacker + 1) % state.players.length;
-        while (state.players[nextFirst].isDead && nextFirst !== state.firstAttacker) {
-          nextFirst = (nextFirst + 1) % state.players.length;
-        }
-        state.firstAttacker = nextFirst;
-        
-        classChanged = true;
-        if (state.currentClassIndex >= GAME_CONFIG.CLASSES_PER_GAME) {
-          gameOver = true;
-          state.phase = PHASE.GAME_OVER;
-          state.winner = 'lord'; // Simplified timeout winner
-          winner = state.winner;
-        } else {
-          nextSubject = state.schedule[state.currentClassIndex];
-        }
-      }
-      if (!gameOver) {
-        let offset = state.currentSubRound;
-        let ni = state.firstAttacker;
-        while(offset > 0) {
-          ni = (ni + 1) % state.players.length;
-          if (!state.players[ni].isDead) offset--;
-        }
-        
-        state.turnData = { 
-          attackerIdx: ni, 
-          defenderIdx: null, 
-          attackRolls: null, defenseRolls: null, hasAttackerRerolled: false, hasDefenderRerolled: false 
-        };
-        state.turnPhase = TURN.CHOOSE_TARGET;
-      }
-    }
-  }
-
-  return { gameOver, winner, classChanged, nextSubject };
-}
 
 function findPlayer(state, id) { return state.players.find(p => p.id === id); }
