@@ -1055,26 +1055,36 @@ export function resolvePhaseEnd(state) {
     }
   });
 
-  // FFA 胜负
-  const lord = state.players.find(p => p.identity === IDENTITY.LORD);
-  if (lord && lord.isDead) {
-    gameOver = true;
-    state.phase = PHASE.GAME_OVER;
-    const aliveSpies = state.players.filter(p => p.identity === IDENTITY.SPY && !p.isDead);
-    const otherAlive = state.players.filter(p => p.identity !== IDENTITY.SPY && !p.isDead);
-    if (aliveSpies.length === 1 && otherAlive.length === 0) {
-      winner = 'spy';
-    } else {
-      winner = 'rebel';
-    }
-    state.winner = winner;
-  } else {
-    const aliveBadGuys = state.players.filter(p => (p.identity === IDENTITY.REBEL || p.identity === IDENTITY.SPY) && !p.isDead);
-    if (aliveBadGuys.length === 0) {
+  // 结算胜负
+  if (state.gameMode === GAME_MODE.MODE_1V1) {
+    const p0 = state.players[0], p1 = state.players[1];
+    if (p0.hp <= 0 || p1.hp <= 0) {
       gameOver = true;
       state.phase = PHASE.GAME_OVER;
-      winner = 'lord';
+      if (p0.hp <= 0 && p1.hp <= 0) state.winner = 'draw';
+      else if (p1.hp <= 0) state.winner = 0;
+      else state.winner = 1;
+      winner = state.winner;
+    }
+  } else if (state.gameMode === GAME_MODE.MODE_FFA) {
+    // FFA 胜负
+    const lord = state.players.find(p => p.identity === IDENTITY.LORD);
+    if (lord && lord.hp <= 0) {
+      gameOver = true;
+      state.phase = PHASE.GAME_OVER;
+      const aliveSpies = state.players.filter(p => p.identity === IDENTITY.SPY && p.hp > 0);
+      const otherAlive = state.players.filter(p => p.identity !== IDENTITY.SPY && p.hp > 0);
+      if (aliveSpies.length === 1 && otherAlive.length === 0) winner = 'spy';
+      else winner = 'rebel';
       state.winner = winner;
+    } else {
+      const aliveBadGuys = state.players.filter(p => (p.identity === IDENTITY.REBEL || p.identity === IDENTITY.SPY) && p.hp > 0);
+      if (aliveBadGuys.length === 0) {
+        gameOver = true;
+        state.phase = PHASE.GAME_OVER;
+        winner = 'lord';
+        state.winner = winner;
+      }
     }
   }
 
