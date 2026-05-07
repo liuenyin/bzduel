@@ -863,7 +863,11 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
     }
   }
 
-    const { gameOver, winner, classChanged, nextSubject } = resolvePhaseEnd(state);
+    const resPhase = resolvePhaseEnd(state);
+    gameOver = resPhase.gameOver;
+    winner = resPhase.winner;
+    classChanged = resPhase.classChanged;
+    nextSubject = resPhase.nextSubject;
     
     return {
       ok: true, baseDef, finalDef, penalty, keptIndices: keepIndices,
