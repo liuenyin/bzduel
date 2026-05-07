@@ -278,9 +278,12 @@ io.on('connection', (socket) => {
     if (g.turnPhase === TURN.ATK_ROLLED && getCurrentAttackerId(g) === socket.id) {
       const res = confirmAttack(g, indices);
       if (!res.ok) return;
-      // Send atk_confirmed event then state (which now has DEF_ROLLED phase)
+      // YZX masking: hide defense rolls from attacker if defender is YZX
+      const defIdx = g.turnData.defenderIdx;
+      const isDefYZX = defIdx !== null && g.players[defIdx]?.cardId === 'char_10';
       emitToAll(room, 'atk_confirmed', (pid) => ({
-        atkResult: res.atkResult, defenseRolls: res.defenseRolls,
+        atkResult: res.atkResult,
+        defenseRolls: (isDefYZX && g.players[defIdx]?.id !== pid) ? res.defenseRolls?.map(() => -1) : res.defenseRolls,
         state: getStateView(g, pid),
       }));
       triggerAiPhase(socketToRoom.get(socket.id));
@@ -291,6 +294,11 @@ io.on('connection', (socket) => {
       } else {
         if (getCurrentDefenderId(g) !== socket.id) return;
       }
+
+      // Save defender info before confirmDefense modifies state
+      const preDefIdx = g.turnData.defenderIdx;
+      const preDefId = preDefIdx !== null ? g.players[preDefIdx]?.id : null;
+      const preDefCardId = preDefIdx !== null ? g.players[preDefIdx]?.cardId : null;
 
       const res = confirmDefense(g, socket.id, indices, options);
       if (!res.ok) {
@@ -307,9 +315,17 @@ io.on('connection', (socket) => {
         return;
       }
 
-      emitToAll(room, 'turn_resolved', (pid) => ({
-        ...res, state: getStateView(g, pid),
-      }));
+      // YZX masking: hide defense stats from non-YZX players when defender is YZX
+      emitToAll(room, 'turn_resolved', (pid) => {
+        const data = { ...res, state: getStateView(g, pid) };
+        if (preDefCardId === 'char_10' && pid !== preDefId && !res.gameOver) {
+          data.baseDef = '??';
+          data.finalDef = '??';
+          data.damage = '??';
+          data.penalty = '??';
+        }
+        return data;
+      });
       const roomId = socketToRoom.get(socket.id);
       if (res.gameOver) {
         setTimeout(() => cleanupRoom(room), 30000);

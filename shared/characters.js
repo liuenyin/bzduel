@@ -69,7 +69,7 @@ export const characters = [
     positiveSkill: {
       id: SKILL.NO_REROLL_BONUS,
       name: '记号',
-      desc: '<ul><li>攻击开始时，获得 <span style="color:var(--rose-gold)">+1</span> 次重投机会</li><li>若选择防守的点数全为奇数，参与的骰子面数永久 <span style="color:var(--rose-gold)">+2</span> (无上限)</li></ul>',
+      desc: '<ul><li>攻击开始时，获得 <span style="color:var(--rose-gold)">+1</span> 次重投机会</li><li>若攻击选中的骰子点数全为奇数，参与的骰子面数永久 <span style="color:var(--rose-gold)">+2</span> (无上限)</li></ul>',
     },
     negativeSkill: {
       id: SKILL.REROLL_PENALTY,
@@ -159,7 +159,7 @@ export const characters = [
     positiveSkill: {
       id: SKILL.RED_HEAT_APPLY,
       name: '玩（）玩的',
-      desc: '<ul><li>攻击造成伤害时，对对方施加 <span style="color:var(--rose-gold)">1 + 2×课程倍率</span> 层【红温】</li><li>【红温】：携带者攻击回合开始时受到等同层数的伤害，随后层数 -2</li></ul>',
+      desc: '<ul><li>攻击造成伤害时，对对方施加 <span style="color:var(--rose-gold)">1 + 2×课程倍率</span> 层【红温】</li><li>【红温】：携带者攻击回合开始时受到等同层数的伤害，随后层数 -1</li></ul>',
     },
     negativeSkill: {
       id: SKILL.RED_HEAT_DETONATE,

@@ -145,7 +145,7 @@ export function rollAttack(state) {
   // 红温伤害 (攻击回合开始时)
   if (atk.redHeat > 0) {
     atk.hp -= atk.redHeat;
-    atk.redHeat = Math.max(0, atk.redHeat - 2);
+    atk.redHeat = Math.max(0, atk.redHeat - 1);
     if (atk.hp < 0) atk.hp = 0;
   }
 
@@ -424,7 +424,9 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
       const isPrimary = state.players[state.turnData.defenderIdx].id === pid;
 
       const pKeptRolls = ds.keepIndices.map(i => ds.rolls[i]);
-      const pBaseDef = pKeptRolls.reduce((s, v) => s + v, 0);
+      // 姜鹏泽正面: 防御骰子也乘以课程倍率
+      const pAdjustedRolls = p.card.positiveSkill?.id === SKILL.LIBERAL_ARTS ? pKeptRolls.map(v => Math.floor(v * pMulti)) : pKeptRolls;
+      const pBaseDef = pAdjustedRolls.reduce((s, v) => s + v, 0);
       
       const turnDataSimulated = { hasDefenderRerolled: ds.hasRerolled };
       const defNeg = resolveDefenderNegativeSkill(p.card.negativeSkill, pMulti, state.totalRound, turnDataSimulated);
@@ -449,7 +451,8 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
       }
 
       const pFinalKeptRolls = ds.keepIndices.map(i => ds.rolls[i]);
-      const pFinalBaseDef = pFinalKeptRolls.reduce((s, v) => s + v, 0);
+      const pFinalAdjusted = p.card.positiveSkill?.id === SKILL.LIBERAL_ARTS ? pFinalKeptRolls.map(v => Math.floor(v * pMulti)) : pFinalKeptRolls;
+      const pFinalBaseDef = pFinalAdjusted.reduce((s, v) => s + v, 0);
       const pFinalFinalDef = Math.max(0, pFinalBaseDef - penalty);
 
       let targetFinalBaseAtk = finalBaseAtk;
@@ -507,6 +510,11 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
         const opHeat = p.redHeat || 0;
         if (opHeat > 0) {
           detonateDamage = opHeat;
+          // 天赋怪减伤也适用于红温引爆
+          if (p.card.positiveSkill?.id === SKILL.TALENTED) {
+            const dRatio = pMulti === 2 ? 0.5 : (pMulti === 1 ? 0.75 : 1);
+            if (dRatio < 1) detonateDamage = Math.floor(detonateDamage * dRatio);
+          }
           damage += detonateDamage;
           p.redHeat = 0;
           detonateTriggered = true;
@@ -609,7 +617,9 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
 
     const defRolls = state.turnData.defenseRolls;
     const keptRolls = keepIndices.map(i => defRolls[i]);
-    const baseDef = keptRolls.reduce((s, v) => s + v, 0);
+    // 姜鹏泽正面: 防御骰子也乘以课程倍率
+    const adjustedDefRolls = def.card.positiveSkill?.id === SKILL.LIBERAL_ARTS ? keptRolls.map(v => Math.floor(v * defMulti)) : keptRolls;
+    const baseDef = adjustedDefRolls.reduce((s, v) => s + v, 0);
     const defNeg = resolveDefenderNegativeSkill(def.card.negativeSkill, defMulti, state.totalRound, state.turnData);
     
     if (defNeg.addPermanentPenalty) {
@@ -652,7 +662,8 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
 
     // 重新计算最终防御
     const finalKeptRolls = keepIndices.map(i => defRolls[i]);
-    const finalBaseDef = finalKeptRolls.reduce((s, v) => s + v, 0);
+    const finalAdjusted = def.card.positiveSkill?.id === SKILL.LIBERAL_ARTS ? finalKeptRolls.map(v => Math.floor(v * defMulti)) : finalKeptRolls;
+    const finalBaseDef = finalAdjusted.reduce((s, v) => s + v, 0);
     const finalFinalDef = Math.max(0, finalBaseDef - penalty);
 
     let damage = ar.pierce ? finalBaseAtk : Math.max(0, finalBaseAtk - finalFinalDef);
@@ -683,7 +694,7 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
 
   // 杂鱼自残判定 (HJC: 攻击力 < 防御力 → 自身血量减半)
   let noobTriggered = false;
-  if (ar.finalAtk < finalDef && atk.card.negativeSkill?.id === 'hjc_neg') {
+  if (ar.finalAtk < finalFinalDef && atk.card.negativeSkill?.id === 'hjc_neg') {
     atk.hp -= Math.floor(atk.hp / 2);
     noobTriggered = true;
   }
@@ -722,6 +733,11 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
     const opHeat = def.redHeat || 0;
     if (opHeat > 0) {
       detonateDamage = opHeat;
+      // 天赋怪减伤也适用于红温引爆
+      if (def.card.positiveSkill?.id === SKILL.TALENTED) {
+        const dRatio = defMulti === 2 ? 0.5 : (defMulti === 1 ? 0.75 : 1);
+        if (dRatio < 1) detonateDamage = Math.floor(detonateDamage * dRatio);
+      }
       def.hp = Math.max(0, def.hp - detonateDamage);
       def.redHeat = 0;
       detonateTriggered = true;
