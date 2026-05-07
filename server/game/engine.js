@@ -1140,8 +1140,7 @@ export function resolvePhaseEnd(state) {
       if (!gameOver) {
         let ni;
         if (state.gameMode === GAME_MODE.MODE_1V1) {
-          // 1v1 严格交替，不再使用 firstAttacker + subRound 避免课间双击
-          ni = 1 - prevAttackerIdx;
+          ni = (state.firstAttacker + state.currentSubRound) % 2;
         } else {
           let offset = state.currentSubRound;
           ni = state.firstAttacker;
