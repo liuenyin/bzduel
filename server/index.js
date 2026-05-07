@@ -297,6 +297,7 @@ io.on('connection', (socket) => {
 
   // ── 确认骰子 ──
   socket.on('confirm_dice', ({ indices, options = {} }) => {
+    const roomId = socketToRoom.get(socket.id);
     const room = getRoom(socket.id); if (!room) return;
     const g = room.game;
 
