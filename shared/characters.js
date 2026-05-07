@@ -30,6 +30,8 @@ export const SKILL = {
   FIRST_BLOOD: 'first_blood',               // 偏科 (姜鹏泽: 首次掉血后防御选骰-1)
   EXTRA_TURN: 'extra_turn',                  // 逆袭 (张楚唯: 受重伤后获得额外攻击回合)
   BACK_PAIN: 'back_pain',                    // 腰疼？ (张楚唯: 触发额外回合后防御-1)
+  BUY_WATER: 'buy_water',                    // 买水 (周煊声: 跳过攻击蓄势)
+  CAUGHT: 'caught',                          // 被发现 (周煊声: 蓄势时防御受额外伤害)
   
   // 大乱斗特供
   RAPPER: 'rapper',                          // rapper (刘奕辰: 群攻AOE)
@@ -257,7 +259,7 @@ export const characters = [
     title: 'hammer',
     subjects: ['chinese', 'math', 'english', 'physics', 'chemistry', 'biology'],
     electives: ['physics', 'chemistry', 'biology'],
-    image: '/photos/zcw.jpg',
+    image: '/photos/zcw.png',
     hp: 37,
     dicePool: [6, 6, 6, 6, 8],
     atkSlots: 3,
@@ -294,6 +296,28 @@ export const characters = [
       id: SKILL.FORGET_LYRICS,
       name: '忘词',
       desc: '<ul><li>如果攻击时使用了重投，结算时每有一个目标（含主副）未受到伤害，自身扣除 <span style="color:var(--rose-gold)">2 × 课程倍率</span> 的 HP</li></ul>',
+    },
+  },
+  {
+    id: 'char_14',
+    name: '周煊声',
+    title: '天子',
+    subjects: ['chinese', 'math', 'english', 'physics', 'chemistry', 'biology'],
+    electives: ['physics', 'chemistry', 'biology'],
+    image: '/photos/zxs.jpg',
+    hp: 30,
+    dicePool: [4, 6, 6, 8],
+    atkSlots: 3,
+    defSlots: 3,
+    positiveSkill: {
+      id: SKILL.BUY_WATER,
+      name: '买水',
+      desc: '<ul><li>攻击回合中若未重投，可点击【买水】放弃本轮攻击，获得 1 层【蓄势】（最多 <span style="color:var(--rose-gold)">2</span> 层）</li><li>下次正常攻击时消耗所有【蓄势】：每层 <span style="color:var(--rose-gold)">+4</span> 伤害、<span style="color:var(--rose-gold)">+1</span> 重投次数</li></ul>',
+    },
+    negativeSkill: {
+      id: SKILL.CAUGHT,
+      name: '被发现',
+      desc: '<ul><li>每持有 1 层【蓄势】，防御结算时受到的最终伤害额外 <span style="color:var(--rose-gold)">+3</span></li></ul>',
     },
   },
 ];

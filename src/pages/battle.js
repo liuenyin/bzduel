@@ -151,6 +151,13 @@ function rebindActionButtons() {
     gameSocket.confirmDice(indices);
     disableBtn('btn-confirm'); hide('btn-reroll');
   };
+  const buy = document.getElementById('btn-buy-water');
+  if (buy) buy.onclick = () => {
+    if (confirm('确认放弃本轮攻击机会，换取一层蓄势吗？')) {
+      gameSocket.emit('buy_water');
+      disableBtn('btn-buy-water');
+    }
+  };
 }
 
 // ── 刷新所有 UI ──
@@ -392,6 +399,7 @@ function buffIcons(p) {
   if (p.permanentDefPenalty) h += `<div class="buff-icon neg" title="体力透支: 防御力永久 -${p.permanentDefPenalty}">💦</div>`;
   if (p.buffs && p.buffs.find(b => b.id === 'sugar_crash')) h += `<div class="buff-icon neg" title="犯糖: 禁锢重投，回合开始受击">🍭</div>`;
   if (p.redHeat > 0) h += `<div class="buff-icon neg" title="红温: ${p.redHeat}层">🔥${p.redHeat}</div>`;
+  if (p.chargeStacks > 0) h += `<div class="buff-icon pos" title="蓄势: ${p.chargeStacks}层">⚡${p.chargeStacks}</div>`;
   return h;
 }
 
@@ -727,12 +735,17 @@ function phasePrompt(s) {
 }
 
 function actionButtons(s) {
-  if (s.turnPhase === 'waiting_atk' && s.isMyAttackTurn)
-    return '<button id="btn-roll" class="btn btn-primary btn-lg">掷骰</button>';
-  if (s.turnPhase === 'atk_rolled' && s.isMyAttackTurn)
+  if (s.turnPhase === 'waiting_atk' && s.isMyAttackTurn) {
+    const buyBtn = (s.me.card?.positiveSkill?.id === 'buy_water' && (s.me.chargeStacks||0) < 2) ? '<button id="btn-buy-water" class="btn btn-secondary btn-lg" style="margin-left:8px;">买水</button>' : '';
+    return `<button id="btn-roll" class="btn btn-primary btn-lg">掷骰</button>${buyBtn}`;
+  }
+  if (s.turnPhase === 'atk_rolled' && s.isMyAttackTurn) {
+    const buyBtn = (s.me.card?.positiveSkill?.id === 'buy_water' && (s.me.chargeStacks||0) < 2 && !s.hasAttackerRerolled && !s.isExtraTurn) ? '<button id="btn-buy-water" class="btn btn-secondary" style="margin-top:8px; display:block; width:100%;">买水 (放弃本次攻击)</button>' : '';
     return `<div>
           <button id="btn-confirm" class="btn btn-success" disabled>✓ 确认</button>
+          ${buyBtn}
         </div>` + `${s.me.card.atkSlots === -1 ? '至少选 1 颗' : `需选 ${s.me.card.atkSlots} 颗`}`;
+  }
   if (s.turnPhase === 'def_rolled' && s.isMyDefendTurn) {
     const sacBtn = s.me.cardId === 'char_8' ? '<button id="btn-sacrifice" class="btn btn-secondary" style="display:none;" onclick="window._showSacrifice()">🩸 献祭回血</button>' : '';
     return `<div>

@@ -8,7 +8,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import {
   createGame, selectCard, setReady, useReschedule,
-  rollAttack, rerollDice, confirmAttack, confirmDefense, selectTarget,
+  rollAttack, rerollDice, confirmAttack, confirmDefense, selectTarget, buyWater,
   getCurrentAttackerId, getCurrentDefenderId, getStateView, TURN,
 } from './game/engine.js';
 import { aiSelectCard } from './game/ai.js';
@@ -337,6 +337,29 @@ io.on('connection', (socket) => {
       } else {
         triggerAiPhase(roomId);
       }
+    }
+  });
+
+  // ── 周煊声：买水 ──
+  socket.on('buy_water', () => {
+    const room = getRoom(socket.id); if (!room) return;
+    const g = room.game;
+    const res = buyWater(g, socket.id);
+    if (!res.ok) {
+      socket.emit('error_msg', { message: '买水失败：' + res.error });
+      return;
+    }
+    emitToAll(room, 'turn_resolved', (pid) => ({
+      ...res, state: getStateView(g, pid)
+    }));
+    const roomId = socketToRoom.get(socket.id);
+    if (res.classChanged) {
+      emitToAll(room, 'class_change', () => ({
+        subject: res.nextSubject, index: g.currentClassIndex,
+      }));
+      setTimeout(() => triggerAiPhase(roomId), 2000);
+    } else {
+      triggerAiPhase(roomId);
     }
   });
 

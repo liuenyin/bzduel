@@ -62,6 +62,7 @@ function makePlayer(id, name) {
     rerolls: GAME_CONFIG.REROLLS_PER_GAME,
     buffs: [],
     redHeat: 0, // 红温层数
+    chargeStacks: 0, // 蓄势层数 (周煊声)
   };
 }
 
@@ -184,6 +185,15 @@ export function rollAttack(state) {
   // 王鹤迪: 攻击回合开始时+2次重投
   if (atk.card.positiveSkill?.id === SKILL.STAR_SHOWOFF) {
     atk.rerolls += 2;
+  }
+
+  // 周煊声: 蓄势消耗 (每层+1重投)
+  let chargeConsumed = 0;
+  if (atk.chargeStacks > 0 && atk.card.positiveSkill?.id === SKILL.BUY_WATER && !state.turnData.isExtraTurn) {
+    chargeConsumed = atk.chargeStacks;
+    atk.rerolls += chargeConsumed;
+    state.turnData.chargeConsumed = chargeConsumed;
+    atk.chargeStacks = 0;
   }
 
   // 张楚唯: 额外回合重投+2, 所有骰子面数临时+2
@@ -328,6 +338,15 @@ export function confirmAttack(state, keepIndices) {
 
   // 张楚唯: 额外回合 → 在 rollAttack 中处理 (+2重投, 面数临时+2)
 
+  // 周煊声: 蓄势消耗 (每层+4伤害)
+  if (state.turnData.chargeConsumed > 0) {
+    const chargeBonus = state.turnData.chargeConsumed * 4;
+    state.turnData.atkResult.bonusDamage += chargeBonus;
+    state.turnData.atkResult.finalAtk += chargeBonus;
+    state.turnData.atkResult.posTriggered = true;
+    state.turnData.atkResult.posName = '蓄势爆发';
+  }
+
   // Auto-roll defense using pool
   if (state.gameMode === GAME_MODE.MODE_FFA && atk.card.positiveSkill?.id === SKILL.RAPPER) {
     state.turnData.isAoE = true;
@@ -467,6 +486,11 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
       // 殷泽轩负面: 受到伤害时，最终伤害额外 +2 × 倍率
       if (damage > 0 && p.card.negativeSkill?.id === SKILL.VULNERABLE) {
         damage += Math.floor(2 * pMulti);
+      }
+
+      // 周煊声负面: 每层蓄势增加 3 点受伤
+      if (damage > 0 && p.card.negativeSkill?.id === SKILL.CAUGHT && (p.chargeStacks || 0) > 0) {
+        damage += (p.chargeStacks || 0) * 3;
       }
 
       // 黄佳程正面: 天赋怪 (减伤)
@@ -673,6 +697,11 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
     damage += Math.floor(2 * defMulti);
   }
 
+  // 周煊声负面: 每层蓄势增加 3 点受伤
+  if (damage > 0 && def.card.negativeSkill?.id === SKILL.CAUGHT && (def.chargeStacks || 0) > 0) {
+    damage += (def.chargeStacks || 0) * 3;
+  }
+
   // 黄佳程正面: 天赋怪 (减伤)
   let talentTriggered = false;
   if (damage > 0 && def.card.positiveSkill?.id === SKILL.TALENTED) {
@@ -820,85 +849,11 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
     }
   }
 
-  if (!gameOver) {
-    let extraTurnSet = false;
-    while (state.extraTurnQueue && state.extraTurnQueue.length > 0) {
-      const nextExtra = state.extraTurnQueue.shift();
-      const atkIdx = state.players.findIndex(p => p.id === nextExtra.attackerId);
-      const defIdx = state.players.findIndex(p => p.id === nextExtra.targetId);
-      if (atkIdx !== -1 && defIdx !== -1 && !state.players[atkIdx].isDead && !state.players[defIdx].isDead) {
-        state.totalRound++;
-        state.turnData = { 
-          attackerIdx: atkIdx, 
-          defenderIdx: defIdx, 
-          attackRolls: null, defenseRolls: null, hasAttackerRerolled: false, hasDefenderRerolled: false, isExtraTurn: true 
-        };
-        state.turnPhase = TURN.WAITING_ATK;
-        extraTurnSet = true;
-        break;
-      }
-    }
-
-    if (!extraTurnSet) {
-      state.totalRound++;
-      state.currentSubRound++;
-      if (state.currentSubRound >= GAME_CONFIG.SUBROUNDS_PER_CLASS) {
-        state.currentSubRound = 0;
-        state.currentClassIndex++;
-        
-        // 推进 attacker 逻辑
-        if (state.gameMode === GAME_MODE.MODE_1V1) {
-          state.firstAttacker = 1 - state.firstAttacker;
-        } else {
-          // FFA 寻找下一个活着的玩家作为 firstAttacker
-          let nextFirst = (state.firstAttacker + 1) % state.players.length;
-          while (state.players[nextFirst].isDead && nextFirst !== state.firstAttacker) {
-            nextFirst = (nextFirst + 1) % state.players.length;
-          }
-          state.firstAttacker = nextFirst;
-        }
-        
-        classChanged = true;
-        if (state.currentClassIndex >= GAME_CONFIG.CLASSES_PER_GAME) {
-          gameOver = true;
-          state.phase = PHASE.GAME_OVER;
-          if (state.gameMode === GAME_MODE.MODE_1V1) {
-            const h0 = state.players[0].hp, h1 = state.players[1].hp;
-            state.winner = h0 > h1 ? 0 : h1 > h0 ? 1 : 'draw';
-          } else {
-            // FFA 打满6节课，如果还没结束，算反贼赢？还是按血量？三国杀通常没有回合上限，但这里有。
-            // 简单处理：算作主公防守成功
-            state.winner = 'lord';
-          }
-          winner = state.winner;
-        } else {
-          nextSubject = state.schedule[state.currentClassIndex];
-        }
-      }
-      if (!gameOver) {
-        let ni;
-        if (state.gameMode === GAME_MODE.MODE_1V1) {
-          ni = (state.firstAttacker + state.currentSubRound) % 2;
-        } else {
-          // 在 FFA 中，subRound 可能失去原本的意义，每个人轮流。或者沿用 subRound 表示当前课程的交手次数。
-          // 我们这里让每节课还是打2轮？或者 FFA 模式一节课应该每个活人都出手一次！
-          // 需要特别处理 FFA 的回合流转。为了简单，直接按活着的人顺序。
-          let offset = state.currentSubRound;
-          ni = state.firstAttacker;
-          while(offset > 0) {
-            ni = (ni + 1) % state.players.length;
-            if (!state.players[ni].isDead) offset--;
-          }
-        }
-        
-        state.turnData = { 
-          attackerIdx: ni, 
-          defenderIdx: state.gameMode === GAME_MODE.MODE_FFA ? null : (1 - ni), 
-          attackRolls: null, defenseRolls: null, hasAttackerRerolled: false, hasDefenderRerolled: false 
-        };
-        state.turnPhase = state.gameMode === GAME_MODE.MODE_FFA ? TURN.CHOOSE_TARGET : TURN.WAITING_ATK;
-      }
-    }
+    const next = advanceTurnState(state);
+    gameOver = next.gameOver;
+    winner = next.winner;
+    classChanged = next.classChanged;
+    nextSubject = next.nextSubject;
   }
 
   return {
@@ -916,8 +871,127 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
     gameOver, winner, classChanged, nextSubject,
     attackerIdx: prevAttackerIdx,
   };
-} // end of else block
-} // end of confirmDefense
+}
+
+/**
+ * 推进游戏到下一个回合的状态逻辑 (内部复用)
+ */
+function advanceTurnState(state) {
+  let gameOver = false;
+  let winner = null;
+  let classChanged = false;
+  let nextSubject = null;
+  let extraTurnSet = false;
+
+  // 处理额外回合队列
+  while (state.extraTurnQueue && state.extraTurnQueue.length > 0) {
+    const nextExtra = state.extraTurnQueue.shift();
+    const atkIdx = state.players.findIndex(p => p.id === nextExtra.attackerId);
+    const defIdx = state.players.findIndex(p => p.id === nextExtra.targetId);
+    if (atkIdx !== -1 && defIdx !== -1 && !state.players[atkIdx].isDead && !state.players[defIdx].isDead) {
+      state.totalRound++;
+      state.turnData = { 
+        attackerIdx: atkIdx, 
+        defenderIdx: defIdx, 
+        attackRolls: null, defenseRolls: null, hasAttackerRerolled: false, hasDefenderRerolled: false, isExtraTurn: true 
+      };
+      state.turnPhase = TURN.WAITING_ATK;
+      extraTurnSet = true;
+      break;
+    }
+  }
+
+  if (!extraTurnSet) {
+    state.totalRound++;
+    state.currentSubRound++;
+    if (state.currentSubRound >= GAME_CONFIG.SUBROUNDS_PER_CLASS) {
+      state.currentSubRound = 0;
+      state.currentClassIndex++;
+      
+      // 推进 attacker 逻辑
+      if (state.gameMode === GAME_MODE.MODE_1V1) {
+        state.firstAttacker = 1 - state.firstAttacker;
+      } else {
+        // FFA 寻找下一个活着的玩家作为 firstAttacker
+        let nextFirst = (state.firstAttacker + 1) % state.players.length;
+        while (state.players[nextFirst].isDead && nextFirst !== state.firstAttacker) {
+          nextFirst = (nextFirst + 1) % state.players.length;
+        }
+        state.firstAttacker = nextFirst;
+      }
+      
+      classChanged = true;
+      if (state.currentClassIndex >= GAME_CONFIG.CLASSES_PER_GAME) {
+        gameOver = true;
+        state.phase = PHASE.GAME_OVER;
+        if (state.gameMode === GAME_MODE.MODE_1V1) {
+          const h0 = state.players[0].hp, h1 = state.players[1].hp;
+          state.winner = h0 > h1 ? 0 : h1 > h0 ? 1 : 'draw';
+        } else {
+          state.winner = 'lord';
+        }
+        winner = state.winner;
+      } else {
+        nextSubject = state.schedule[state.currentClassIndex];
+      }
+    }
+    if (!gameOver) {
+      let ni;
+      if (state.gameMode === GAME_MODE.MODE_1V1) {
+        ni = (state.firstAttacker + state.currentSubRound) % 2;
+      } else {
+        let offset = state.currentSubRound;
+        ni = state.firstAttacker;
+        while(offset > 0) {
+          ni = (ni + 1) % state.players.length;
+          if (!state.players[ni].isDead) offset--;
+        }
+      }
+      
+      state.turnData = { 
+        attackerIdx: ni, 
+        defenderIdx: state.gameMode === GAME_MODE.MODE_FFA ? null : (1 - ni), 
+        attackRolls: null, defenseRolls: null, hasAttackerRerolled: false, hasDefenderRerolled: false 
+      };
+      state.turnPhase = state.gameMode === GAME_MODE.MODE_FFA ? TURN.CHOOSE_TARGET : TURN.WAITING_ATK;
+    }
+  }
+
+  return { gameOver, winner, classChanged, nextSubject };
+}
+
+/**
+ * 周煊声正面技能：买水
+ * 放弃本轮攻击，获得一层【蓄势】
+ */
+export function buyWater(state, playerId) {
+  if (state.phase !== PHASE.BATTLE) return { ok: false, error: 'not_battle_phase' };
+  const atkIdx = state.turnData.attackerIdx;
+  const atk = state.players[atkIdx];
+  if (atk.id !== playerId) return { ok: false, error: 'not_your_turn' };
+  if (atk.card.positiveSkill?.id !== SKILL.BUY_WATER) return { ok: false, error: 'no_skill' };
+  if (state.turnPhase !== TURN.WAITING_ATK && state.turnPhase !== TURN.ATK_ROLLED) return { ok: false, error: 'invalid_phase' };
+  if (state.turnData.hasAttackerRerolled) return { ok: false, error: 'already_rerolled' };
+  if (state.turnData.isExtraTurn) return { ok: false, error: 'extra_turn_no_buy' };
+
+  // 增加蓄势 (最多2层)
+  atk.chargeStacks = Math.min(2, (atk.chargeStacks || 0) + 1);
+
+  // 跳过本轮，直接进入下一轮逻辑
+  const prevAttackerIdx = atkIdx;
+  const next = advanceTurnState(state);
+
+  return {
+    ok: true,
+    buyWaterTriggered: true,
+    chargeStacks: atk.chargeStacks,
+    gameOver: next.gameOver,
+    winner: next.winner,
+    classChanged: next.classChanged,
+    nextSubject: next.nextSubject,
+    attackerIdx: prevAttackerIdx,
+  };
+}
 
 // ── 技能结算 ──
 function resolvePositiveSkill(skill, multi, rolls, totalRound, turnData) {
@@ -1007,6 +1081,7 @@ export function getStateView(state, playerId) {
       ready: p.ready,
       hasReschedule: p.hasReschedule, rerolls: p.rerolls, buffs: p.buffs,
       permanentDefPenalty: p.permanentDefPenalty, redHeat: p.redHeat || 0,
+      chargeStacks: p.chargeStacks || 0,
       isDead: !!p.isDead,
       identity: hideIdentity ? '?' : p.identity,
     };
