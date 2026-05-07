@@ -863,102 +863,24 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
     }
   }
 
-  if (!gameOver) {
-    let extraTurnSet = false;
-    while (state.extraTurnQueue && state.extraTurnQueue.length > 0) {
-      const nextExtra = state.extraTurnQueue.shift();
-      const atkIdx = state.players.findIndex(p => p.id === nextExtra.attackerId);
-      const defIdx = state.players.findIndex(p => p.id === nextExtra.targetId);
-      if (atkIdx !== -1 && defIdx !== -1 && !state.players[atkIdx].isDead && !state.players[defIdx].isDead) {
-        state.totalRound++;
-        state.turnData = { 
-          attackerIdx: atkIdx, 
-          defenderIdx: defIdx, 
-          attackRolls: null, defenseRolls: null, hasAttackerRerolled: false, hasDefenderRerolled: false, isExtraTurn: true 
-        };
-        state.turnPhase = TURN.WAITING_ATK;
-        extraTurnSet = true;
-        break;
-      }
-    }
-
-    if (!extraTurnSet) {
-      state.totalRound++;
-      state.currentSubRound++;
-      if (state.currentSubRound >= GAME_CONFIG.SUBROUNDS_PER_CLASS) {
-        state.currentSubRound = 0;
-        state.currentClassIndex++;
-        
-        // 推进 attacker 逻辑
-        if (state.gameMode === GAME_MODE.MODE_1V1) {
-          state.firstAttacker = 1 - state.firstAttacker;
-        } else {
-          // FFA 寻找下一个活着的玩家作为 firstAttacker
-          let nextFirst = (state.firstAttacker + 1) % state.players.length;
-          while (state.players[nextFirst].isDead && nextFirst !== state.firstAttacker) {
-            nextFirst = (nextFirst + 1) % state.players.length;
-          }
-          state.firstAttacker = nextFirst;
-        }
-        
-        classChanged = true;
-        if (state.currentClassIndex >= GAME_CONFIG.CLASSES_PER_GAME) {
-          gameOver = true;
-          state.phase = PHASE.GAME_OVER;
-          if (state.gameMode === GAME_MODE.MODE_1V1) {
-            const h0 = state.players[0].hp, h1 = state.players[1].hp;
-            state.winner = h0 > h1 ? 0 : h1 > h0 ? 1 : 'draw';
-          } else {
-            // FFA 打满6节课，如果还没结束，算反贼赢？还是按血量？三国杀通常没有回合上限，但这里有。
-            // 简单处理：算作主公防守成功
-            state.winner = 'lord';
-          }
-          winner = state.winner;
-        } else {
-          nextSubject = state.schedule[state.currentClassIndex];
-        }
-      }
-      if (!gameOver) {
-        let ni;
-        if (state.gameMode === GAME_MODE.MODE_1V1) {
-          ni = (state.firstAttacker + state.currentSubRound) % 2;
-        } else {
-          // 在 FFA 中，subRound 可能失去原本的意义，每个人轮流。或者沿用 subRound 表示当前课程的交手次数。
-          // 我们这里让每节课还是打2轮？或者 FFA 模式一节课应该每个活人都出手一次！
-          // 需要特别处理 FFA 的回合流转。为了简单，直接按活着的人顺序。
-          let offset = state.currentSubRound;
-          ni = state.firstAttacker;
-          while(offset > 0) {
-            ni = (ni + 1) % state.players.length;
-            if (!state.players[ni].isDead) offset--;
-          }
-        }
-        
-        state.turnData = { 
-          attackerIdx: ni, 
-          defenderIdx: state.gameMode === GAME_MODE.MODE_FFA ? null : (1 - ni), 
-          attackRolls: null, defenseRolls: null, hasAttackerRerolled: false, hasDefenderRerolled: false 
-        };
-        state.turnPhase = state.gameMode === GAME_MODE.MODE_FFA ? TURN.CHOOSE_TARGET : TURN.WAITING_ATK;
-      }
-    }
+    const { gameOver, winner, classChanged, nextSubject } = resolvePhaseEnd(state);
+    
+    return {
+      ok: true, baseDef, finalDef, penalty, keptIndices: keepIndices,
+      atkResult: ar,
+      defNegTriggered: defNeg.triggered,
+      defNegName: defNeg.triggered ? def.card.negativeSkill.name : null,
+      defPosTriggered: commanderTriggered || talentTriggered || eatTriggered || lcHealTriggered || lcCounterTriggered || extraTurnTriggered,
+      defPosName: talentTriggered ? "天赋怪" : (commanderTriggered ? "团长大人!" : (eatTriggered ? "吃掉!" : (lcHealTriggered ? "献祭" : (lcCounterTriggered ? "反击" : (extraTurnTriggered ? "死磕" : null))))),
+      noobTriggered, detonateTriggered, detonateDamage, redHeatApplied,
+      damage, selfDamage: ar.selfDamage, pierce: ar.pierce,
+      lcCounterDamage, healAmount, lcHealTriggered, eatTriggered,
+      extraTurnTriggered,
+      firstBloodTriggered: firstBloodTriggeredThisTurn,
+      gameOver, winner, classChanged, nextSubject,
+      attackerIdx: prevAttackerIdx,
+    };
   }
-
-  return {
-    ok: true, baseDef, finalDef, penalty, keptIndices: keepIndices,
-    atkResult: ar,
-    defNegTriggered: defNeg.triggered,
-    defNegName: defNeg.triggered ? def.card.negativeSkill.name : null,
-    defPosTriggered: commanderTriggered || talentTriggered || eatTriggered || lcHealTriggered || lcCounterTriggered || extraTurnTriggered,
-    defPosName: talentTriggered ? "天赋怪" : (commanderTriggered ? "团长大人!" : (eatTriggered ? "吃掉!" : (lcHealTriggered ? "献祭" : (lcCounterTriggered ? "反击" : (extraTurnTriggered ? "死磕" : null))))),
-    noobTriggered, detonateTriggered, detonateDamage, redHeatApplied,
-    damage, selfDamage: ar.selfDamage, pierce: ar.pierce,
-    lcCounterDamage, healAmount, lcHealTriggered, eatTriggered,
-    extraTurnTriggered,
-    firstBloodTriggered: firstBloodTriggeredThisTurn,
-    gameOver, winner, classChanged, nextSubject,
-    attackerIdx: prevAttackerIdx,
-  };
 } // end of else block
 } // end of confirmDefense
 
@@ -1195,20 +1117,26 @@ export function resolvePhaseEnd(state) {
           nextSubject = state.schedule[state.currentClassIndex];
         }
       }
+      
       if (!gameOver) {
-        let offset = state.currentSubRound;
-        let ni = state.firstAttacker;
-        while(offset > 0) {
-          ni = (ni + 1) % state.players.length;
-          if (!state.players[ni].isDead) offset--;
+        let ni;
+        if (state.gameMode === GAME_MODE.MODE_1V1) {
+          ni = (state.firstAttacker + state.currentSubRound) % 2;
+        } else {
+          let offset = state.currentSubRound;
+          ni = state.firstAttacker;
+          while(offset > 0) {
+            ni = (ni + 1) % state.players.length;
+            if (!state.players[ni].isDead) offset--;
+          }
         }
         
         state.turnData = { 
           attackerIdx: ni, 
-          defenderIdx: null, 
+          defenderIdx: state.gameMode === GAME_MODE.MODE_FFA ? null : (1 - ni), 
           attackRolls: null, defenseRolls: null, hasAttackerRerolled: false, hasDefenderRerolled: false 
         };
-        state.turnPhase = TURN.CHOOSE_TARGET;
+        state.turnPhase = state.gameMode === GAME_MODE.MODE_FFA ? TURN.CHOOSE_TARGET : TURN.WAITING_ATK;
       }
     }
   }
