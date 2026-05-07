@@ -312,7 +312,7 @@ export const characters = [
     positiveSkill: {
       id: SKILL.BUY_WATER,
       name: '买水',
-      desc: '<ul><li>攻击回合中若未重投，可点击【买水】放弃本轮攻击，获得 1 层【蓄势】（最多 <span style="color:var(--rose-gold)">2</span> 层）</li><li>下次正常攻击时消耗所有【蓄势】：每层 <span style="color:var(--rose-gold)">+4</span> 伤害、<span style="color:var(--rose-gold)">+1</span> 重投次数</li></ul>',
+      desc: '<ul><li>攻击回合中若未重投，可点击【买水】放弃本轮攻击，获得 1 层【蓄势】（最多 <span style="color:var(--rose-gold)">2</span> 层）</li><li>下次正常攻击时消耗所有【蓄势】：每层 <span style="color:var(--rose-gold)">+8</span> 伤害、<span style="color:var(--rose-gold)">+1</span> 重投次数，且对方防御力变为原来的 <span style="color:var(--rose-gold)">1/(1+层数)</span></li></ul>',
     },
     negativeSkill: {
       id: SKILL.CAUGHT,

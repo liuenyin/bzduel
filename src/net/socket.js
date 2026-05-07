@@ -34,6 +34,7 @@ class GameSocket {
   rollDice() { this.socket.emit('roll_dice'); }
   rerollDice(indices) { this.socket.emit('reroll_dice', { indices }); }
   confirmDice(indices, options = {}) { this.socket.emit('confirm_dice', { indices, options }); }
+  buyWater() { this.socket.emit('buy_water'); }
 
   sendChat(n, msg) { if (this.currentRoomId) this.socket.emit('chat_msg', { roomId: this.currentRoomId, sender: n, msg }); }
 
@@ -46,7 +47,7 @@ class GameSocket {
       'state_update', 'opponent_selected', 'opponent_ready',
       'battle_start', 'schedule_updated',
       'atk_confirmed', 'turn_resolved', 'class_change',
-      'opponent_disconnected', 'error_msg',
+      'opponent_disconnected', 'error_msg', 'buy_water_result',
       // chat_msg_receive is NOT removed here because the global chat widget handles it
     ];
     for (const e of events) this.socket.removeAllListeners(e);

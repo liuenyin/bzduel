@@ -36,6 +36,11 @@ export function renderBattle(container, data) {
     alert(d.message);
     refreshAll();
   });
+  gameSocket.on('buy_water_result', (d) => {
+    S = d.state;
+    refreshAll();
+    showBanner(`买水成功！当前蓄势: ${d.chargeStacks} 层`);
+  });
 
   return () => {};
 }
@@ -152,12 +157,7 @@ function rebindActionButtons() {
     disableBtn('btn-confirm'); hide('btn-reroll');
   };
   const buy = document.getElementById('btn-buy-water');
-  if (buy) buy.onclick = () => {
-    if (confirm('确认放弃本轮攻击机会，换取一层蓄势吗？')) {
-      gameSocket.emit('buy_water');
-      disableBtn('btn-buy-water');
-    }
-  };
+  if (buy) buy.onclick = () => { gameSocket.buyWater(); disableBtn('btn-buy-water'); };
 }
 
 // ── 刷新所有 UI ──
@@ -399,7 +399,6 @@ function buffIcons(p) {
   if (p.permanentDefPenalty) h += `<div class="buff-icon neg" title="体力透支: 防御力永久 -${p.permanentDefPenalty}">💦</div>`;
   if (p.buffs && p.buffs.find(b => b.id === 'sugar_crash')) h += `<div class="buff-icon neg" title="犯糖: 禁锢重投，回合开始受击">🍭</div>`;
   if (p.redHeat > 0) h += `<div class="buff-icon neg" title="红温: ${p.redHeat}层">🔥${p.redHeat}</div>`;
-  if (p.chargeStacks > 0) h += `<div class="buff-icon pos" title="蓄势: ${p.chargeStacks}层">⚡${p.chargeStacks}</div>`;
   return h;
 }
 
@@ -439,29 +438,12 @@ function buildAlerts(data) {
 
   return [...new Set(alerts)].join('');
 }
+
 // ── 回合结算回调 (含攻击动画) ──
 export function onTurnResolved(data) {
-  const newState = data.state;
-  if (data.waitingForOthers) {
-    S = newState;
-    refreshAll();
-    return;
-  }
   animLock = true;
+  const newState = data.state;
   const { damage, finalDef, penalty, gameOver, attackerIdx } = data;
-
-  if (data.buyWaterTriggered) {
-    // 周煊声买水：跳过攻击动画，直接提示并刷新
-    const atkPlayer = S.players[attackerIdx];
-    showBanner(`${atkPlayer.nickname} 放弃攻击，买了一瓶水蓄势...`);
-    setTimeout(() => {
-      S = newState;
-      animLock = false;
-      refreshAll();
-      addLog({ text: `${atkPlayer.nickname} 买水蓄势 (层数: ${data.chargeStacks})` });
-    }, 800);
-    return;
-  }
 
   const phase = document.getElementById('phase-text');
   const alerts = buildAlerts(data);
@@ -752,12 +734,12 @@ function phasePrompt(s) {
 }
 
 function actionButtons(s) {
-  if (s.turnPhase === 'waiting_atk' && s.isMyAttackTurn) {
-    const buyBtn = (s.me.card?.positiveSkill?.id === 'buy_water' && (s.me.chargeStacks||0) < 2) ? '<button id="btn-buy-water" class="btn btn-secondary btn-lg" style="margin-left:8px;">买水</button>' : '';
-    return `<button id="btn-roll" class="btn btn-primary btn-lg">掷骰</button>${buyBtn}`;
-  }
+  if (s.turnPhase === 'waiting_atk' && s.isMyAttackTurn)
+    return '<button id="btn-roll" class="btn btn-primary btn-lg">掷骰</button>';
   if (s.turnPhase === 'atk_rolled' && s.isMyAttackTurn) {
-    const buyBtn = (s.me.card?.positiveSkill?.id === 'buy_water' && (s.me.chargeStacks||0) < 2 && !s.hasAttackerRerolled && !s.isExtraTurn) ? '<button id="btn-buy-water" class="btn btn-secondary" style="margin-top:8px; display:block; width:100%;">买水 (放弃本次攻击)</button>' : '';
+    const buyBtn = (s.me.cardId === 'char_14' && !s.hasAttackerRerolled && s.me.chargeStacks < 2) 
+      ? '<button id="btn-buy-water" class="btn btn-secondary" style="margin-left:8px;">💧 买水</button>' 
+      : '';
     return `<div>
           <button id="btn-confirm" class="btn btn-success" disabled>✓ 确认</button>
           ${buyBtn}

@@ -270,6 +270,31 @@ io.on('connection', (socket) => {
     if (res.ok) emitStateToAll(room);
   });
 
+  // ── 周煊声: 买水 (跳过攻击，蓄势) ──
+  socket.on('buy_water', () => {
+    const room = getRoom(socket.id); if (!room) return;
+    const g = room.game;
+    const res = buyWater(g, socket.id);
+    if (!res.ok) {
+      if (res.error === 'already_rerolled') socket.emit('error_msg', { message: '已经重投过了，无法买水！' });
+      else if (res.error === 'max_charges') socket.emit('error_msg', { message: '蓄势已满（最多2层）！' });
+      return;
+    }
+    emitToAll(room, 'buy_water_result', (pid) => ({
+      chargeStacks: res.chargeStacks,
+      state: getStateView(g, pid),
+    }));
+    const roomId = socketToRoom.get(socket.id);
+    if (res.classChanged) {
+      emitToAll(room, 'class_change', () => ({
+        subject: res.nextSubject, index: g.currentClassIndex,
+      }));
+      setTimeout(() => triggerAiPhase(roomId), 2000);
+    } else {
+      triggerAiPhase(roomId);
+    }
+  });
+
   // ── 确认骰子 ──
   socket.on('confirm_dice', ({ indices, options = {} }) => {
     const room = getRoom(socket.id); if (!room) return;
@@ -286,7 +311,7 @@ io.on('connection', (socket) => {
         defenseRolls: (isDefYZX && g.players[defIdx]?.id !== pid) ? res.defenseRolls?.map(() => -1) : res.defenseRolls,
         state: getStateView(g, pid),
       }));
-      triggerAiPhase(socketToRoom.get(socket.id));
+      triggerAiPhase(roomId);
 
     } else if (g.turnPhase === TURN.DEF_ROLLED) {
       if (g.turnData.isAoE) {
@@ -337,29 +362,6 @@ io.on('connection', (socket) => {
       } else {
         triggerAiPhase(roomId);
       }
-    }
-  });
-
-  // ── 周煊声：买水 ──
-  socket.on('buy_water', () => {
-    const room = getRoom(socket.id); if (!room) return;
-    const g = room.game;
-    const res = buyWater(g, socket.id);
-    if (!res.ok) {
-      socket.emit('error_msg', { message: '买水失败：' + res.error });
-      return;
-    }
-    emitToAll(room, 'turn_resolved', (pid) => ({
-      ...res, state: getStateView(g, pid)
-    }));
-    const roomId = socketToRoom.get(socket.id);
-    if (res.classChanged) {
-      emitToAll(room, 'class_change', () => ({
-        subject: res.nextSubject, index: g.currentClassIndex,
-      }));
-      setTimeout(() => triggerAiPhase(roomId), 2000);
-    } else {
-      triggerAiPhase(roomId);
     }
   });
 
@@ -430,47 +432,10 @@ function triggerAiPhase(roomId) {
   if (!room || !room.isAI || room.game.phase !== 'battle') return;
   const g = room.game;
 
-  // 0. 选择目标阶段 (仅三国杀大乱斗模式)
-  if (g.turnPhase === TURN.CHOOSE_TARGET && g.players[g.turnData.attackerIdx].id.startsWith('AI_')) {
-    setTimeout(() => {
-      if (g.phase !== 'battle' || g.turnPhase !== TURN.CHOOSE_TARGET) return;
-      // AI 随机选一个活着的对手
-      const opponents = g.players.filter(p => !p.isDead && p.id !== g.players[g.turnData.attackerIdx].id);
-      if (opponents.length > 0) {
-        const target = opponents[Math.floor(Math.random() * opponents.length)];
-        g.turnData.defenderIdx = g.players.findIndex(p => p.id === target.id);
-        g.turnPhase = TURN.WAITING_ATK;
-        emitStateToAll(room);
-        triggerAiPhase(roomId);
-      }
-    }, 1200);
-    return;
-  }
-
-  // 1. 等待攻击阶段 (掷骰 或 买水)
-  if (g.turnPhase === TURN.WAITING_ATK && g.players[g.turnData.attackerIdx].id.startsWith('AI_')) {
+  // 1. 等待攻击阶段 (掷骰)
+  if (g.turnPhase === TURN.WAITING_ATK && getCurrentAttackerId(g) === room.aiId) {
     setTimeout(() => {
       if (g.phase !== 'battle' || g.turnPhase !== TURN.WAITING_ATK) return;
-      const atkIdx = g.turnData.attackerIdx;
-      const atk = g.players[atkIdx];
-
-      // 周煊声 AI 特有策略：如果有蓄势层数 < 2，且运气不是特别好，则有概率买水
-      if (atk.card.positiveSkill?.id === SKILL.BUY_WATER && (atk.chargeStacks || 0) < 2) {
-        if (Math.random() < 0.4) {
-          const res = buyWater(g, atk.id);
-          if (res.ok) {
-            emitToAll(room, 'turn_resolved', (pid) => ({ ...res, state: getStateView(g, pid) }));
-            if (res.classChanged) {
-              emitToAll(room, 'class_change', () => ({ subject: res.nextSubject, index: g.currentClassIndex }));
-              setTimeout(() => triggerAiPhase(roomId), 2500);
-            } else {
-              triggerAiPhase(roomId);
-            }
-            return;
-          }
-        }
-      }
-
       const rollRes = rollAttack(g);
       if (!rollRes.ok) return;
       emitStateToAll(room);
@@ -524,28 +489,15 @@ function triggerAiPhase(roomId) {
     }, 1500);
   }
 
-  // 3. 防御阶段 (重投或确认)
-  // 在大乱斗模式下，可能会有多个 AI 同时需要防御 (AOE)
-  const defendersToAct = g.players.filter(p => {
-    if (!p.id.startsWith('AI_') || p.isDead) return false;
-    if (g.turnPhase !== TURN.DEF_ROLLED) return false;
-    if (g.turnData.isAoE) {
-      return g.turnData.aoeDefenses[p.id] && !g.turnData.aoeDefenses[p.id].confirmed;
-    } else {
-      return g.turnData.defenderIdx !== null && g.players[g.turnData.defenderIdx].id === p.id;
-    }
-  });
-
-  if (defendersToAct.length > 0) {
-    const def = defendersToAct[0]; // 每次处理一个 AI
+  // 3. 已掷防御骰阶段 (重投或确认)
+  if (g.turnPhase === TURN.DEF_ROLLED && getCurrentDefenderId(g) === room.aiId) {
     setTimeout(() => {
       if (g.phase !== 'battle' || g.turnPhase !== TURN.DEF_ROLLED) return;
-      
-      const rolls = g.turnData.isAoE ? g.turnData.aoeDefenses[def.id].rolls : g.turnData.defenseRolls;
-      const hasRerolled = g.turnData.isAoE ? g.turnData.aoeDefenses[def.id].hasRerolled : g.turnData.hasDefenderRerolled;
+      const def = g.players[g.turnData.defenderIdx];
+      const rolls = g.turnData.defenseRolls;
 
       // 防御方也可以考虑重投
-      if (def.rerolls > 0 && !hasRerolled) {
+      if (def.rerolls > 0) {
         const badIndices = rolls.map((v, i) => v <= (def.card.dicePool[i] / 2) ? i : -1).filter(i => i !== -1);
         if (badIndices.length >= 2) { // 防御方比较保守
           const res = rerollDice(g, def.id, badIndices);
@@ -631,21 +583,16 @@ function emitToAll(room, event, buildData) {
   }
 }
 
-function cleanupRoom(room) {
-  for (const [rid, r] of rooms.entries()) {
-    if (r === room) {
-      rooms.delete(rid);
-      // Remove all player sockets associated with this room
-      if (r.playerSockets) {
-        for (const sid of r.playerSockets) {
-          if (sid && socketToRoom.get(sid) === rid) {
-            socketToRoom.delete(sid);
-          }
-        }
-      }
-      break;
+function cleanupRoom(roomOrId) {
+  const rid = typeof roomOrId === 'string' ? roomOrId : [...rooms.entries()].find(([k, v]) => v === roomOrId)?.[0];
+  if (!rid) return;
+  const room = rooms.get(rid);
+  if (room && room.playerSockets) {
+    for (const sid of room.playerSockets) {
+      if (sid) socketToRoom.delete(sid);
     }
   }
+  rooms.delete(rid);
 }
 
 const PORT = process.env.PORT || 3000;
