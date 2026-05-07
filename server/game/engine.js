@@ -494,15 +494,7 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
         damage += (p.chargeStacks || 0) * 3;
       }
 
-      // 黄佳程正面: 天赋怪 (减伤)
-      let talentTriggered = false;
-      if (damage > 0 && p.card.positiveSkill?.id === SKILL.TALENTED) {
-        const ratio = pMulti === 2 ? 0.5 : (pMulti === 1 ? 0.75 : 1);
-        if (ratio < 1) {
-          damage = Math.floor(damage * ratio);
-          talentTriggered = true;
-        }
-      }
+
 
       // 李灿正面A: 反击伤害
       let lcCounterTriggered = false;
@@ -528,21 +520,26 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
         noobTriggered = true;
       }
 
-      // 红温引爆 (WYC负面: 攻击≤防御时引爆对方红温)
+      // 12. 红温引爆 (WYC负面: 攻击≤防御时引爆对方红温)
       let detonateTriggered = false;
       let detonateDamage = 0;
       if (targetFinalBaseAtk <= pFinalFinalDef && atk.card.negativeSkill?.id === SKILL.RED_HEAT_DETONATE) {
         const opHeat = p.redHeat || 0;
         if (opHeat > 0) {
           detonateDamage = opHeat;
-          // 天赋怪减伤也适用于红温引爆
-          if (p.card.positiveSkill?.id === SKILL.TALENTED) {
-            const dRatio = pMulti === 2 ? 0.5 : (pMulti === 1 ? 0.75 : 1);
-            if (dRatio < 1) detonateDamage = Math.floor(detonateDamage * dRatio);
-          }
-          damage += detonateDamage;
+          damage += detonateDamage; // 加入总伤害
           p.redHeat = 0;
           detonateTriggered = true;
+        }
+      }
+
+      // 13. 最后统一应用黄佳程「天赋怪」减伤
+      let talentTriggered = false;
+      if (damage > 0 && p.card.positiveSkill?.id === SKILL.TALENTED) {
+        const ratio = pMulti === 2 ? 0.5 : (pMulti === 1 ? 0.75 : 1);
+        if (ratio < 1) {
+          damage = Math.floor(damage * ratio);
+          talentTriggered = true;
         }
       }
 
@@ -696,24 +693,14 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
 
     let damage = ar.pierce ? finalBaseAtk : Math.max(0, finalBaseAtk - finalFinalDef);
   
-  // 殷泽轩负面: 受到伤害时 (即伤害 > 0)，最终伤害额外 +2 × 倍率
+  // 10. 殷泽轩负面: 受到伤害时 (即伤害 > 0)，最终伤害额外 +2 × 倍率
   if (damage > 0 && def.card.negativeSkill?.id === SKILL.VULNERABLE) {
     damage += Math.floor(2 * defMulti);
   }
 
-  // 周煊声负面: 每层蓄势增加 3 点受伤
+  // 11. 周煊声负面: 每层蓄势增加 3 点受伤
   if (damage > 0 && def.card.negativeSkill?.id === SKILL.CAUGHT && (def.chargeStacks || 0) > 0) {
     damage += (def.chargeStacks || 0) * 3;
-  }
-
-  // 黄佳程正面: 天赋怪 (减伤)
-  let talentTriggered = false;
-  if (damage > 0 && def.card.positiveSkill?.id === SKILL.TALENTED) {
-    const ratio = defMulti === 2 ? 0.5 : (defMulti === 1 ? 0.75 : 1);
-    if (ratio < 1) {
-      damage = Math.floor(damage * ratio);
-      talentTriggered = true;
-    }
   }
 
   // 李灿正面A: 反击伤害
@@ -740,9 +727,7 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
     commanderTriggered = true;
   }
 
-  // 应用伤害
-  def.hp = Math.max(0, def.hp - damage);
-  atk.hp = Math.max(0, atk.hp - ar.selfDamage);
+
 
   // 姜鹏泽负面: 首次受伤时防御选骰数 -1
   let firstBloodTriggeredThisTurn = false;
@@ -759,23 +744,33 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
     def.redHeat = (def.redHeat || 0) + redHeatApplied;
   }
 
-  // 红温引爆 (WYC负面: 攻击≤防御时引爆对方红温)
+  // 12. 红温引爆 (WYC负面: 攻击≤防御时引爆对方红温)
   let detonateTriggered = false;
   let detonateDamage = 0;
   if (finalBaseAtk <= finalFinalDef && atk.card.negativeSkill?.id === SKILL.RED_HEAT_DETONATE) {
     const opHeat = def.redHeat || 0;
     if (opHeat > 0) {
       detonateDamage = opHeat;
-      // 天赋怪减伤也适用于红温引爆
-      if (def.card.positiveSkill?.id === SKILL.TALENTED) {
-        const dRatio = defMulti === 2 ? 0.5 : (defMulti === 1 ? 0.75 : 1);
-        if (dRatio < 1) detonateDamage = Math.floor(detonateDamage * dRatio);
-      }
-      def.hp = Math.max(0, def.hp - detonateDamage);
+      damage += detonateDamage; // 加入总伤害
       def.redHeat = 0;
       detonateTriggered = true;
     }
   }
+
+  // 13. 最后统一应用黄佳程「天赋怪」减伤
+  let talentTriggered = false;
+  if (damage > 0 && def.card.positiveSkill?.id === SKILL.TALENTED) {
+    const ratio = defMulti === 2 ? 0.5 : (defMulti === 1 ? 0.75 : 1);
+    if (ratio < 1) {
+      damage = Math.floor(damage * ratio);
+      talentTriggered = true;
+    }
+  }
+
+  // 14. 统一扣除生命值
+  def.hp = Math.max(0, def.hp - damage);
+  atk.hp = Math.max(0, atk.hp - ar.selfDamage);
+
 
   // 触发 SUGAR_CRASH 负面效果 (expireRound +2 修复)
   if (damage >= 8 && def.card.negativeSkill?.id === SKILL.SUGAR_CRASH) {
@@ -832,6 +827,11 @@ function advanceTurnState(state) {
   let classChanged = false;
   let nextSubject = null;
   let extraTurnSet = false;
+
+  // 0. 红温衰减 (每回合开始所有玩家红温 -1)
+  state.players.forEach(p => {
+    if (p.redHeat > 0) p.redHeat -= 1;
+  });
 
   // 1. 处理所有人死亡状态 (通用逻辑)
   state.players.forEach(p => {

@@ -439,12 +439,29 @@ function buildAlerts(data) {
 
   return [...new Set(alerts)].join('');
 }
-
 // ── 回合结算回调 (含攻击动画) ──
 export function onTurnResolved(data) {
-  animLock = true;
   const newState = data.state;
+  if (data.waitingForOthers) {
+    S = newState;
+    refreshAll();
+    return;
+  }
+  animLock = true;
   const { damage, finalDef, penalty, gameOver, attackerIdx } = data;
+
+  if (data.buyWaterTriggered) {
+    // 周煊声买水：跳过攻击动画，直接提示并刷新
+    const atkPlayer = S.players[attackerIdx];
+    showBanner(`${atkPlayer.nickname} 放弃攻击，买了一瓶水蓄势...`);
+    setTimeout(() => {
+      S = newState;
+      animLock = false;
+      refreshAll();
+      addLog({ text: `${atkPlayer.nickname} 买水蓄势 (层数: ${data.chargeStacks})` });
+    }, 800);
+    return;
+  }
 
   const phase = document.getElementById('phase-text');
   const alerts = buildAlerts(data);
