@@ -756,8 +756,8 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
 
   // 姜鹏泽负面: 首次受伤时防御选骰数 -1
   let firstBloodTriggeredThisTurn = false;
-  if (damage > 0 && def.card.negativeSkill?.id === SKILL.FIRST_BLOOD && !def.firstBloodTriggered) {
-    def.firstBloodTriggered = true;
+  if (damage > 0 && def.card.negativeSkill?.id === SKILL.FIRST_BLOOD && !def.hasTakenDamage) {
+    def.hasTakenDamage = true;
     firstBloodTriggeredThisTurn = true;
     if (def.card.defSlots > 1) def.card.defSlots -= 1;
   }
@@ -781,6 +781,7 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
         const dRatio = defMulti === 2 ? 0.5 : (defMulti === 1 ? 0.75 : 1);
         if (dRatio < 1) detonateDamage = Math.floor(detonateDamage * dRatio);
       }
+      damage += detonateDamage; // 计入总伤害以便飘字显示
       def.hp = Math.max(0, def.hp - detonateDamage);
       def.redHeat = 0;
       detonateTriggered = true;
@@ -1124,7 +1125,12 @@ export function resolvePhaseEnd(state) {
         if (state.currentClassIndex >= GAME_CONFIG.CLASSES_PER_GAME) {
           gameOver = true;
           state.phase = PHASE.GAME_OVER;
-          state.winner = 'lord'; // Simplified timeout winner
+          if (state.gameMode === GAME_MODE.MODE_1V1) {
+            const h0 = state.players[0].hp, h1 = state.players[1].hp;
+            state.winner = h0 > h1 ? 0 : (h1 > h0 ? 1 : 'draw');
+          } else {
+            state.winner = 'lord'; // Simplified timeout winner
+          }
           winner = state.winner;
         } else {
           nextSubject = state.schedule[state.currentClassIndex];
@@ -1134,7 +1140,8 @@ export function resolvePhaseEnd(state) {
       if (!gameOver) {
         let ni;
         if (state.gameMode === GAME_MODE.MODE_1V1) {
-          ni = (state.firstAttacker + state.currentSubRound) % 2;
+          // 1v1 严格交替，不再使用 firstAttacker + subRound 避免课间双击
+          ni = 1 - prevAttackerIdx;
         } else {
           let offset = state.currentSubRound;
           ni = state.firstAttacker;
