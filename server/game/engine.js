@@ -781,7 +781,6 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
         const dRatio = defMulti === 2 ? 0.5 : (defMulti === 1 ? 0.75 : 1);
         if (dRatio < 1) detonateDamage = Math.floor(detonateDamage * dRatio);
       }
-      damage += detonateDamage; // 计入总伤害以便飘字显示
       def.hp = Math.max(0, def.hp - detonateDamage);
       def.redHeat = 0;
       detonateTriggered = true;

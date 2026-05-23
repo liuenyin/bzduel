@@ -326,6 +326,11 @@ io.on('connection', (socket) => {
       const preDefId = preDefIdx !== null ? g.players[preDefIdx]?.id : null;
       const preDefCardId = preDefIdx !== null ? g.players[preDefIdx]?.cardId : null;
 
+      // Save attacker info before confirmDefense modifies state
+      const preAtkIdx = g.turnData.attackerIdx;
+      const preAtkId = g.players[preAtkIdx]?.id;
+      const preAtkCardId = g.players[preAtkIdx]?.cardId;
+
       const res = confirmDefense(g, socket.id, indices, options);
       if (!res.ok) {
         if (res.error === 'zww_d10_limit') {
@@ -341,14 +346,19 @@ io.on('connection', (socket) => {
         return;
       }
 
-      // YZX masking: hide defense stats from non-YZX players when defender is YZX
+      // YZX masking: hide defense/attack stats from opponents when YZX is involved
       emitToAll(room, 'turn_resolved', (pid) => {
         const data = { ...res, state: getStateView(g, pid) };
+        // Defender is YZX: hide defense info from non-YZX players
         if (preDefCardId === 'char_10' && pid !== preDefId && !res.gameOver) {
           data.baseDef = '??';
           data.finalDef = '??';
           data.damage = '??';
           data.penalty = '??';
+        }
+        // Attacker is YZX: hide attack info from non-YZX players
+        if (preAtkCardId === 'char_10' && pid !== preAtkId && !res.gameOver) {
+          data.atkResult = { ...data.atkResult, baseAtk: '??', finalAtk: '??' };
         }
         return data;
       });
