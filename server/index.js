@@ -623,9 +623,8 @@ io.on('connection', (socket) => {
   socket.on('start_autochess', ({ nickname }) => {
     const run = createRun(socket.id, nickname);
     acRuns.set(socket.id, run);
-    socket.emit('ac_run_update', getRunView(run));
-    const { navigate: nav } = { navigate: 'autochess' };
-    socket.emit('match_found', { roomId: 'ac_' + socket.id, mode: 'autochess' });
+    const runView = getRunView(run);
+    socket.emit('match_found', { roomId: 'ac_' + socket.id, mode: 'autochess', run: runView });
   });
 
   // ── 购买角色 ──
