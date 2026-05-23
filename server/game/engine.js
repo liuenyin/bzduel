@@ -171,9 +171,15 @@ export function rollAttack(state) {
 
   // 如果自伤致死，立刻判定游戏结束
   if (atk.hp <= 0) {
-    state.phase = PHASE.GAME_OVER;
-    state.winner = state.turnData.defenderIdx;
-    return { ok: true, rolls: [], selfKill: true };
+    if (atk.card.positiveSkill?.id === 'nine_lives' && !atk.nineLivesUsed) {
+      atk.nineLivesUsed = true;
+      atk.hp = 9;
+      atk.card.dicePool = atk.card.dicePool.map(() => 10);
+    } else {
+      state.phase = PHASE.GAME_OVER;
+      state.winner = state.turnData.defenderIdx;
+      return { ok: true, rolls: [], selfKill: true };
+    }
   }
 
   // 记号: 攻击开始时获得 +1 重投
