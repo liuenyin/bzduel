@@ -40,6 +40,7 @@ class GameSocket {
 
   on(e, cb) { this.socket.on(e, cb); }
   off(e, cb) { this.socket.off(e, cb); }
+  emit(e, data) { this.socket.emit(e, data); }
 
   removeAllGameListeners() {
     const events = [
