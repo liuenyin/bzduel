@@ -108,19 +108,19 @@
 /* 六边形基础样式 */
 .ac-hex-slot, .ac-core-slot {
   position: absolute;
-  width: 100px;
-  height: 115px; /* flat-top hex ratio */
+  width: 116px;
+  height: 100px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   background: var(--bg-card);
-  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
   cursor: pointer;
   transition: all 0.2s;
   text-align: center;
   transform: translate(-50%, -50%);
-  border: none; /* clip-path 无法直接用 border，只能用伪元素或背景。我们改用 drop-shadow 和伪元素模拟边框，或者简单点用内边距 */
+  border: none;
   /* 使用伪元素做边框特效 */
 }
 
@@ -130,7 +130,7 @@
   position: absolute;
   inset: 2px;
   background: var(--bg-inset);
-  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
   z-index: -1;
   transition: all 0.2s;
 }
@@ -147,17 +147,17 @@
 /* Core */
 .ac-core-slot { top: 50%; left: 50%; background: var(--accent); }
 /* 0: Top */
-.ac-hex-slot[data-index="0"] { top: calc(50% - 100px); left: 50%; background: #444; }
+.ac-hex-slot[data-index="0"] { top: calc(50% - 104px); left: 50%; background: #444; }
 /* 1: Top Right */
-.ac-hex-slot[data-index="1"] { top: calc(50% - 50px); left: calc(50% + 87px); background: #444; }
+.ac-hex-slot[data-index="1"] { top: calc(50% - 52px); left: calc(50% + 90px); background: #444; }
 /* 2: Bottom Right */
-.ac-hex-slot[data-index="2"] { top: calc(50% + 50px); left: calc(50% + 87px); background: #444; }
+.ac-hex-slot[data-index="2"] { top: calc(50% + 52px); left: calc(50% + 90px); background: #444; }
 /* 3: Bottom */
-.ac-hex-slot[data-index="3"] { top: calc(50% + 100px); left: 50%; background: #444; }
+.ac-hex-slot[data-index="3"] { top: calc(50% + 104px); left: 50%; background: #444; }
 /* 4: Bottom Left */
-.ac-hex-slot[data-index="4"] { top: calc(50% + 50px); left: calc(50% - 87px); background: #444; }
+.ac-hex-slot[data-index="4"] { top: calc(50% + 52px); left: calc(50% - 90px); background: #444; }
 /* 5: Top Left */
-.ac-hex-slot[data-index="5"] { top: calc(50% - 50px); left: calc(50% - 87px); background: #444; }
+.ac-hex-slot[data-index="5"] { top: calc(50% - 52px); left: calc(50% - 90px); background: #444; }
 
 /* 拖拽时的角色卡片隐藏透明度 */
 .dragging { opacity: 0.5; }
