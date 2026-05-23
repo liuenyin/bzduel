@@ -40,20 +40,20 @@ export function renderAutochess(container, data = {}) {
             <div class="ac-stat"><span class="ac-label">📊等级</span><span class="ac-val">Lv.${run.level} (${run.xp}/${run.xpToNext || '∞'})</span></div>
             <div class="ac-stat"><span class="ac-label">❤️生命</span><span class="ac-val">${run.commanderHP}/${run.maxCommanderHP}</span></div>
             <div class="ac-stat"><span class="ac-label">💹利息</span><span class="ac-val">+${run.interest || 0}</span></div>
-            <div class="ac-stat streak">${run.winStreak > 0 ? \`🔥\${run.winStreak}连胜\` : run.loseStreak > 0 ? \`💧\${run.loseStreak}连败\` : '—'}</div>
+            <div class="ac-stat streak">${run.winStreak > 0 ? `🔥${run.winStreak}连胜` : run.loseStreak > 0 ? `💧${run.loseStreak}连败` : '—'}</div>
           </div>
           <div class="ac-planes">
-            \${run.planeEnvironments.map((pe, i) => \`
-              <div class="ac-plane \${i === run.currentPlane ? 'active' : i < run.currentPlane ? 'done' : ''}">
-                <span class="ac-plane-icon">\${SUBJECT_ICONS[pe] || '📚'}</span>
-                <span class="ac-plane-label">\${SUBJECT_LABELS[pe] || pe}</span>
-                \${i === run.currentPlane ? \`<span class="ac-plane-node">\${run.currentNode + 1}/\${run.nodeTypes[i]?.length || '?'}</span>\` : ''}
+            ${run.planeEnvironments.map((pe, i) => `
+              <div class="ac-plane ${i === run.currentPlane ? 'active' : i < run.currentPlane ? 'done' : ''}">
+                <span class="ac-plane-icon">${SUBJECT_ICONS[pe] || '📚'}</span>
+                <span class="ac-plane-label">${SUBJECT_LABELS[pe] || pe}</span>
+                ${i === run.currentPlane ? `<span class="ac-plane-node">${run.currentNode + 1}/${run.nodeTypes[i]?.length || '?'}</span>` : ''}
               </div>
-            \`).join('<span class="ac-plane-arrow">→</span>')}
+            `).join('<span class="ac-plane-arrow">→</span>')}
           </div>
           <div class="ac-node-info">
-            <span>🗺️ 位面 \${run.currentPlane + 1} · 节点 \${run.currentNode + 1} · \${nodeLabel}</span>
-            <span>📍 课程环境：\${envIcon} \${envLabel}</span>
+            <span>🗺️ 位面 ${run.currentPlane + 1} · 节点 ${run.currentNode + 1} · ${nodeLabel}</span>
+            <span>📍 课程环境：${envIcon} ${envLabel}</span>
           </div>
         </div>
 
@@ -61,135 +61,135 @@ export function renderAutochess(container, data = {}) {
         <div class="ac-board-section">
           <!-- 严格六边形棋盘 -->
           <div class="ac-board">
-            \${HEX_SUBJECTS.map((subj, i) => {
+            ${HEX_SUBJECTS.map((subj, i) => {
               const entry = run.board.hexSlots[subj];
               const charCfg = entry ? AC_CHAR_MAP[entry.charId] : null;
               const matched = charCfg?.electives?.includes(subj);
               const envMatched = env === subj;
               const efficacy = envMatched && matched ? '200%' : matched ? '100%' : entry ? '降星' : '';
-              return \`
-                <div class="ac-hex-slot" data-slot="\${subj}" data-index="\${i}">
-                  <div class="ac-hex-label">\${SUBJECT_ICONS[subj]} \${SUBJECT_LABELS[subj]}</div>
-                  \${entry ? \`
-                    <div class="ac-hex-char \${envMatched && matched ? 'env-match' : matched ? 'matched' : 'mismatched'}">
-                      <img class="ac-avatar" src="/photos/\${charCfg.id}.jpg" onerror="this.style.display='none'">
-                      <span class="ac-char-name">\${charCfg?.name || '?'}</span>
-                      <span class="ac-char-star">\${'★'.repeat(entry.star)}\${'☆'.repeat(3 - entry.star)}</span>
-                      <span class="ac-efficacy">\${efficacy}</span>
+              return `
+                <div class="ac-hex-slot" data-slot="${subj}" data-index="${i}">
+                  <div class="ac-hex-label">${SUBJECT_ICONS[subj]} ${SUBJECT_LABELS[subj]}</div>
+                  ${entry ? `
+                    <div class="ac-hex-char ${envMatched && matched ? 'env-match' : matched ? 'matched' : 'mismatched'}">
+                      <img class="ac-avatar" src="/photos/${charCfg.id}.jpg" onerror="this.style.display='none'">
+                      <span class="ac-char-name">${charCfg?.name || '?'}</span>
+                      <span class="ac-char-star">${'★'.repeat(entry.star)}${'☆'.repeat(3 - entry.star)}</span>
+                      <span class="ac-efficacy">${efficacy}</span>
                     </div>
-                  \` : \`<div class="ac-hex-empty">拖入角色</div>\`}
+                  ` : `<div class="ac-hex-empty">拖入角色</div>`}
                 </div>
-              \`;
+              `;
             }).join('')}
             <div class="ac-core-slot" data-slot="core">
-              \${run.board.core ? (() => {
+              ${run.board.core ? (() => {
                 const c = AC_CHAR_MAP[run.board.core.charId];
-                return \`
+                return `
                   <div class="ac-core-char">
                     <span class="ac-core-label">阵眼</span>
-                    <img class="ac-avatar" src="/photos/\${c.id}.jpg" onerror="this.style.display='none'">
-                    <span class="ac-char-name">\${c?.name || '?'}</span>
-                    <span class="ac-char-star">\${'★'.repeat(run.board.core.star)}\${'☆'.repeat(3 - run.board.core.star)}</span>
+                    <img class="ac-avatar" src="/photos/${c.id}.jpg" onerror="this.style.display='none'">
+                    <span class="ac-char-name">${c?.name || '?'}</span>
+                    <span class="ac-char-star">${'★'.repeat(run.board.core.star)}${'☆'.repeat(3 - run.board.core.star)}</span>
                   </div>
-                \`;
-              })() : \`<div class="ac-core-empty" style="color:var(--accent);">阵眼<br>拖入主C</div>\`}
+                `;
+              })() : `<div class="ac-core-empty" style="color:var(--accent);">阵眼<br>拖入主C</div>`}
             </div>
           </div>
 
           <!-- 底部主操作区 -->
           <div class="ac-actions">
-            \${run.phase === 'shop' ? \`
-              <button id="ac-btn-refresh" class="btn btn-secondary">🔄 刷新 (\${AC.SHOP_REFRESH_COST}💰)</button>
-              <button id="ac-btn-buyxp" class="btn btn-secondary">📈 买经验 (\${AC.XP_BUY_COST}💰→\${AC.XP_BUY_AMOUNT}XP)</button>
-              <button id="ac-btn-fight" class="btn btn-primary btn-lg" \${!run.board.core ? 'disabled' : ''}>⚔️ 开始考试!</button>
-            \` : run.phase === 'event' ? \`
+            ${run.phase === 'shop' ? `
+              <button id="ac-btn-refresh" class="btn btn-secondary">🔄 刷新 (${AC.SHOP_REFRESH_COST}💰)</button>
+              <button id="ac-btn-buyxp" class="btn btn-secondary">📈 买经验 (${AC.XP_BUY_COST}💰→${AC.XP_BUY_AMOUNT}XP)</button>
+              <button id="ac-btn-fight" class="btn btn-primary btn-lg" ${!run.board.core ? 'disabled' : ''}>⚔️ 开始考试!</button>
+            ` : run.phase === 'event' ? `
               <button id="ac-btn-invest" class="btn btn-primary btn-lg">📈 投资策略</button>
               <button id="ac-btn-goldmine" class="btn btn-success btn-lg">💰 打劫金矿</button>
-            \` : run.phase === 'victory' ? \`
+            ` : run.phase === 'victory' ? `
               <div class="ac-result ac-victory">
                 <div class="ac-result-title">🏆 通关成功！</div>
                 <div class="ac-result-subtitle">恭喜你在货币战争中存活了下来！</div>
                 <div class="ac-result-stats">
-                  <div class="ac-rs"><span>🎯 胜场</span><span>\${run.stats?.battlesWon || 0}</span></div>
-                  <div class="ac-rs"><span>⚔️ 总回合</span><span>\${run.stats?.roundsPlayed || 0}</span></div>
-                  <div class="ac-rs"><span>💰 总金币</span><span>\${run.stats?.totalGold || 0}</span></div>
-                  <div class="ac-rs"><span>❤️ 剩余HP</span><span>\${run.commanderHP}/\${run.maxCommanderHP}</span></div>
-                  <div class="ac-rs"><span>📊 最终等级</span><span>Lv.\${run.level}</span></div>
-                  \${(run.investmentBuffs || []).length > 0 ? \`<div class="ac-rs"><span>📈 投资</span><span>\${run.investmentBuffs.map(b => b.name).join(', ')}</span></div>\` : ''}
+                  <div class="ac-rs"><span>🎯 胜场</span><span>${run.stats?.battlesWon || 0}</span></div>
+                  <div class="ac-rs"><span>⚔️ 总回合</span><span>${run.stats?.roundsPlayed || 0}</span></div>
+                  <div class="ac-rs"><span>💰 总金币</span><span>${run.stats?.totalGold || 0}</span></div>
+                  <div class="ac-rs"><span>❤️ 剩余HP</span><span>${run.commanderHP}/${run.maxCommanderHP}</span></div>
+                  <div class="ac-rs"><span>📊 最终等级</span><span>Lv.${run.level}</span></div>
+                  ${(run.investmentBuffs || []).length > 0 ? `<div class="ac-rs"><span>📈 投资</span><span>${run.investmentBuffs.map(b => b.name).join(', ')}</span></div>` : ''}
                 </div>
                 <button id="ac-btn-home" class="btn btn-primary btn-lg" style="width:100%;margin-top:16px;">返回大厅</button>
               </div>
-            \` : run.phase === 'defeat' ? \`
+            ` : run.phase === 'defeat' ? `
               <div class="ac-result ac-defeat">
                 <div class="ac-result-title">💀 Game Over</div>
                 <div class="ac-result-subtitle">指挥官HP归零，下次再战！</div>
                 <div class="ac-result-stats">
-                  <div class="ac-rs"><span>🗺️ 到达</span><span>位面\${run.currentPlane + 1} · 节点\${run.currentNode + 1}</span></div>
-                  <div class="ac-rs"><span>🎯 胜场</span><span>\${run.stats?.battlesWon || 0}</span></div>
-                  <div class="ac-rs"><span>⚔️ 总回合</span><span>\${run.stats?.roundsPlayed || 0}</span></div>
-                  <div class="ac-rs"><span>💰 总金币</span><span>\${run.stats?.totalGold || 0}</span></div>
-                  <div class="ac-rs"><span>📊 最终等级</span><span>Lv.\${run.level}</span></div>
+                  <div class="ac-rs"><span>🗺️ 到达</span><span>位面${run.currentPlane + 1} · 节点${run.currentNode + 1}</span></div>
+                  <div class="ac-rs"><span>🎯 胜场</span><span>${run.stats?.battlesWon || 0}</span></div>
+                  <div class="ac-rs"><span>⚔️ 总回合</span><span>${run.stats?.roundsPlayed || 0}</span></div>
+                  <div class="ac-rs"><span>💰 总金币</span><span>${run.stats?.totalGold || 0}</span></div>
+                  <div class="ac-rs"><span>📊 最终等级</span><span>Lv.${run.level}</span></div>
                 </div>
                 <button id="ac-btn-home" class="btn btn-primary btn-lg" style="width:100%;margin-top:16px;">返回大厅</button>
               </div>
-            \` : ''}
+            ` : ''}
           </div>
         </div>
 
         <!-- 右侧边栏: 商店与备战席 -->
         <div class="ac-sidebar">
-          \${run.hasBeverageShop && !run.beveragePurchasedThisNode && run.phase === 'shop' ? \`
+          ${run.hasBeverageShop && !run.beveragePurchasedThisNode && run.phase === 'shop' ? `
             <div class="ac-beverage-shop">
               <h3>🥤 周煊声特供商店</h3>
               <div class="ac-bev-list">
-                \${BEVERAGES.map(b => \`
-                  <button class="ac-bev-item" data-bev="\${b.id}" \${run.gold < b.cost ? 'disabled' : ''}>
-                    <span class="ac-bev-name">\${b.name}</span>
-                    <span class="ac-bev-cost">\${b.cost}💰</span>
-                    <span class="ac-bev-desc">\${b.desc}</span>
+                ${BEVERAGES.map(b => `
+                  <button class="ac-bev-item" data-bev="${b.id}" ${run.gold < b.cost ? 'disabled' : ''}>
+                    <span class="ac-bev-name">${b.name}</span>
+                    <span class="ac-bev-cost">${b.cost}💰</span>
+                    <span class="ac-bev-desc">${b.desc}</span>
                   </button>
-                \`).join('')}
+                `).join('')}
               </div>
             </div>
-          \` : ''}
+          ` : ''}
 
-          \${run.phase === 'shop' || run.phase === 'event' ? \`
+          ${run.phase === 'shop' || run.phase === 'event' ? `
             <div class="ac-shop">
               <h3>🛒 课间商店</h3>
               <div class="ac-shop-items">
-                \${(run.shop || []).map((item, i) => {
-                  if (!item) return \`<div class="ac-shop-slot empty">已售</div>\`;
+                ${(run.shop || []).map((item, i) => {
+                  if (!item) return `<div class="ac-shop-slot empty">已售</div>`;
                   const c = AC_CHAR_MAP[item.charId];
-                  return \`
-                    <button class="ac-shop-slot cost-\${item.cost}" data-shop="\${i}" \${run.gold < item.cost ? 'disabled' : ''}>
-                      <span class="ac-shop-cost">\${item.cost}💰</span>
-                      <img class="ac-avatar" src="/photos/\${c.id}.jpg" onerror="this.style.display='none'">
-                      <span class="ac-shop-name">\${c?.name || '?'}</span>
-                      <span class="ac-shop-title">\${c?.title || ''}</span>
-                      <span class="ac-shop-electives">\${(c?.electives || []).map(e => SUBJECT_ICONS[e] || e).join('')}</span>
+                  return `
+                    <button class="ac-shop-slot cost-${item.cost}" data-shop="${i}" ${run.gold < item.cost ? 'disabled' : ''}>
+                      <span class="ac-shop-cost">${item.cost}💰</span>
+                      <img class="ac-avatar" src="/photos/${c.id}.jpg" onerror="this.style.display='none'">
+                      <span class="ac-shop-name">${c?.name || '?'}</span>
+                      <span class="ac-shop-title">${c?.title || ''}</span>
+                      <span class="ac-shop-electives">${(c?.electives || []).map(e => SUBJECT_ICONS[e] || e).join('')}</span>
                     </button>
-                  \`;
+                  `;
                 }).join('')}
               </div>
             </div>
-          \` : ''}
+          ` : ''}
 
           <div class="ac-bench">
-            <h3>📦 备战席 (\${run.bench.length}/\${AC.MAX_BENCH}) <span style="font-size:0.6rem;font-weight:normal;color:var(--text-muted);">*拖拽角色上阵</span></h3>
+            <h3>📦 备战席 (${run.bench.length}/${AC.MAX_BENCH}) <span style="font-size:0.6rem;font-weight:normal;color:var(--text-muted);">*拖拽角色上阵</span></h3>
             <div class="ac-bench-list">
-              \${run.bench.map((entry, i) => {
+              ${run.bench.map((entry, i) => {
                 const c = AC_CHAR_MAP[entry.charId];
-                return \`
-                  <div class="ac-bench-item" data-bench="\${i}" draggable="true">
-                    <span class="ac-char-cost">\${c?.cost || '?'}💰</span>
-                    <img class="ac-avatar" src="/photos/\${c.id}.jpg" onerror="this.style.display='none'">
-                    <span class="ac-char-name">\${c?.name || '?'}</span>
-                    <span class="ac-char-star">\${'★'.repeat(entry.star)}\${'☆'.repeat(3 - entry.star)}</span>
-                    <button class="ac-sell-btn" data-idx="\${i}">出售</button>
+                return `
+                  <div class="ac-bench-item" data-bench="${i}" draggable="true">
+                    <span class="ac-char-cost">${c?.cost || '?'}💰</span>
+                    <img class="ac-avatar" src="/photos/${c.id}.jpg" onerror="this.style.display='none'">
+                    <span class="ac-char-name">${c?.name || '?'}</span>
+                    <span class="ac-char-star">${'★'.repeat(entry.star)}${'☆'.repeat(3 - entry.star)}</span>
+                    <button class="ac-sell-btn" data-idx="${i}">出售</button>
                   </div>
-                \`;
+                `;
               }).join('')}
-              \${run.bench.length === 0 ? '<p class="ac-empty-hint">从商店购买角色...</p>' : ''}
+              ${run.bench.length === 0 ? '<p class="ac-empty-hint">从商店购买角色...</p>' : ''}
             </div>
           </div>
         </div>
@@ -353,17 +353,17 @@ export function renderAutochess(container, data = {}) {
     // 显示投资策略选项
     const modal = document.createElement('div');
     modal.className = 'ac-modal';
-    modal.innerHTML = \`
+    modal.innerHTML = `
       <div class="ac-modal-content">
         <h3>📈 选择投资策略</h3>
-        \${options.map((o, i) => \`
-          <button class="ac-invest-option" data-idx="\${i}">
-            <strong>\${o.name}</strong>
-            <span>\${o.desc}</span>
+        ${options.map((o, i) => `
+          <button class="ac-invest-option" data-idx="${i}">
+            <strong>${o.name}</strong>
+            <span>${o.desc}</span>
           </button>
-        \`).join('')}
+        `).join('')}
       </div>
-    \`;
+    `;
     container.appendChild(modal);
     modal.querySelectorAll('.ac-invest-option').forEach(el => {
       el.addEventListener('click', () => {
@@ -377,11 +377,11 @@ export function renderAutochess(container, data = {}) {
   gameSocket.on('ac_star_up', ({ charId, fromStar, toStar }) => {
     // 升星特效
     const name = AC_CHAR_MAP[charId]?.name || charId;
-    showToast(\`⭐ \${name} 升到了 \${'★'.repeat(toStar)} ！！\`);
+    showToast(`⭐ ${name} 升到了 ${'★'.repeat(toStar)} ！！`);
   });
 
   gameSocket.on('error_msg', ({ message }) => {
-    showToast(\`❌ 操作失败: \${message}\`);
+    showToast(`❌ 操作失败: ${message}`);
   });
 
   // 初始渲染
@@ -398,7 +398,7 @@ export function renderAutochess(container, data = {}) {
 
 // ── 战斗录像播放器 (2倍速) ──
 function playCombatLog(container, log, onDone) {
-  container.innerHTML = \`
+  container.innerHTML = `
     <div class="ac-combat-replay">
       <h3>⚔️ 战斗回放</h3>
       <div class="ac-combat-hp-bars">
@@ -409,7 +409,7 @@ function playCombatLog(container, log, onDone) {
       <div id="ac-replay-content" class="ac-replay-content"></div>
       <button id="ac-skip-combat" class="btn btn-secondary">⏩ 跳过</button>
     </div>
-  \`;
+  `;
 
   const replayEl = document.getElementById('ac-replay-content');
   const p1HP = document.getElementById('ac-p1-hp');
@@ -434,21 +434,21 @@ function playCombatLog(container, log, onDone) {
     }
 
     const e = log[idx++];
-    p1HP.textContent = \`你: \${e.p1HP}HP\`;
-    p2HP.textContent = \`敌: \${e.p2HP}HP\`;
+    p1HP.textContent = `你: ${e.p1HP}HP`;
+    p2HP.textContent = `敌: ${e.p2HP}HP`;
 
-    let html = \`<div class="ac-replay-round">\`;
-    html += \`<span class="round-num">R\${e.round}</span> \`;
-    html += \`<span>\${e.attacker}攻击 → 🎲\${e.atkKept?.join('+')}=\${e.atkTotal}</span> \`;
-    html += \`<span>\${e.defender}防御 → 🛡️\${e.defKept?.join('+')}=\${e.defTotal}</span> \`;
-    if (e.damage > 0) html += \`<span class="dmg">-\${e.damage}HP</span>\`;
-    if (e.healed) html += \`<span class="heal">+\${e.healed}HP</span>\`;
-    if (e.stickerExplode) html += \`<span class="dmg">💥贴画爆炸-\${e.stickerExplode}</span>\`;
-    if (e.revived) html += \`<span class="heal">🐱九条命! +\${e.revived}HP</span>\`;
-    if (e.redHeatApplied) html += \`<span class="debuff">🔥红温+\${e.redHeatApplied}</span>\`;
-    if (e.bossRage) html += \`<span class="debuff">💢狂暴+\${e.bossRage}</span>\`;
-    if (e.bossArmor) html += \`<span class="heal">🛡️护甲+\${e.bossArmor}</span>\`;
-    html += \`</div>\`;
+    let html = `<div class="ac-replay-round">`;
+    html += `<span class="round-num">R${e.round}</span> `;
+    html += `<span>${e.attacker}攻击 → 🎲${e.atkKept?.join('+')}=${e.atkTotal}</span> `;
+    html += `<span>${e.defender}防御 → 🛡️${e.defKept?.join('+')}=${e.defTotal}</span> `;
+    if (e.damage > 0) html += `<span class="dmg">-${e.damage}HP</span>`;
+    if (e.healed) html += `<span class="heal">+${e.healed}HP</span>`;
+    if (e.stickerExplode) html += `<span class="dmg">💥贴画爆炸-${e.stickerExplode}</span>`;
+    if (e.revived) html += `<span class="heal">🐱九条命! +${e.revived}HP</span>`;
+    if (e.redHeatApplied) html += `<span class="debuff">🔥红温+${e.redHeatApplied}</span>`;
+    if (e.bossRage) html += `<span class="debuff">💢狂暴+${e.bossRage}</span>`;
+    if (e.bossArmor) html += `<span class="heal">🛡️护甲+${e.bossArmor}</span>`;
+    html += `</div>`;
 
     replayEl.innerHTML = html + replayEl.innerHTML;
     replayEl.scrollTop = 0;
