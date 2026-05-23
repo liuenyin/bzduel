@@ -72,7 +72,7 @@ export function renderAutochess(container, data = {}) {
                   <div class="ac-hex-label">${SUBJECT_ICONS[subj]} ${SUBJECT_LABELS[subj]}</div>
                   ${entry ? `
                     <div class="ac-hex-char ${envMatched && matched ? 'env-match' : matched ? 'matched' : 'mismatched'}">
-                      <img class="ac-avatar" src="/photos/${charCfg.id}.jpg" onerror="this.remove()">
+                      <img class="ac-avatar" src="${charCfg.image}" onerror="this.remove()">
                       <span class="ac-char-name">${charCfg?.name || '?'}</span>
                       <span class="ac-char-star">${'★'.repeat(entry.star)}${'☆'.repeat(3 - entry.star)}</span>
                       <span class="ac-efficacy">${efficacy}</span>
@@ -87,7 +87,7 @@ export function renderAutochess(container, data = {}) {
                 return `
                   <div class="ac-core-char">
                     <span class="ac-core-label">阵眼</span>
-                    <img class="ac-avatar" src="/photos/${c.id}.jpg" onerror="this.remove()">
+                    <img class="ac-avatar" src="${c.image}" onerror="this.remove()">
                     <span class="ac-char-name">${c?.name || '?'}</span>
                     <span class="ac-char-star">${'★'.repeat(run.board.core.star)}${'☆'.repeat(3 - run.board.core.star)}</span>
                   </div>
@@ -163,7 +163,7 @@ export function renderAutochess(container, data = {}) {
                   return `
                     <button class="ac-shop-slot cost-${item.cost}" data-shop="${i}" ${run.gold < item.cost ? 'disabled' : ''}>
                       <span class="ac-shop-cost">${item.cost}💰</span>
-                      <img class="ac-avatar" src="/photos/${c.id}.jpg" onerror="this.remove()">
+                      <img class="ac-avatar" src="${c.image}" onerror="this.remove()">
                       <span class="ac-shop-name">${c?.name || '?'}</span>
                       <span class="ac-shop-title">${c?.title || ''}</span>
                       <span class="ac-shop-electives">${(c?.electives || []).map(e => SUBJECT_ICONS[e] || e).join('')}</span>
@@ -182,7 +182,7 @@ export function renderAutochess(container, data = {}) {
                 return `
                   <div class="ac-bench-item" data-bench="${i}" draggable="true">
                     <span class="ac-char-cost">${c?.cost || '?'}💰</span>
-                    <img class="ac-avatar" src="/photos/${c.id}.jpg" onerror="this.remove()">
+                    <img class="ac-avatar" src="${c.image}" onerror="this.remove()">
                     <span class="ac-char-name">${c?.name || '?'}</span>
                     <span class="ac-char-star">${'★'.repeat(entry.star)}${'☆'.repeat(3 - entry.star)}</span>
                     <button class="ac-sell-btn" data-idx="${i}">出售</button>

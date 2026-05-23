@@ -2,6 +2,8 @@
 // 校园战力党 — 货币战争 (自走棋) 模式配置
 // ============================================================
 
+import { characters } from './characters.js';
+
 // ── 游戏常量 ──
 export const AC = {
   PLANES_COUNT: 6,
@@ -365,7 +367,10 @@ export const AC_CHARS = [
 ];
 
 /** 按 ID 查角色 */
-export const AC_CHAR_MAP = Object.fromEntries(AC_CHARS.map(c => [c.id, c]));
+export const AC_CHAR_MAP = Object.fromEntries(AC_CHARS.map(c => {
+  const base = characters.find(b => b.id === c.id);
+  return [c.id, { ...c, image: base?.image || `/photos/${c.id}.jpg` }];
+}));
 
 /** 按费用分组 */
 export const AC_CHARS_BY_COST = {};
