@@ -38,6 +38,11 @@ export function renderLobby(container) {
             </div>
           </div>
         </div>
+
+        <div style="margin-top:20px; padding-top:16px; border-top:2px solid var(--accent);">
+          <p style="font-family:var(--font-display); font-weight:700; color:var(--gold, #f0c040); text-align:center; margin-bottom:12px;">🎲 货币战争 (自走棋)</p>
+          <button id="btn-autochess" class="btn btn-lg" style="width:100%; background:linear-gradient(135deg, #f0c040, #e67e22); color:#1a1a2e; font-weight:900; font-size:1.1rem;">⚔️ 货币战争...?</button>
+        </div>
       </div>
 
       <div id="status" style="min-height:36px; margin-top:12px;"></div>
@@ -145,6 +150,11 @@ export function renderLobby(container) {
     gameSocket.joinFfaRoom(n, roomId);
   });
 
+  document.getElementById('btn-autochess').addEventListener('click', () => {
+    const n = getNick(); if (!n) return;
+    gameSocket.emit('start_autochess', { nickname: n });
+  });
+
   // ── 服务端事件 ──
   gameSocket.on('room_created', ({ roomId, mode }) => {
     gameSocket.currentRoomId = roomId;
@@ -185,8 +195,12 @@ export function renderLobby(container) {
 
   gameSocket.on('match_found', (data) => {
     gameSocket.currentRoomId = data.roomId;
-    showGlobalChat('已连接到对局！');
-    navigate('preparation', data);
+    if (data.mode === 'autochess') {
+      navigate('autochess', data);
+    } else {
+      showGlobalChat('已连接到对局！');
+      navigate('preparation', data);
+    }
   });
 
   gameSocket.on('error_msg', ({ message }) => {

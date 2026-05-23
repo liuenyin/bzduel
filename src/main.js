@@ -5,6 +5,7 @@ import { gameSocket } from './net/socket.js';
 import { renderLobby } from './pages/lobby.js';
 import { renderPreparation } from './pages/preparation.js';
 import { renderBattle } from './pages/battle.js';
+import { renderAutochess } from './pages/autochess.js';
 
 const app = document.getElementById('app');
 let currentCleanup = null;
@@ -31,6 +32,9 @@ export function navigate(page, data = {}) {
       break;
     case 'battle':
       currentCleanup = renderBattle(app, data);
+      break;
+    case 'autochess':
+      currentCleanup = renderAutochess(app, data);
       break;
     default:
       currentCleanup = renderLobby(app, data);

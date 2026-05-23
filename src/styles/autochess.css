@@ -1,0 +1,416 @@
+/* ============================================================
+   校园战力党 — 货币战争 (自走棋) 样式
+   ============================================================ */
+
+/* ── 页面布局 ── */
+.ac-page {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 8px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ac-loading { text-align: center; padding: 40px; color: var(--text-secondary); }
+
+/* ── 顶部状态栏 ── */
+.ac-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--bg-card);
+  border-radius: 10px;
+  padding: 6px 10px;
+  gap: 4px;
+  border: 1px solid var(--bg-inset);
+  flex-wrap: wrap;
+}
+.ac-stat { display: flex; flex-direction: column; align-items: center; font-size: 0.7rem; }
+.ac-label { color: var(--text-muted); font-size: 0.6rem; }
+.ac-val { font-family: var(--font-display); font-weight: 900; color: var(--text-primary); font-size: 0.85rem; }
+.ac-stat.streak { color: var(--accent); font-size: 0.75rem; font-weight: 700; }
+
+/* ── 位面进度条 ── */
+.ac-planes {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 0;
+  overflow-x: auto;
+  font-size: 0.65rem;
+}
+.ac-plane {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4px 6px;
+  border-radius: 6px;
+  background: var(--bg-inset);
+  min-width: 42px;
+  transition: all 0.3s;
+}
+.ac-plane.active {
+  background: linear-gradient(135deg, #f0c040, #e67e22);
+  color: #1a1a2e;
+  font-weight: 700;
+  transform: scale(1.1);
+  box-shadow: 0 0 12px rgba(240, 192, 64, 0.4);
+}
+.ac-plane.done { opacity: 0.5; }
+.ac-plane-icon { font-size: 1rem; }
+.ac-plane-label { font-size: 0.55rem; }
+.ac-plane-node { font-size: 0.5rem; opacity: 0.8; }
+.ac-plane-arrow { color: var(--text-muted); font-size: 0.7rem; }
+
+.ac-node-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  padding: 2px 8px;
+}
+
+/* ── 六芒星棋盘 ── */
+.ac-board {
+  position: relative;
+  width: 280px;
+  height: 280px;
+  margin: 10px auto;
+}
+.ac-hex-ring {
+  position: absolute;
+  inset: 0;
+}
+.ac-hex-slot {
+  position: absolute;
+  width: 80px;
+  height: 70px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  border: 2px solid var(--bg-inset);
+  background: var(--bg-card);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.65rem;
+  text-align: center;
+}
+/* 六边形环形排列 (简化为圆形布局) */
+.ac-hex-slot[data-index="0"] { top: 0;    left: 50%; transform: translateX(-50%); }
+.ac-hex-slot[data-index="1"] { top: 18%;  right: 2%; }
+.ac-hex-slot[data-index="2"] { bottom: 18%; right: 2%; }
+.ac-hex-slot[data-index="3"] { bottom: 0; left: 50%; transform: translateX(-50%); }
+.ac-hex-slot[data-index="4"] { bottom: 18%; left: 2%; }
+.ac-hex-slot[data-index="5"] { top: 18%;  left: 2%; }
+
+.ac-hex-slot:hover { border-color: var(--accent); transform: translateX(-50%) scale(1.05); }
+.ac-hex-slot[data-index="1"]:hover,
+.ac-hex-slot[data-index="2"]:hover,
+.ac-hex-slot[data-index="4"]:hover,
+.ac-hex-slot[data-index="5"]:hover { transform: scale(1.05); }
+
+.ac-hex-label { font-size: 0.6rem; color: var(--text-muted); margin-bottom: 2px; }
+.ac-hex-empty { color: var(--text-muted); font-size: 0.7rem; }
+
+.ac-hex-char { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+.ac-hex-char.matched { border-color: var(--green); }
+.ac-hex-char.env-match { border-color: #f0c040; }
+.ac-hex-char.mismatched { opacity: 0.7; }
+
+.ac-char-name { font-weight: 700; font-size: 0.7rem; }
+.ac-char-star { color: #f0c040; font-size: 0.65rem; letter-spacing: -1px; }
+.ac-efficacy { font-size: 0.55rem; padding: 1px 4px; border-radius: 4px; }
+.ac-hex-char.matched .ac-efficacy { background: rgba(72,199,142,0.2); color: var(--green); }
+.ac-hex-char.env-match .ac-efficacy { background: rgba(240,192,64,0.3); color: #f0c040; font-weight: 700; }
+.ac-hex-char.mismatched .ac-efficacy { background: rgba(255,100,100,0.2); color: var(--red, #e74c3c); }
+
+/* 阵眼（中心） */
+.ac-core-slot {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 90px; height: 90px;
+  border-radius: 50%;
+  border: 3px solid var(--accent);
+  background: var(--bg-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
+  transition: all 0.2s;
+  text-align: center;
+}
+.ac-core-slot:hover { transform: translate(-50%, -50%) scale(1.08); box-shadow: 0 0 30px rgba(139, 92, 246, 0.5); }
+.ac-core-char { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.ac-core-label { font-size: 0.5rem; color: var(--accent); font-weight: 700; text-transform: uppercase; }
+.ac-core-empty { color: var(--text-muted); font-size: 0.7rem; line-height: 1.3; }
+
+/* ── 操作按钮区 ── */
+.ac-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.ac-actions .btn { font-size: 0.75rem; padding: 6px 12px; }
+.ac-actions .btn-lg { font-size: 0.9rem; padding: 10px 20px; flex: 1; }
+
+.ac-victory { text-align: center; font-size: 1.2rem; color: #f0c040; font-weight: 900; padding: 12px; }
+.ac-defeat { text-align: center; font-size: 1.2rem; color: var(--red, #e74c3c); font-weight: 900; padding: 12px; }
+
+/* ── 商店 ── */
+.ac-shop {
+  background: var(--bg-card);
+  border-radius: 10px;
+  padding: 8px;
+  border: 1px solid var(--bg-inset);
+}
+.ac-shop h3 { font-size: 0.8rem; margin-bottom: 6px; color: var(--text-primary); }
+.ac-shop-items { display: flex; gap: 4px; overflow-x: auto; }
+.ac-shop-slot {
+  min-width: 72px;
+  padding: 6px;
+  border-radius: 8px;
+  border: 2px solid var(--bg-inset);
+  background: var(--bg-card);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.65rem;
+  text-align: center;
+}
+.ac-shop-slot:hover:not(:disabled):not(.empty) { border-color: var(--accent); transform: translateY(-2px); }
+.ac-shop-slot:disabled { opacity: 0.5; cursor: not-allowed; }
+.ac-shop-slot.empty { opacity: 0.3; cursor: default; border-style: dashed; }
+.ac-shop-cost { font-weight: 900; font-size: 0.8rem; }
+.ac-shop-name { font-weight: 700; }
+.ac-shop-title { color: var(--text-muted); font-size: 0.55rem; }
+.ac-shop-electives { font-size: 0.7rem; }
+
+/* 费用颜色 */
+.ac-shop-slot.cost-1 { border-color: #888; }
+.ac-shop-slot.cost-1 .ac-shop-cost { color: #aaa; }
+.ac-shop-slot.cost-2 { border-color: #48c78e; }
+.ac-shop-slot.cost-2 .ac-shop-cost { color: #48c78e; }
+.ac-shop-slot.cost-3 { border-color: #3e8ed0; }
+.ac-shop-slot.cost-3 .ac-shop-cost { color: #3e8ed0; }
+.ac-shop-slot.cost-4 { border-color: #b86bff; }
+.ac-shop-slot.cost-4 .ac-shop-cost { color: #b86bff; }
+.ac-shop-slot.cost-5 { border-color: #f0c040; }
+.ac-shop-slot.cost-5 .ac-shop-cost { color: #f0c040; }
+
+/* ── 备战席 ── */
+.ac-bench {
+  background: var(--bg-card);
+  border-radius: 10px;
+  padding: 8px;
+  border: 1px solid var(--bg-inset);
+}
+.ac-bench h3 { font-size: 0.8rem; margin-bottom: 6px; }
+.ac-bench-list { display: flex; flex-direction: column; gap: 4px; }
+.ac-bench-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--bg-inset);
+  font-size: 0.7rem;
+}
+.ac-bench-actions { margin-left: auto; display: flex; gap: 3px; align-items: center; }
+.btn-sm { padding: 2px 6px; font-size: 0.6rem; border-radius: 4px; border: 1px solid var(--bg-inset); background: var(--bg-card); color: var(--text-primary); cursor: pointer; }
+.btn-sm:hover { background: var(--accent); color: white; }
+.ac-place-hex { font-size: 0.6rem; padding: 2px; border-radius: 4px; background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--bg-inset); }
+.ac-empty-hint { color: var(--text-muted); font-size: 0.7rem; text-align: center; padding: 8px; }
+.ac-char-cost { color: var(--text-muted); font-size: 0.6rem; }
+
+/* ── 饮料商店 ── */
+.ac-beverage-shop {
+  background: linear-gradient(135deg, rgba(240,192,64,0.1), rgba(230,126,34,0.1));
+  border: 1px solid rgba(240,192,64,0.3);
+  border-radius: 10px;
+  padding: 8px;
+}
+.ac-beverage-shop h3 { font-size: 0.8rem; color: #f0c040; margin-bottom: 6px; }
+.ac-bev-list { display: flex; gap: 4px; flex-wrap: wrap; }
+.ac-bev-item {
+  flex: 1;
+  min-width: 90px;
+  padding: 6px;
+  border-radius: 8px;
+  border: 1px solid rgba(240,192,64,0.3);
+  background: var(--bg-card);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.65rem;
+  transition: all 0.2s;
+}
+.ac-bev-item:hover:not(:disabled) { border-color: #f0c040; transform: translateY(-2px); }
+.ac-bev-item:disabled { opacity: 0.4; cursor: not-allowed; }
+.ac-bev-name { font-weight: 700; }
+.ac-bev-cost { color: #f0c040; font-weight: 900; }
+.ac-bev-desc { color: var(--text-muted); font-size: 0.55rem; }
+
+/* ── 战斗回放 ── */
+.ac-combat-log {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 30, 0.95);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.ac-combat-replay {
+  width: 100%;
+  max-width: 420px;
+  background: var(--bg-card);
+  border-radius: 16px;
+  padding: 16px;
+  border: 2px solid var(--accent);
+}
+.ac-combat-replay h3 { text-align: center; margin-bottom: 8px; }
+.ac-combat-hp-bars {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.ac-hp-bar { color: var(--green); }
+.ac-hp-bar.enemy { color: var(--red, #e74c3c); }
+.ac-replay-content {
+  max-height: 300px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.ac-replay-round {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-size: 0.7rem;
+  padding: 4px 6px;
+  background: var(--bg-inset);
+  border-radius: 6px;
+  animation: slideIn 0.3s ease;
+}
+@keyframes slideIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+.round-num { font-weight: 900; color: var(--accent); min-width: 24px; }
+.dmg { color: var(--red, #e74c3c); font-weight: 700; }
+.heal { color: var(--green); font-weight: 700; }
+.debuff { color: #e67e22; }
+
+#ac-skip-combat { width: 100%; margin-top: 4px; }
+
+/* ── 投资策略弹窗 ── */
+.ac-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 30, 0.9);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.ac-modal-content {
+  background: var(--bg-card);
+  border-radius: 16px;
+  padding: 20px;
+  max-width: 360px;
+  width: 100%;
+  border: 2px solid #f0c040;
+}
+.ac-modal-content h3 { text-align: center; margin-bottom: 12px; color: #f0c040; }
+.ac-invest-option {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--bg-inset);
+  background: var(--bg-card);
+  cursor: pointer;
+  font-size: 0.8rem;
+  text-align: left;
+  transition: all 0.2s;
+  color: var(--text-primary);
+}
+.ac-invest-option:hover { border-color: #f0c040; background: rgba(240,192,64,0.1); }
+.ac-invest-option strong { color: var(--accent); margin-bottom: 4px; }
+.ac-invest-option span { color: var(--text-secondary); font-size: 0.7rem; }
+
+/* ── Toast ── */
+.ac-toast {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-20px);
+  background: linear-gradient(135deg, #f0c040, #e67e22);
+  color: #1a1a2e;
+  padding: 8px 20px;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 0.85rem;
+  opacity: 0;
+  transition: all 0.3s;
+  z-index: 300;
+  pointer-events: none;
+}
+.ac-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── 结算画面 ── */
+.ac-result {
+  background: var(--bg-card);
+  border-radius: 12px;
+  padding: 24px;
+  text-align: center;
+  border: 2px solid var(--bg-inset);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+.ac-result.ac-victory { border-color: #f0c040; box-shadow: 0 4px 20px rgba(240,192,64,0.3); }
+.ac-result.ac-defeat { border-color: var(--red, #e74c3c); }
+
+.ac-result-title { font-size: 1.4rem; font-weight: 900; margin-bottom: 4px; }
+.ac-victory .ac-result-title { color: #f0c040; }
+.ac-defeat .ac-result-title { color: var(--red, #e74c3c); }
+
+.ac-result-subtitle { color: var(--text-secondary); font-size: 0.8rem; margin-bottom: 16px; }
+
+.ac-result-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--bg-inset);
+  border-radius: 8px;
+  padding: 12px;
+  text-align: left;
+}
+.ac-rs {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  padding-bottom: 4px;
+}
+.ac-rs:last-child { border-bottom: none; padding-bottom: 0; }
+.ac-rs span:first-child { color: var(--text-secondary); }
+.ac-rs span:last-child { font-weight: 700; color: var(--text-primary); }

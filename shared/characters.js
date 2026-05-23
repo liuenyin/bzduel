@@ -36,6 +36,16 @@ export const SKILL = {
   // 大乱斗特供
   RAPPER: 'rapper',                          // rapper (刘奕辰: 群攻AOE)
   FORGET_LYRICS: 'forget_lyrics',            // 忘词 (刘奕辰: 重投后根据未受伤害人数扣血)
+
+  // 新角色技能（余汉/张锦元/谢睿琦/廖展韬）
+  MAMA_HEAL: 'mama_heal',                    // 妈! (余汉: 防御溢出回血)
+  MAMA_MERCY: 'mama_mercy',                  // 操碎了心 (余汉: 对低血量目标伤害锁定1)
+  NINE_LIVES: 'nine_lives',                  // 九条命 (张锦元: 首次死亡复活)
+  SLEEPY: 'sleepy',                          // 贪睡 (张锦元: 前2回合攻防-3)
+  STICKER_BOMB: 'sticker_bomb',              // 背后贴贴画 (谢睿琦: 叠贴画引爆)
+  STICKER_SELF: 'sticker_self',              // 被发现了! (谢睿琦: 被贴画)
+  INVERT_DIE: 'invert_die',                  // 字斟句酌 (廖展韬: 反转最小骰子)
+  DEEP_THOUGHT: 'deep_thought',              // 深度思考 (廖展韬: 反转给对方减伤)
 };
 
 /**
@@ -318,6 +328,95 @@ export const characters = [
       id: SKILL.CAUGHT,
       name: '被发现',
       desc: '<ul><li>每持有 1 层【蓄势】，防御结算时受到的最终伤害额外 <span style="color:var(--rose-gold)">+3</span></li></ul>',
+    },
+  },
+  // ════════ 新角色 ════════
+  {
+    id: 'char_15',
+    name: '余汉',
+    title: '妈妈',
+    subjects: ['chinese', 'math', 'english', 'physics', 'chemistry', 'biology'],
+    electives: ['physics', 'chemistry', 'biology'],
+    image: '/photos/yh.jpg',
+    hp: 35,
+    dicePool: [4, 6, 6, 8],
+    atkSlots: 2,
+    defSlots: 3,
+    positiveSkill: {
+      id: SKILL.MAMA_HEAL,
+      name: '妈!',
+      desc: '<ul><li>防御时若防御总值 > 攻击总值，溢出部分 × <span style="color:var(--rose-gold)">课程倍率</span> 转化为回血（不超过生命上限）</li></ul>',
+    },
+    negativeSkill: {
+      id: SKILL.MAMA_MERCY,
+      name: '操碎了心',
+      desc: '<ul><li>对 HP 低于 <span style="color:var(--rose-gold)">20%</span> 的目标造成的伤害固定为 1</li></ul>',
+    },
+  },
+  {
+    id: 'char_16',
+    name: '张锦元',
+    title: '喵',
+    subjects: ['chinese', 'math', 'english', 'physics', 'chemistry', 'biology'],
+    electives: ['physics', 'chemistry', 'biology'],
+    image: '/photos/zjy.jpg',
+    hp: 25,
+    dicePool: [6, 6, 8, 10],
+    atkSlots: 2,
+    defSlots: 3,
+    positiveSkill: {
+      id: SKILL.NINE_LIVES,
+      name: '九条命',
+      desc: '<ul><li>首次 HP 归零时，<span style="color:var(--rose-gold)">复活</span>并恢复 <span style="color:var(--rose-gold)">9 HP</span>，骰池全部升级为 <span style="color:var(--rose-gold)">D10</span></li></ul>',
+    },
+    negativeSkill: {
+      id: SKILL.SLEEPY,
+      name: '贪睡',
+      desc: '<ul><li>战斗前 <span style="color:var(--rose-gold)">2 回合</span>，攻击和防御各 <span style="color:var(--rose-gold)">-3</span></li></ul>',
+    },
+  },
+  {
+    id: 'char_17',
+    name: '谢睿琦',
+    title: '贴纸狂魔',
+    subjects: ['chinese', 'math', 'english', 'physics', 'chemistry', 'biology'],
+    electives: ['physics', 'chemistry', 'biology'],
+    image: '/photos/xrq.jpg',
+    hp: 33,
+    dicePool: [6, 6, 6, 8],
+    atkSlots: 3,
+    defSlots: 2,
+    positiveSkill: {
+      id: SKILL.STICKER_BOMB,
+      name: '背后贴贴画',
+      desc: '<ul><li>每次造成伤害时，给对方贴 <span style="color:var(--rose-gold)">1 张</span> 贴画</li><li>累计 <span style="color:var(--rose-gold)">3 张</span> 引爆：造成对方当前 HP 的 <span style="color:var(--rose-gold)">30%</span> 伤害 + 叠加 <span style="color:var(--rose-gold)">3 层红温</span></li></ul>',
+    },
+    negativeSkill: {
+      id: SKILL.STICKER_SELF,
+      name: '被发现了!',
+      desc: '<ul><li>受到伤害 ≥ <span style="color:var(--rose-gold)">10</span> 时，自己也被贴 1 张贴画</li><li>3 张引爆也适用于自身</li></ul>',
+    },
+  },
+  {
+    id: 'char_18',
+    name: '廖展韬',
+    title: '大文豪',
+    subjects: ['chinese', 'math', 'english', 'physics', 'chemistry', 'geography'],
+    electives: ['physics', 'chemistry', 'geography'],
+    image: '/photos/lzt.jpg',
+    hp: 34,
+    dicePool: [8, 8, 8, 8],
+    atkSlots: 3,
+    defSlots: 2,
+    positiveSkill: {
+      id: SKILL.INVERT_DIE,
+      name: '字斟句酌',
+      desc: '<ul><li>每次掷骰后，自动将点数最小的骰子<span style="color:var(--rose-gold)">反转</span>（新点数 = 面值+1 - 原点数）</li><li>例：D8 掷出 2 → 反转为 7</li></ul>',
+    },
+    negativeSkill: {
+      id: SKILL.DEEP_THOUGHT,
+      name: '深度思考',
+      desc: '<ul><li>每次反转后，对方永久获得 <span style="color:var(--rose-gold)">+1</span> 固定减伤（无上限累加）</li></ul>',
     },
   },
 ];

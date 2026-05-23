@@ -65,6 +65,11 @@ function makePlayer(id, name) {
     chargeStacks: 0,
     firstBloodTriggered: false,
     hasTakenDamage: false,
+    // 新角色状态
+    stickers: 0,            // 谢睿琦: 对方身上的贴画数
+    selfStickers: 0,         // 谢睿琦: 自身贴画数
+    invertReduction: 0,      // 廖展韬: 永久减伤叠加
+    nineLivesUsed: false,    // 张锦元: 是否已复活
   };
 }
 
@@ -207,10 +212,40 @@ export function rollAttack(state) {
   }
 
   const rolls = rollDiceGroup(rollingPool);
+
+  // 廖展韬正面: 字斟句酌 — 攻击掷骰后反转最小骰子
+  let invertTriggered = false;
+  if (atk.card.positiveSkill?.id === SKILL.INVERT_DIE) {
+    let minVal = Infinity, minIdx = -1;
+    for (let i = 0; i < rolls.length; i++) {
+      if (rolls[i] < minVal) { minVal = rolls[i]; minIdx = i; }
+    }
+    if (minIdx >= 0) {
+      const face = rollingPool[minIdx];
+      rolls[minIdx] = face + 1 - minVal;
+      invertTriggered = true;
+      // 深度思考: 对方永久减伤+1
+      if (atk.card.negativeSkill?.id === SKILL.DEEP_THOUGHT) {
+        const defIdx = state.turnData.defenderIdx;
+        if (defIdx != null) {
+          state.players[defIdx].invertReduction = (state.players[defIdx].invertReduction || 0) + 1;
+        }
+      }
+    }
+  }
+
+  // 张锦元负面: 贪睡 — 前2回合攻击-3
+  let sleepyAtkPenalty = 0;
+  if (atk.card.negativeSkill?.id === SKILL.SLEEPY && state.totalRound <= 2) {
+    sleepyAtkPenalty = 3;
+  }
+
   state.turnData.attackRolls = rolls;
   state.turnData.allergyTriggered = allergyTriggered;
+  state.turnData.invertTriggered = invertTriggered;
+  state.turnData.sleepyAtkPenalty = sleepyAtkPenalty;
   state.turnPhase = TURN.ATK_ROLLED;
-  return { ok: true, rolls: [...rolls] };
+  return { ok: true, rolls: [...rolls], invertTriggered };
 }
 
 // ── 阶段2: 重投骰子 (攻击或防御阶段通用) ──
@@ -372,6 +407,22 @@ export function confirmAttack(state, keepIndices) {
   } else {
     state.turnData.isAoE = false;
     const defRolls = rollDiceGroup(def.card.dicePool);
+
+    // 廖展韬正面: 字斟句酌 — 防御掷骰后反转最小骰子
+    if (def.card.positiveSkill?.id === SKILL.INVERT_DIE) {
+      let minVal = Infinity, minIdx = -1;
+      for (let i = 0; i < defRolls.length; i++) {
+        if (defRolls[i] < minVal) { minVal = defRolls[i]; minIdx = i; }
+      }
+      if (minIdx >= 0) {
+        const face = def.card.dicePool[minIdx];
+        defRolls[minIdx] = face + 1 - minVal;
+        if (def.card.negativeSkill?.id === SKILL.DEEP_THOUGHT) {
+          atk.invertReduction = (atk.invertReduction || 0) + 1;
+        }
+      }
+    }
+
     state.turnData.defenseRolls = defRolls;
     state.turnPhase = TURN.DEF_ROLLED;
     return { ok: true, atkResult: state.turnData.atkResult, defenseRolls: [...defRolls] };
@@ -705,8 +756,23 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
     }
 
     let damage = ar.pierce ? finalBaseAtk : Math.max(0, finalBaseAtk - finalFinalDef);
+
+  // 贪睡惩罚: 攻击-3, 防御-3 (前2回合)
+  if (state.turnData.sleepyAtkPenalty > 0) {
+    damage = Math.max(0, damage - state.turnData.sleepyAtkPenalty); // 简化: 直接减伤
+  }
+  let sleepyDefPenalty = 0;
+  if (def.card.negativeSkill?.id === SKILL.SLEEPY && state.totalRound <= 2) {
+    sleepyDefPenalty = 3;
+    damage += sleepyDefPenalty; // 防御-3等于对方多造成3点伤害
+  }
+
+  // 廖展韬深度思考: 对方的永久减伤
+  if (damage > 0 && (def.invertReduction || 0) > 0) {
+    damage = Math.max(0, damage - def.invertReduction);
+  }
   
-  // 殷泽轩负面: 受到伤害时 (即伤害 > 0)，最终伤害额外 +2 × 倍率
+  // 殖泽轩负面: 受到伤害时，最终伤害额外 +2 × 倍率
   if (damage > 0 && def.card.negativeSkill?.id === SKILL.VULNERABLE) {
     damage += Math.floor(2 * defMulti);
   }
@@ -753,6 +819,71 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
   // 应用伤害
   def.hp = Math.max(0, def.hp - damage);
   atk.hp = Math.max(0, atk.hp - ar.selfDamage);
+
+  // 余汉正面: 妈! — 防御溢出回血
+  let mamaHealTriggered = false;
+  let mamaHealAmount = 0;
+  if (def.card.positiveSkill?.id === SKILL.MAMA_HEAL && finalFinalDef > finalBaseAtk && !ar.pierce) {
+    const overflow = finalFinalDef - finalBaseAtk;
+    mamaHealAmount = Math.floor(overflow * defMulti);
+    if (mamaHealAmount > 0) {
+      def.hp = Math.min(def.maxHp, def.hp + mamaHealAmount);
+      mamaHealTriggered = true;
+    }
+  }
+
+  // 余汉负面: 操碎了心 — 对HP<20%目标伤害固定为1
+  if (damage > 1 && atk.card.negativeSkill?.id === SKILL.MAMA_MERCY) {
+    if (def.hp > 0 && def.hp + damage < def.maxHp * 0.2) {
+      const refund = damage - 1;
+      def.hp += refund;
+      damage = 1;
+    }
+  }
+
+  // 谢睿琦正面: 背后贴贴画 — 造成伤害时给对方贴贴画
+  let stickerExploded = false;
+  let stickerDamage = 0;
+  if (damage > 0 && atk.card.positiveSkill?.id === SKILL.STICKER_BOMB) {
+    def.stickers = (def.stickers || 0) + 1;
+    if (def.stickers >= 3) {
+      stickerDamage = Math.floor(def.hp * 0.3);
+      def.hp = Math.max(0, def.hp - stickerDamage);
+      def.redHeat = (def.redHeat || 0) + 3;
+      def.stickers = 0;
+      stickerExploded = true;
+    }
+  }
+
+  // 谢睿琦负面: 被发现了! — 受伤≥10时自己被贴贴画
+  let selfStickerExploded = false;
+  let selfStickerDamage = 0;
+  if (damage >= 10 && def.card.negativeSkill?.id === SKILL.STICKER_SELF) {
+    def.selfStickers = (def.selfStickers || 0) + 1;
+    if (def.selfStickers >= 3) {
+      selfStickerDamage = Math.floor(def.hp * 0.3);
+      def.hp = Math.max(0, def.hp - selfStickerDamage);
+      def.redHeat = (def.redHeat || 0) + 3;
+      def.selfStickers = 0;
+      selfStickerExploded = true;
+    }
+  }
+
+  // 张锦元正面: 九条命 — 首次HP归零时复活
+  let nineLivesTriggered = false;
+  if (def.hp <= 0 && def.card.positiveSkill?.id === SKILL.NINE_LIVES && !def.nineLivesUsed) {
+    def.nineLivesUsed = true;
+    def.hp = 9;
+    def.card.dicePool = def.card.dicePool.map(() => 10); // 全部升级为D10
+    nineLivesTriggered = true;
+  }
+  // 九条命也适用于攻击方
+  if (atk.hp <= 0 && atk.card.positiveSkill?.id === SKILL.NINE_LIVES && !atk.nineLivesUsed) {
+    atk.nineLivesUsed = true;
+    atk.hp = 9;
+    atk.card.dicePool = atk.card.dicePool.map(() => 10);
+    nineLivesTriggered = true;
+  }
 
   // 姜鹏泽负面: 首次受伤时防御选骰数 -1
   let firstBloodTriggeredThisTurn = false;

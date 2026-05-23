@@ -13,6 +13,14 @@ import {
 } from './game/engine.js';
 import { aiSelectCard } from './game/ai.js';
 import { SKILL } from '../shared/characters.js';
+import {
+  createRun, placeCharacter, removeFromBoard, buyXP,
+  calculateSupportBuffs, processBattleResult, getCurrentNodeType,
+  generateAIOpponent, chooseEvent, confirmInvestment, buyBeverage, getRunView,
+} from './game/autobattler.js';
+import { buyCharacter, sellCharacter, refreshShop as shopRefresh, scaleCharStats } from './game/shop.js';
+import { autoResolveMatch, createGoldMineBattle } from './game/auto-combat.js';
+import { AC_CHAR_MAP, AC } from '../shared/autochess-config.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -34,6 +42,7 @@ if (process.env.NODE_ENV !== "production") {
 const rooms = new Map();
 const matchQueue = [];
 const socketToRoom = new Map();
+const acRuns = new Map(); // socketId -> autochess run
 let roomCounter = 1000;
 function newRoomId() { return String(++roomCounter); }
 
@@ -605,6 +614,186 @@ function cleanupRoom(roomOrId) {
   }
   rooms.delete(rid);
 }
+
+// ============================================================
+// 货币战争 (自走棋) Socket 处理
+// ============================================================
+io.on('connection', (socket) => {
+  // ── 开始货币战争 ──
+  socket.on('start_autochess', ({ nickname }) => {
+    const run = createRun(socket.id, nickname);
+    acRuns.set(socket.id, run);
+    socket.emit('ac_run_update', getRunView(run));
+    const { navigate: nav } = { navigate: 'autochess' };
+    socket.emit('match_found', { roomId: 'ac_' + socket.id, mode: 'autochess' });
+  });
+
+  // ── 购买角色 ──
+  socket.on('ac_buy', ({ shopIndex }) => {
+    const run = acRuns.get(socket.id);
+    if (!run) return;
+    const result = buyCharacter(run, shopIndex);
+    if (!result.ok) { socket.emit('error_msg', { message: result.error }); return; }
+    if (result.starUps?.length) {
+      result.starUps.forEach(su => socket.emit('ac_star_up', su));
+    }
+    socket.emit('ac_run_update', getRunView(run));
+  });
+
+  // ── 卖出角色 ──
+  socket.on('ac_sell', ({ from, index }) => {
+    const run = acRuns.get(socket.id);
+    if (!run) return;
+    sellCharacter(run, from, index);
+    socket.emit('ac_run_update', getRunView(run));
+  });
+
+  // ── 放置角色 ──
+  socket.on('ac_place', ({ benchIndex, slot }) => {
+    const run = acRuns.get(socket.id);
+    if (!run) return;
+    const result = placeCharacter(run, benchIndex, slot);
+    if (!result.ok) { socket.emit('error_msg', { message: result.error }); return; }
+    socket.emit('ac_run_update', getRunView(run));
+  });
+
+  // ── 从棋盘移回 ──
+  socket.on('ac_remove', ({ slot }) => {
+    const run = acRuns.get(socket.id);
+    if (!run) return;
+    removeFromBoard(run, slot);
+    socket.emit('ac_run_update', getRunView(run));
+  });
+
+  // ── 刷新商店 ──
+  socket.on('ac_refresh_shop', () => {
+    const run = acRuns.get(socket.id);
+    if (!run) return;
+    let refreshCost = AC.SHOP_REFRESH_COST;
+    const bargainBuff = (run.investmentBuffs || []).filter(b => b.id === 'bargain');
+    if (bargainBuff.length > 0) refreshCost = Math.max(0, refreshCost - bargainBuff.reduce((s, b) => s + b.value, 0));
+    if (run.gold < refreshCost) { socket.emit('error_msg', { message: 'no_gold' }); return; }
+    run.gold -= refreshCost;
+    run.shop = shopRefresh(run.pool, run.level);
+    socket.emit('ac_run_update', getRunView(run));
+  });
+
+  // ── 买经验 ──
+  socket.on('ac_buy_xp', () => {
+    const run = acRuns.get(socket.id);
+    if (!run) return;
+    const result = buyXP(run);
+    if (!result.ok) { socket.emit('error_msg', { message: result.error }); return; }
+    socket.emit('ac_run_update', getRunView(run));
+  });
+
+  // ── 开始战斗 ──
+  socket.on('ac_start_combat', () => {
+    const run = acRuns.get(socket.id);
+    if (!run || !run.board.core) return;
+
+    run.phase = 'combat';
+    const buffs = calculateSupportBuffs(run);
+
+    // 构建玩家战斗角色
+    const coreEntry = run.board.core;
+    const coreCfg = AC_CHAR_MAP[coreEntry.charId];
+    const coreStats = scaleCharStats(coreCfg, coreEntry.star);
+    const playerFighter = {
+      name: coreCfg.name,
+      hp: coreStats.hp,
+      dicePool: [...coreStats.dicePool],
+      atkSlots: coreStats.atkSlots,
+      defSlots: coreStats.defSlots,
+    };
+
+    // 幸运骰: 所有骰子面数+N
+    const luckyDice = (run.investmentBuffs || []).filter(b => b.id === 'lucky_dice');
+    if (luckyDice.length > 0) {
+      const boost = luckyDice.reduce((s, b) => s + b.value, 0);
+      playerFighter.dicePool = playerFighter.dicePool.map(f => f + boost);
+    }
+
+    // 学霸光环: 攻击+4
+    let scholarBonus = 0;
+    const scholarBuff = (run.investmentBuffs || []).filter(b => b.id === 'scholar_aura');
+    if (scholarBuff.length > 0) scholarBonus = scholarBuff.reduce((s, b) => s + b.value, 0);
+
+    // 生成 AI 对手
+    const nodeType = getCurrentNodeType(run);
+    let aiFighter;
+    if (nodeType === 'event') {
+      // 金矿战斗
+      aiFighter = createGoldMineBattle();
+    } else {
+      aiFighter = generateAIOpponent(run);
+    }
+
+    // 执行自动战斗
+    const combatResult = autoResolveMatch(playerFighter, aiFighter, buffs, {
+      atkBonusThisPlane: (run.atkBonusThisPlane || 0) + scholarBonus,
+    });
+
+    const won = combatResult.winner === 1;
+
+    // 处理战后结算
+    const battleResult = processBattleResult(run, won, combatResult.totalDamageByP1);
+
+    // 辅阵技：战后骰面成长
+    if (won && buffs.growMinDie > 0 && coreCfg) {
+      // 找骰池最小的骰子，加面数
+      const pool = coreStats.dicePool;
+      const minIdx = pool.indexOf(Math.min(...pool));
+      // 永久修改需要存储，这里简化为记录buff
+    }
+
+    socket.emit('ac_combat_result', {
+      combatLog: combatResult.log,
+      won,
+      goldEarned: battleResult.goldEarned,
+      commanderDamage: battleResult.commanderDamage,
+      result: getRunView(run),
+    });
+  });
+
+  // ── 事件节点选择 ──
+  socket.on('ac_event_choice', ({ choice }) => {
+    const run = acRuns.get(socket.id);
+    if (!run) return;
+    const result = chooseEvent(run, choice);
+    if (!result.ok) return;
+    if (result.choice === 'investment') {
+      socket.emit('ac_event_options', { options: result.options });
+    } else {
+      // 金矿 → 直接触发战斗
+      socket.emit('ac_run_update', getRunView(run));
+      socket.emit('ac_start_combat'); // 触发战斗
+    }
+  });
+
+  // ── 确认投资策略 ──
+  socket.on('ac_confirm_investment', ({ buffIndex }) => {
+    const run = acRuns.get(socket.id);
+    if (!run || !run._eventOptions) return;
+    const result = confirmInvestment(run, run._eventOptions[buffIndex]?.id, run._eventOptions);
+    delete run._eventOptions;
+    socket.emit('ac_run_update', getRunView(run));
+  });
+
+  // ── 购买饮料 ──
+  socket.on('ac_buy_beverage', ({ beverageId }) => {
+    const run = acRuns.get(socket.id);
+    if (!run) return;
+    const result = buyBeverage(run, beverageId);
+    if (!result.ok) { socket.emit('error_msg', { message: result.error }); return; }
+    socket.emit('ac_run_update', getRunView(run));
+  });
+
+  // ── 断开连接时清理 ──
+  socket.on('disconnect', () => {
+    acRuns.delete(socket.id);
+  });
+});
 
 const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, "0.0.0.0", () => console.log(`🎲 校园战力党 → http://localhost:${PORT}`));

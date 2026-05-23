@@ -48,6 +48,8 @@ class GameSocket {
       'battle_start', 'schedule_updated',
       'atk_confirmed', 'turn_resolved', 'class_change',
       'opponent_disconnected', 'error_msg', 'buy_water_result',
+      // autochess events
+      'ac_run_update', 'ac_combat_result', 'ac_event_options', 'ac_star_up',
       // chat_msg_receive is NOT removed here because the global chat widget handles it
     ];
     for (const e of events) this.socket.removeAllListeners(e);
