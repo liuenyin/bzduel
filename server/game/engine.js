@@ -875,21 +875,6 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
     }
   }
 
-  // 张锦元正面: 九条命 — 首次HP归零时复活
-  let nineLivesTriggered = false;
-  if (def.hp <= 0 && def.card.positiveSkill?.id === SKILL.NINE_LIVES && !def.nineLivesUsed) {
-    def.nineLivesUsed = true;
-    def.hp = 9;
-    def.card.dicePool = def.card.dicePool.map(() => 10); // 全部升级为D10
-    nineLivesTriggered = true;
-  }
-  // 九条命也适用于攻击方
-  if (atk.hp <= 0 && atk.card.positiveSkill?.id === SKILL.NINE_LIVES && !atk.nineLivesUsed) {
-    atk.nineLivesUsed = true;
-    atk.hp = 9;
-    atk.card.dicePool = atk.card.dicePool.map(() => 10);
-    nineLivesTriggered = true;
-  }
 
   // 姜鹏泽负面: 首次受伤时防御选骰数 -1
   let firstBloodTriggeredThisTurn = false;
@@ -928,6 +913,21 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
   if (damage >= 8 && def.card.negativeSkill?.id === SKILL.SUGAR_CRASH) {
     if (!def.buffs) def.buffs = [];
     def.buffs.push({ id: SKILL.SUGAR_CRASH, expireRound: state.totalRound + 2 });
+  }
+
+  // 张锦元正面: 九条命 — 首次HP归零时复活
+  let nineLivesTriggered = false;
+  if (def.hp <= 0 && def.card.positiveSkill?.id === SKILL.NINE_LIVES && !def.nineLivesUsed) {
+    def.nineLivesUsed = true;
+    def.hp = 9;
+    def.card.dicePool = def.card.dicePool.map(() => 10); // 全部升级为D10
+    nineLivesTriggered = true;
+  }
+  if (atk.hp <= 0 && atk.card.positiveSkill?.id === SKILL.NINE_LIVES && !atk.nineLivesUsed) {
+    atk.nineLivesUsed = true;
+    atk.hp = 9;
+    atk.card.dicePool = atk.card.dicePool.map(() => 10);
+    nineLivesTriggered = true;
   }
 
   // Check game over & handle deaths

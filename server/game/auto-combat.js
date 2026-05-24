@@ -178,12 +178,24 @@ export function autoResolveMatch(fighter1, fighter2, buffs = {}, opts = {}) {
       if (buffs.revive.diceBoost) {
         const count = buffs.revive.diceCount || 2;
         const boost = buffs.revive.diceBoost;
-        for (let i = 0; i < count && i < p1.dicePool.length; i++) {
-          const idx = Math.floor(Math.random() * p1.dicePool.length);
-          p1.dicePool[idx] += boost;
+        for (let i=0; i<Math.min(count, p1.dicePool.length); i++) {
+          p1.dicePool[i] += boost;
         }
-        entry.diceBoostOnRevive = { count, boost };
       }
+    }
+
+    // 阵眼/核心技能：九条命 (首次HP归零时复活，HP回9，骰子全变10)
+    if (p1.hp <= 0 && p1.coreSkills?.positive?.id === 'nine_lives' && !p1.nineLivesUsed) {
+      p1.nineLivesUsed = true;
+      p1.hp = 9;
+      p1.dicePool = p1.dicePool.map(() => 10);
+      entry.nineLivesP1 = true;
+    }
+    if (p2.hp <= 0 && p2.coreSkills?.positive?.id === 'nine_lives' && !p2.nineLivesUsed) {
+      p2.nineLivesUsed = true;
+      p2.hp = 9;
+      p2.dicePool = p2.dicePool.map(() => 10);
+      entry.nineLivesP2 = true;
     }
 
     log.push(entry);

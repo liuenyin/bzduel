@@ -704,6 +704,7 @@ io.on('connection', (socket) => {
       dicePool: [...coreStats.dicePool],
       atkSlots: coreStats.atkSlots,
       defSlots: coreStats.defSlots,
+      coreSkills: { positive: coreCfg.corePositive, negative: coreCfg.coreNegative },
     };
 
     // 幸运骰: 所有骰子面数+N
@@ -772,6 +773,7 @@ io.on('connection', (socket) => {
       dicePool: [...coreStats.dicePool],
       atkSlots: coreStats.atkSlots,
       defSlots: coreStats.defSlots,
+      coreSkills: { positive: coreCfg.corePositive, negative: coreCfg.coreNegative },
     };
 
     const luckyDice = (run.investmentBuffs || []).filter(b => b.id === 'lucky_dice');

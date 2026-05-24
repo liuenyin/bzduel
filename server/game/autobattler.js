@@ -296,7 +296,19 @@ export function processBattleResult(run, won, damageDealt = 0) {
     run.commanderHP = Math.max(0, run.commanderHP - commanderDamage);
   }
 
-  // 推进节点
+  const advanceRes = advanceNode(run);
+
+  return {
+    goldEarned, interest, xpEarned, leveledUp,
+    commanderDamage,
+    ...advanceRes
+  };
+}
+
+/**
+ * 推进到下一个节点，处理位面通关和游戏结束逻辑
+ */
+export function advanceNode(run) {
   run.currentNode++;
   const planeNodes = run.nodeTypes[run.currentPlane];
   let planeComplete = false;
@@ -331,11 +343,7 @@ export function processBattleResult(run, won, damageDealt = 0) {
     run.shop = refreshShop(run.pool, run.level);
   }
 
-  return {
-    goldEarned, interest, xpEarned, leveledUp,
-    commanderDamage, planeComplete, gameOver, victory,
-    nextNodeType: gameOver ? null : getCurrentNodeType(run),
-  };
+  return { planeComplete, gameOver, victory, nextNodeType: gameOver ? null : getCurrentNodeType(run) };
 }
 
 /**
@@ -384,11 +392,8 @@ export function confirmInvestment(run, buffId, options) {
   const buff = options.find(b => b.id === buffId);
   if (!buff) return { ok: false };
   run.investmentBuffs.push(buff);
-  run.phase = 'shop';
-  run.shop = refreshShop(run.pool, run.level);
-  // 推进到下一节点
-  run.currentNode++;
-  run.beveragePurchasedThisNode = false;
+  // 推进到下一节点 (复用相同的安全切图逻辑)
+  advanceNode(run);
   return { ok: true, buff };
 }
 
