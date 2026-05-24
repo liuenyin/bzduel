@@ -817,6 +817,7 @@ io.on('connection', (socket) => {
     const result = chooseEvent(run);
     if (!result.ok) return;
     if (result.choice === 'investment') {
+      run._eventOptions = result.options;
       socket.emit('ac_event_options', { options: result.options });
     } else {
       // 金矿 → 进入shop阶段准备战斗

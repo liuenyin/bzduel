@@ -243,19 +243,19 @@
   object-fit: cover;
   border: none;
   border-radius: 0;
-  z-index: -1;
+  z-index: 0;
   opacity: 0.8;
   mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 100%);
   -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 60%, rgba(0,0,0,0.2) 100%);
 }
-.ac-core-slot .ac-avatar { width: 100%; height: 100%; border: none; }
+.ac-core-slot .ac-avatar { width: 100%; height: 100%; border: none; z-index: 0; }
 
 .ac-hex-label {
   font-size: 0.55rem;
   color: var(--text-muted);
   position: absolute;
   top: 7px;
-  z-index: 1;
+  z-index: 2;
   font-weight: 600;
   text-shadow: 0 1px 2px rgba(255,255,255,0.8);
 }
@@ -365,7 +365,7 @@
 .ac-shop-slot.cost-4 .ac-shop-cost { color: #9b59b6; border-color: #9b59b6; }
 .ac-shop-slot.cost-5 .ac-shop-cost { color: var(--gold); border-color: var(--gold); }
 
-.ac-shop-star { color: var(--gold); font-size: 0.5rem; letter-spacing: -1px; }
+.ac-shop-star { color: var(--gold); font-size: 0.5rem; letter-spacing: -1px; position: relative; z-index: 2; }
 
 /* ── 备战席 — 横排紧凑 ── */
 .ac-bench {
