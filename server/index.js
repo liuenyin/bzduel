@@ -755,6 +755,59 @@ io.on('connection', (socket) => {
     });
   });
 
+  // ── 手动战斗 ──
+  socket.on('ac_start_manual_combat', () => {
+    const run = acRuns.get(socket.id);
+    if (!run || !run.board.core) return;
+
+    run.phase = 'manual_combat';
+    const buffs = calculateSupportBuffs(run);
+
+    const coreEntry = run.board.core;
+    const coreCfg = AC_CHAR_MAP[coreEntry.charId];
+    const coreStats = scaleCharStats(coreCfg, coreEntry.star);
+    const playerFighter = {
+      name: coreCfg.name,
+      hp: coreStats.hp,
+      dicePool: [...coreStats.dicePool],
+      atkSlots: coreStats.atkSlots,
+      defSlots: coreStats.defSlots,
+    };
+
+    const luckyDice = (run.investmentBuffs || []).filter(b => b.id === 'lucky_dice');
+    if (luckyDice.length > 0) {
+      const boost = luckyDice.reduce((s, b) => s + b.value, 0);
+      playerFighter.dicePool = playerFighter.dicePool.map(f => f + boost);
+    }
+
+    const nodeType = getCurrentNodeType(run);
+    let aiFighter;
+    if (nodeType === 'event') {
+      aiFighter = createGoldMineBattle();
+    } else {
+      aiFighter = generateAIOpponent(run);
+    }
+
+    socket.emit('ac_manual_combat_setup', {
+      playerFighter,
+      aiFighter,
+      buffs: {
+        flatReduction: buffs.flatReduction,
+        flatDef: buffs.flatDef,
+        extraRerolls: buffs.extraRerolls,
+        healOnOverflow: buffs.healOnOverflow,
+      },
+      nodeType,
+    });
+  });
+
+  socket.on('ac_manual_combat_done', ({ won, totalDamage }) => {
+    const run = acRuns.get(socket.id);
+    if (!run) return;
+    processBattleResult(run, won, totalDamage || 0);
+    socket.emit('ac_run_update', getRunView(run));
+  });
+
   // ── 事件节点选择 ──
   socket.on('ac_event_choice', ({ choice }) => {
     const run = acRuns.get(socket.id);

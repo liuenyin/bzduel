@@ -18,11 +18,10 @@ const SUBJECT_ICONS = {
 
 export function renderAutochess(container, data = {}) {
   let run = data.run || null;
-  let cleanupFns = [];
 
   function render() {
     if (!run) {
-      container.innerHTML = `<div class="ac-loading"><p>正在创建对局…</p></div>`;
+      container.innerHTML = `<div class="ac-loading">正在创建对局…</div>`;
       return;
     }
 
@@ -31,30 +30,36 @@ export function renderAutochess(container, data = {}) {
     const envIcon = SUBJECT_ICONS[env] || '';
     const nodeType = run.currentNodeType || 'normal';
     const nodeLabel = { normal: '普通', elite: '精英', boss: 'Boss', event: '事件' }[nodeType] || nodeType;
-    const streakText = run.winStreak > 0 ? `${run.winStreak}连胜` : run.loseStreak > 0 ? `${run.loseStreak}连败` : '—';
+
+    // HP 百分比
+    const hpPct = Math.round((run.commanderHP / run.maxCommanderHP) * 100);
+    const hpColor = hpPct > 50 ? 'var(--green)' : hpPct > 25 ? 'var(--gold)' : 'var(--red)';
+
+    // 连胜败
+    let streakHtml = '';
+    if (run.winStreak > 0) streakHtml = `<span class="ac-streak win">${run.winStreak}连胜</span>`;
+    else if (run.loseStreak > 0) streakHtml = `<span class="ac-streak lose">${run.loseStreak}连败</span>`;
 
     container.innerHTML = `
       <div class="ac-page">
         <div class="ac-topbar-wrapper">
           <div class="ac-topbar">
-            <div class="ac-stat"><span class="ac-label">金币</span><span class="ac-val" id="ac-gold">${run.gold}</span></div>
-            <div class="ac-stat"><span class="ac-label">等级</span><span class="ac-val">Lv.${run.level} (${run.xp}/${run.xpToNext || '∞'})</span></div>
-            <div class="ac-stat"><span class="ac-label">生命</span><span class="ac-val">${run.commanderHP}/${run.maxCommanderHP}</span></div>
-            <div class="ac-stat"><span class="ac-label">利息</span><span class="ac-val">+${run.interest || 0}</span></div>
-            <div class="ac-stat streak">${streakText}</div>
+            <div class="ac-stat ac-stat-gold"><span class="ac-label">金</span><span class="ac-val">${run.gold}</span></div>
+            <div class="ac-stat"><span class="ac-label">Lv</span><span class="ac-val">${run.level}</span></div>
+            <div class="ac-hp-wrap">
+              <div class="ac-hp-bar-bg"><div class="ac-hp-bar-fill" style="width:${hpPct}%;background:${hpColor}"></div></div>
+              <span class="ac-hp-text">${run.commanderHP}</span>
+            </div>
+            ${streakHtml}
           </div>
           <div class="ac-planes">
             ${(run.planeEnvironments || []).map((pe, i) => `
               <div class="ac-plane ${i === run.currentPlane ? 'active' : i < run.currentPlane ? 'done' : ''}">
                 <span class="ac-plane-icon">${SUBJECT_ICONS[pe] || ''}</span>
                 <span class="ac-plane-label">${SUBJECT_LABELS[pe] || pe}</span>
-                ${i === run.currentPlane ? `<span class="ac-plane-node">${run.currentNode + 1}/${run.nodeTypes?.[i]?.length || '?'}</span>` : ''}
+                ${i === run.currentPlane ? `<span class="ac-plane-node">${nodeLabel} ${run.currentNode + 1}/${run.nodeTypes?.[i]?.length || '?'}</span>` : ''}
               </div>
-            `).join('<span class="ac-plane-arrow">→</span>')}
-          </div>
-          <div class="ac-node-info">
-            <span>位面 ${run.currentPlane + 1} · 节点 ${run.currentNode + 1} · ${nodeLabel}</span>
-            <span>课程环境：${envIcon} ${envLabel}</span>
+            `).join('<span class="ac-plane-arrow">›</span>')}
           </div>
         </div>
 
@@ -72,11 +77,10 @@ export function renderAutochess(container, data = {}) {
                   ${entry ? `
                     <div class="ac-hex-char ${envMatched && matched ? 'env-match' : matched ? 'matched' : 'mismatched'}">
                       <img class="ac-avatar" src="${charCfg?.image || ''}" onerror="this.remove()">
-                      <span class="ac-char-name">${charCfg?.name || '?'}</span>
                       <span class="ac-char-star">${'★'.repeat(entry.star)}${'☆'.repeat(3 - entry.star)}</span>
                       <span class="ac-efficacy">${efficacy}</span>
                     </div>
-                  ` : `<div class="ac-hex-empty">拖入角色</div>`}
+                  ` : `<div class="ac-hex-empty">空</div>`}
                 </div>
               `;
             }).join('')}
@@ -87,48 +91,44 @@ export function renderAutochess(container, data = {}) {
                   <div class="ac-core-char">
                     <span class="ac-core-label">阵眼</span>
                     <img class="ac-avatar" src="${c?.image || ''}" onerror="this.remove()">
-                    <span class="ac-char-name">${c?.name || '?'}</span>
                     <span class="ac-char-star">${'★'.repeat(run.board.core.star)}${'☆'.repeat(3 - run.board.core.star)}</span>
                   </div>
                 `;
-              })() : `<div class="ac-core-empty">阵眼<br>拖入主C</div>`}
+              })() : `<div class="ac-core-empty">阵眼</div>`}
             </div>
           </div>
 
           <div class="ac-actions">
             ${run.phase === 'shop' ? `
-              <button id="ac-btn-refresh" class="btn btn-secondary">刷新 (${AC.SHOP_REFRESH_COST}金)</button>
-              <button id="ac-btn-buyxp" class="btn btn-secondary">买经验 (${AC.XP_BUY_COST}金→${AC.XP_BUY_AMOUNT}XP)</button>
-              <button id="ac-btn-fight" class="btn btn-primary btn-lg" ${!run.board?.core ? 'disabled' : ''}>开始考试</button>
+              <button id="ac-btn-refresh" class="btn btn-secondary">刷新 ${AC.SHOP_REFRESH_COST}金</button>
+              <button id="ac-btn-buyxp" class="btn btn-secondary">经验 ${AC.XP_BUY_COST}金</button>
+              <button id="ac-btn-fight" class="btn btn-primary btn-lg" ${!run.board?.core ? 'disabled' : ''}>自动战斗</button>
+              <button id="ac-btn-manual" class="btn btn-secondary btn-lg" ${!run.board?.core ? 'disabled' : ''}>手动战斗</button>
             ` : run.phase === 'event' ? `
               <button id="ac-btn-invest" class="btn btn-primary btn-lg">投资策略</button>
               <button id="ac-btn-goldmine" class="btn btn-success btn-lg">打劫金矿</button>
             ` : run.phase === 'victory' ? `
               <div class="ac-result ac-victory">
                 <div class="ac-result-title">通关成功</div>
-                <div class="ac-result-subtitle">恭喜你在货币战争中存活了下来！</div>
+                <div class="ac-result-subtitle">恭喜你在货币战争中存活了下来</div>
                 <div class="ac-result-stats">
                   <div class="ac-rs"><span>胜场</span><span>${run.stats?.battlesWon || 0}</span></div>
                   <div class="ac-rs"><span>总回合</span><span>${run.stats?.roundsPlayed || 0}</span></div>
-                  <div class="ac-rs"><span>总金币</span><span>${run.stats?.totalGold || 0}</span></div>
                   <div class="ac-rs"><span>剩余HP</span><span>${run.commanderHP}/${run.maxCommanderHP}</span></div>
-                  <div class="ac-rs"><span>最终等级</span><span>Lv.${run.level}</span></div>
-                  ${(run.investmentBuffs || []).length > 0 ? `<div class="ac-rs"><span>投资</span><span>${run.investmentBuffs.map(b => b.name).join(', ')}</span></div>` : ''}
+                  <div class="ac-rs"><span>等级</span><span>Lv.${run.level}</span></div>
                 </div>
-                <button id="ac-btn-home" class="btn btn-primary btn-lg" style="width:100%;margin-top:14px;">返回大厅</button>
+                <button id="ac-btn-home" class="btn btn-primary btn-lg" style="width:100%;margin-top:12px;">返回大厅</button>
               </div>
             ` : run.phase === 'defeat' ? `
               <div class="ac-result ac-defeat">
                 <div class="ac-result-title">Game Over</div>
-                <div class="ac-result-subtitle">指挥官HP归零，下次再战！</div>
+                <div class="ac-result-subtitle">指挥官HP归零，下次再战</div>
                 <div class="ac-result-stats">
-                  <div class="ac-rs"><span>到达</span><span>位面${run.currentPlane + 1} · 节点${run.currentNode + 1}</span></div>
+                  <div class="ac-rs"><span>到达</span><span>位面${run.currentPlane + 1} 节点${run.currentNode + 1}</span></div>
                   <div class="ac-rs"><span>胜场</span><span>${run.stats?.battlesWon || 0}</span></div>
-                  <div class="ac-rs"><span>总回合</span><span>${run.stats?.roundsPlayed || 0}</span></div>
-                  <div class="ac-rs"><span>总金币</span><span>${run.stats?.totalGold || 0}</span></div>
-                  <div class="ac-rs"><span>最终等级</span><span>Lv.${run.level}</span></div>
+                  <div class="ac-rs"><span>等级</span><span>Lv.${run.level}</span></div>
                 </div>
-                <button id="ac-btn-home" class="btn btn-primary btn-lg" style="width:100%;margin-top:14px;">返回大厅</button>
+                <button id="ac-btn-home" class="btn btn-primary btn-lg" style="width:100%;margin-top:12px;">返回大厅</button>
               </div>
             ` : ''}
           </div>
@@ -137,7 +137,7 @@ export function renderAutochess(container, data = {}) {
         <div class="ac-sidebar">
           ${run.hasBeverageShop && !run.beveragePurchasedThisNode && run.phase === 'shop' ? `
             <div class="ac-beverage-shop">
-              <h3>周煊声特供商店</h3>
+              <h3>特供商店</h3>
               <div class="ac-bev-list">
                 ${(BEVERAGES || []).map(b => `
                   <button class="ac-bev-item" data-bev="${b.id}" ${run.gold < b.cost ? 'disabled' : ''}>
@@ -152,19 +152,17 @@ export function renderAutochess(container, data = {}) {
 
           ${run.phase === 'shop' || run.phase === 'event' ? `
             <div class="ac-shop">
-              <h3>课间商店</h3>
+              <h3>商店 · ${envIcon} ${envLabel}</h3>
               <div class="ac-shop-items">
                 ${(run.shop || []).map((item, i) => {
-                  if (!item) return `<div class="ac-shop-slot empty">已售</div>`;
+                  if (!item) return `<div class="ac-shop-slot empty">—</div>`;
                   const c = AC_CHAR_MAP[item.charId];
                   if (!c) return `<div class="ac-shop-slot empty">?</div>`;
                   return `
                     <button class="ac-shop-slot cost-${item.cost}" data-shop="${i}" ${run.gold < item.cost ? 'disabled' : ''}>
-                      <span class="ac-shop-cost">${item.cost}金</span>
+                      <span class="ac-shop-cost">${item.cost}</span>
                       <img class="ac-avatar" src="${c.image || ''}" onerror="this.remove()">
-                      <span class="ac-shop-name">${c.name || '?'}</span>
-                      <span class="ac-shop-title">${c.title || ''}</span>
-                      <span class="ac-shop-electives">${(c.electives || []).map(e => SUBJECT_ICONS[e] || e).join('')}</span>
+                      <span class="ac-shop-star">${'★'.repeat(1)}</span>
                     </button>
                   `;
                 }).join('')}
@@ -173,18 +171,16 @@ export function renderAutochess(container, data = {}) {
           ` : ''}
 
           <div class="ac-bench">
-            <h3>备战席 (${run.bench?.length || 0})</h3>
+            <h3>备战席 ${run.bench?.length || 0}</h3>
             <div class="ac-bench-list">
               ${(run.bench || []).map((entry, i) => {
                 const c = AC_CHAR_MAP[entry.charId];
                 if (!c) return '';
                 return `
-                  <div class="ac-bench-item" data-bench="${i}" draggable="true">
-                    <span class="ac-char-cost">${c.cost || '?'}金</span>
-                    <img class="ac-avatar" src="${c.image || ''}" onerror="this.remove()">
-                    <span class="ac-char-name">${c.name || '?'}</span>
-                    <span class="ac-char-star">${'★'.repeat(entry.star)}${'☆'.repeat(3 - entry.star)}</span>
-                    <button class="ac-sell-btn" data-idx="${i}">出售</button>
+                  <div class="ac-bench-item cost-${c.cost || 1}" data-bench="${i}" draggable="true">
+                    <img class="ac-bench-avatar" src="${c.image || ''}" onerror="this.remove()">
+                    <span class="ac-bench-star">${'★'.repeat(entry.star)}${'☆'.repeat(3 - entry.star)}</span>
+                    <button class="ac-bench-sell" data-idx="${i}">×</button>
                   </div>
                 `;
               }).join('')}
@@ -203,38 +199,25 @@ export function renderAutochess(container, data = {}) {
   function bindEvents() {
     // 商店购买
     container.querySelectorAll('.ac-shop-slot[data-shop]').forEach(el => {
-      el.addEventListener('click', () => {
-        gameSocket.emit('ac_buy', { shopIndex: parseInt(el.dataset.shop) });
-      });
+      el.addEventListener('click', () => gameSocket.emit('ac_buy', { shopIndex: parseInt(el.dataset.shop) }));
     });
 
-    // 刷新商店
-    const refreshBtn = container.querySelector('#ac-btn-refresh');
-    if (refreshBtn) {
-      refreshBtn.addEventListener('click', () => gameSocket.emit('ac_refresh_shop'));
-    }
+    const q = (sel) => container.querySelector(sel);
 
-    // 买经验
-    const buyxpBtn = container.querySelector('#ac-btn-buyxp');
-    if (buyxpBtn) {
-      buyxpBtn.addEventListener('click', () => gameSocket.emit('ac_buy_xp'));
-    }
-
-    // 开始战斗
-    const fightBtn = container.querySelector('#ac-btn-fight');
-    if (fightBtn) {
-      fightBtn.addEventListener('click', () => gameSocket.emit('ac_start_combat'));
-    }
+    q('#ac-btn-refresh')?.addEventListener('click', () => gameSocket.emit('ac_refresh_shop'));
+    q('#ac-btn-buyxp')?.addEventListener('click', () => gameSocket.emit('ac_buy_xp'));
+    q('#ac-btn-fight')?.addEventListener('click', () => gameSocket.emit('ac_start_combat'));
+    q('#ac-btn-manual')?.addEventListener('click', () => gameSocket.emit('ac_start_manual_combat'));
 
     // 卖出
-    container.querySelectorAll('.ac-sell-btn').forEach(el => {
+    container.querySelectorAll('.ac-bench-sell').forEach(el => {
       el.addEventListener('click', (e) => {
         e.stopPropagation();
         gameSocket.emit('ac_sell', { from: 'bench', index: parseInt(el.dataset.idx) });
       });
     });
 
-    // 点击棋盘上的角色移回备战席
+    // 点击棋盘角色移回备战席
     container.querySelectorAll('.ac-hex-slot, .ac-core-slot').forEach(el => {
       el.addEventListener('click', () => {
         if (el.querySelector('.ac-hex-char') || el.querySelector('.ac-core-char')) {
@@ -243,7 +226,7 @@ export function renderAutochess(container, data = {}) {
       });
     });
 
-    // ── 拖拽：备战席 → 棋盘 ──
+    // 拖拽：备战席 → 棋盘
     container.querySelectorAll('.ac-bench-item').forEach(el => {
       el.addEventListener('dragstart', (e) => {
         e.dataTransfer.setData('text/plain', JSON.stringify({ source: 'bench', index: el.dataset.bench }));
@@ -256,7 +239,6 @@ export function renderAutochess(container, data = {}) {
     });
 
     container.querySelectorAll('.ac-hex-slot, .ac-core-slot').forEach(el => {
-      // 棋盘上已有角色可拖回备战席
       if (el.querySelector('.ac-hex-char') || el.querySelector('.ac-core-char')) {
         el.setAttribute('draggable', 'true');
         el.addEventListener('dragstart', (e) => {
@@ -269,10 +251,7 @@ export function renderAutochess(container, data = {}) {
         });
       }
 
-      el.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        el.classList.add('drag-over');
-      });
+      el.addEventListener('dragover', (e) => { e.preventDefault(); el.classList.add('drag-over'); });
       el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
       el.addEventListener('drop', (e) => {
         e.preventDefault();
@@ -282,11 +261,11 @@ export function renderAutochess(container, data = {}) {
           if (data.source === 'bench') {
             gameSocket.emit('ac_place', { benchIndex: parseInt(data.index), slot: el.dataset.slot });
           }
-        } catch (err) { /* ignore bad drag data */ }
+        } catch (err) {}
       });
     });
 
-    // 备战席接收从棋盘拖回的角色
+    // 备战席接收棋盘拖回
     const benchList = container.querySelector('.ac-bench-list');
     if (benchList) {
       benchList.addEventListener('dragover', (e) => { e.preventDefault(); benchList.classList.add('drag-over'); });
@@ -296,48 +275,30 @@ export function renderAutochess(container, data = {}) {
         benchList.classList.remove('drag-over');
         try {
           const data = JSON.parse(e.dataTransfer.getData('text/plain'));
-          if (data.source === 'board') {
-            gameSocket.emit('ac_remove', { slot: data.slot });
-          }
-        } catch (err) { /* ignore */ }
+          if (data.source === 'board') gameSocket.emit('ac_remove', { slot: data.slot });
+        } catch (err) {}
       });
     }
 
-    // 事件选择
-    const investBtn = container.querySelector('#ac-btn-invest');
-    if (investBtn) investBtn.addEventListener('click', () => gameSocket.emit('ac_event_choice', { choice: 0 }));
+    q('#ac-btn-invest')?.addEventListener('click', () => gameSocket.emit('ac_event_choice', { choice: 0 }));
+    q('#ac-btn-goldmine')?.addEventListener('click', () => gameSocket.emit('ac_event_choice', { choice: 1 }));
 
-    const goldmineBtn = container.querySelector('#ac-btn-goldmine');
-    if (goldmineBtn) goldmineBtn.addEventListener('click', () => gameSocket.emit('ac_event_choice', { choice: 1 }));
-
-    // 饮料购买
     container.querySelectorAll('.ac-bev-item').forEach(el => {
       el.addEventListener('click', () => gameSocket.emit('ac_buy_beverage', { beverageId: el.dataset.bev }));
     });
 
-    // 返回大厅
-    const homeBtn = container.querySelector('#ac-btn-home');
-    if (homeBtn) homeBtn.addEventListener('click', () => navigate('lobby'));
+    q('#ac-btn-home')?.addEventListener('click', () => navigate('lobby'));
   }
 
   // ── Socket 事件 ──
-  function onRunUpdate(newRun) {
-    run = newRun;
-    render();
-  }
+  function onRunUpdate(newRun) { run = newRun; render(); }
 
   function onCombatResult({ combatLog, result }) {
     const logEl = document.getElementById('ac-combat-log');
     if (logEl && combatLog) {
       logEl.style.display = 'flex';
-      playCombatLog(logEl, combatLog, () => {
-        run = result;
-        render();
-      });
-    } else {
-      run = result;
-      render();
-    }
+      playCombatLog(logEl, combatLog, () => { run = result; render(); });
+    } else { run = result; render(); }
   }
 
   function onEventOptions({ options }) {
@@ -348,8 +309,7 @@ export function renderAutochess(container, data = {}) {
         <h3>选择投资策略</h3>
         ${(options || []).map((o, i) => `
           <button class="ac-invest-option" data-idx="${i}">
-            <strong>${o.name}</strong>
-            <span>${o.desc}</span>
+            <strong>${o.name}</strong><span>${o.desc}</span>
           </button>
         `).join('')}
       </div>
@@ -365,12 +325,19 @@ export function renderAutochess(container, data = {}) {
 
   function onStarUp({ charId, toStar }) {
     const name = AC_CHAR_MAP[charId]?.name || charId;
-    showToast(`${name} 升到了 ${'★'.repeat(toStar)}`, 'success');
+    showToast(`${name} → ${'★'.repeat(toStar)}`, 'success');
   }
 
   function onError(data) {
     const msg = typeof data === 'string' ? data : data?.message || '未知错误';
-    showToast(`操作失败: ${msg}`);
+    showToast(msg);
+  }
+
+  // ── 手动战斗 ──
+  function onManualCombatSetup({ playerFighter, aiFighter, buffs, nodeType }) {
+    showManualCombat(container, playerFighter, aiFighter, buffs, (won, totalDamage) => {
+      gameSocket.emit('ac_manual_combat_done', { won, totalDamage });
+    });
   }
 
   gameSocket.on('ac_run_update', onRunUpdate);
@@ -378,21 +345,169 @@ export function renderAutochess(container, data = {}) {
   gameSocket.on('ac_event_options', onEventOptions);
   gameSocket.on('ac_star_up', onStarUp);
   gameSocket.on('error_msg', onError);
+  gameSocket.on('ac_manual_combat_setup', onManualCombatSetup);
 
-  // 初始渲染
   render();
 
-  // 返回清理函数
   return () => {
     gameSocket.off('ac_run_update', onRunUpdate);
     gameSocket.off('ac_combat_result', onCombatResult);
     gameSocket.off('ac_event_options', onEventOptions);
     gameSocket.off('ac_star_up', onStarUp);
     gameSocket.off('error_msg', onError);
+    gameSocket.off('ac_manual_combat_setup', onManualCombatSetup);
   };
 }
 
-// ── 战斗回放 ──
+// ── 手动战斗 UI ──
+function showManualCombat(container, p1, p2, buffs, onDone) {
+  let p1HP = p1.hp, p2HP = p2.hp;
+  let round = 0;
+  let isPlayerTurn = true; // 玩家先手
+  const MAX_ROUNDS = 50;
+
+  function rollDie(f) { return Math.floor(Math.random() * f) + 1; }
+  function rollDice(pool) { return pool.map(f => rollDie(f)); }
+
+  const overlay = document.createElement('div');
+  overlay.className = 'ac-manual-overlay';
+  container.appendChild(overlay);
+
+  function renderBattle() {
+    const p1Pct = Math.round((p1HP / p1.hp) * 100);
+    const p2Pct = Math.round((p2HP / p2.hp) * 100);
+
+    overlay.innerHTML = `
+      <div class="ac-manual-panel">
+        <div class="ac-manual-vs">
+          <div class="ac-fighter-card">
+            <h4>${p1.name}</h4>
+            <div class="ac-fighter-stat">HP: ${p1HP}/${p1.hp}</div>
+            <div class="ac-hp-bar-bg" style="margin-top:4px"><div class="ac-hp-bar-fill" style="width:${p1Pct}%;background:var(--green)"></div></div>
+          </div>
+          <span style="font-family:var(--font-display);font-size:1.2rem;font-weight:900;color:var(--text-muted)">VS</span>
+          <div class="ac-fighter-card">
+            <h4>${p2.name}</h4>
+            <div class="ac-fighter-stat">HP: ${p2HP}/${p2.hp}</div>
+            <div class="ac-hp-bar-bg" style="margin-top:4px"><div class="ac-hp-bar-fill" style="width:${p2Pct}%;background:var(--red)"></div></div>
+          </div>
+        </div>
+        <div class="ac-dice-area" id="mc-dice">
+          <div style="color:var(--text-secondary);font-size:0.8rem">第 ${round + 1} 回合 — ${isPlayerTurn ? '你的攻击' : '对方攻击'}</div>
+        </div>
+        <div id="mc-log" style="max-height:120px;overflow-y:auto;font-size:0.72rem;color:var(--text-secondary);margin:6px 0;"></div>
+        <div class="ac-manual-actions">
+          ${isPlayerTurn ? `<button id="mc-roll" class="btn btn-primary">掷骰攻击</button>` : `<button id="mc-defend" class="btn btn-secondary">掷骰防御</button>`}
+          <button id="mc-auto" class="btn btn-secondary">自动完成</button>
+        </div>
+      </div>
+    `;
+
+    overlay.querySelector('#mc-roll')?.addEventListener('click', doPlayerAttack);
+    overlay.querySelector('#mc-defend')?.addEventListener('click', doEnemyAttack);
+    overlay.querySelector('#mc-auto')?.addEventListener('click', autoFinish);
+  }
+
+  function addLog(msg) {
+    const logEl = overlay.querySelector('#mc-log');
+    if (logEl) {
+      const div = document.createElement('div');
+      div.textContent = msg;
+      logEl.prepend(div);
+    }
+  }
+
+  function doPlayerAttack() {
+    round++;
+    const rolls = rollDice(p1.dicePool);
+    const kept = rolls.sort((a, b) => b - a).slice(0, p1.atkSlots);
+    let atk = kept.reduce((s, v) => s + v, 0);
+
+    const defRolls = rollDice(p2.dicePool);
+    const defKept = defRolls.sort((a, b) => b - a).slice(0, p2.defSlots);
+    let def = defKept.reduce((s, v) => s + v, 0) + (buffs.flatDef || 0);
+
+    const dmg = Math.max(0, atk - def - (buffs.flatReduction || 0));
+    p2HP = Math.max(0, p2HP - dmg);
+
+    addLog(`R${round} 你攻击 ${kept.join('+')}=${atk} vs 防御${defKept.join('+')}=${def} → ${dmg > 0 ? `-${dmg}HP` : '挡住了'}`);
+
+    if (p2HP <= 0) return endBattle(true);
+    isPlayerTurn = false;
+    renderBattle();
+  }
+
+  function doEnemyAttack() {
+    round++;
+    const rolls = rollDice(p2.dicePool);
+    const kept = rolls.sort((a, b) => b - a).slice(0, p2.atkSlots);
+    let atk = kept.reduce((s, v) => s + v, 0);
+
+    const defRolls = rollDice(p1.dicePool);
+    const defKept = defRolls.sort((a, b) => b - a).slice(0, p1.defSlots);
+    let def = defKept.reduce((s, v) => s + v, 0);
+
+    const dmg = Math.max(0, atk - def);
+    p1HP = Math.max(0, p1HP - dmg);
+
+    addLog(`R${round} 敌方攻击 ${kept.join('+')}=${atk} vs 你防御${defKept.join('+')}=${def} → ${dmg > 0 ? `-${dmg}HP` : '挡住了'}`);
+
+    if (p1HP <= 0) return endBattle(false);
+    isPlayerTurn = true;
+    renderBattle();
+  }
+
+  function autoFinish() {
+    while (p1HP > 0 && p2HP > 0 && round < MAX_ROUNDS) {
+      if (isPlayerTurn) {
+        round++;
+        const rolls = rollDice(p1.dicePool);
+        const kept = rolls.sort((a, b) => b - a).slice(0, p1.atkSlots);
+        const atk = kept.reduce((s, v) => s + v, 0);
+        const defRolls = rollDice(p2.dicePool);
+        const defKept = defRolls.sort((a, b) => b - a).slice(0, p2.defSlots);
+        const def = defKept.reduce((s, v) => s + v, 0);
+        const dmg = Math.max(0, atk - def - (buffs.flatReduction || 0));
+        p2HP = Math.max(0, p2HP - dmg);
+      } else {
+        round++;
+        const rolls = rollDice(p2.dicePool);
+        const kept = rolls.sort((a, b) => b - a).slice(0, p2.atkSlots);
+        const atk = kept.reduce((s, v) => s + v, 0);
+        const defRolls = rollDice(p1.dicePool);
+        const defKept = defRolls.sort((a, b) => b - a).slice(0, p1.defSlots);
+        const def = defKept.reduce((s, v) => s + v, 0);
+        const dmg = Math.max(0, atk - def);
+        p1HP = Math.max(0, p1HP - dmg);
+      }
+      isPlayerTurn = !isPlayerTurn;
+    }
+    endBattle(p1HP > 0);
+  }
+
+  function endBattle(won) {
+    const totalDamage = Math.max(0, p2.hp - p2HP);
+    overlay.innerHTML = `
+      <div class="ac-manual-panel" style="text-align:center">
+        <h3 style="font-family:var(--font-display);color:${won ? 'var(--gold)' : 'var(--red)'}">
+          ${won ? '胜利' : '败北'}
+        </h3>
+        <p style="font-size:0.85rem;color:var(--text-secondary);margin:8px 0">
+          ${won ? `击败了 ${p2.name}` : `被 ${p2.name} 击败`} · 共 ${round} 回合
+        </p>
+        <button id="mc-done" class="btn btn-primary" style="width:100%">继续</button>
+      </div>
+    `;
+    overlay.querySelector('#mc-done').addEventListener('click', () => {
+      overlay.remove();
+      onDone(won, totalDamage);
+    });
+  }
+
+  renderBattle();
+}
+
+// ── 自动战斗回放 ──
 function playCombatLog(container, log, onDone) {
   if (!log || log.length === 0) { onDone(); return; }
 
@@ -405,15 +520,14 @@ function playCombatLog(container, log, onDone) {
         <div class="ac-hp-bar enemy"><span id="ac-p2-hp">--</span></div>
       </div>
       <div id="ac-replay-content" class="ac-replay-content"></div>
-      <button id="ac-skip-combat" class="btn btn-secondary">跳过回放</button>
+      <button id="ac-skip-combat" class="btn btn-secondary">跳过</button>
     </div>
   `;
 
   const replayEl = document.getElementById('ac-replay-content');
   const p1HP = document.getElementById('ac-p1-hp');
   const p2HP = document.getElementById('ac-p2-hp');
-  let idx = 0;
-  let timer = null;
+  let idx = 0, timer = null;
 
   document.getElementById('ac-skip-combat')?.addEventListener('click', () => {
     if (timer) clearInterval(timer);
@@ -424,35 +538,27 @@ function playCombatLog(container, log, onDone) {
   function showNext() {
     if (idx >= log.length) {
       if (timer) clearInterval(timer);
-      setTimeout(() => {
-        container.style.display = 'none';
-        onDone();
-      }, 600);
+      setTimeout(() => { container.style.display = 'none'; onDone(); }, 500);
       return;
     }
-
     const e = log[idx++];
-    if (p1HP) p1HP.textContent = `你: ${e.p1HP ?? '--'}HP`;
-    if (p2HP) p2HP.textContent = `敌: ${e.p2HP ?? '--'}HP`;
+    if (p1HP) p1HP.textContent = `你: ${e.p1HP ?? '--'}`;
+    if (p2HP) p2HP.textContent = `敌: ${e.p2HP ?? '--'}`;
 
-    let html = `<div class="ac-replay-round">`;
-    html += `<span class="round-num">R${e.round}</span> `;
-    html += `<span>${e.attacker}攻击 → ${e.atkKept?.join('+')}=${e.atkTotal}</span> `;
-    html += `<span>${e.defender}防御 → ${e.defKept?.join('+')}=${e.defTotal}</span> `;
-    if (e.damage > 0) html += `<span class="dmg">-${e.damage}HP</span>`;
-    if (e.healed) html += `<span class="heal">+${e.healed}HP</span>`;
-    if (e.stickerExplode) html += `<span class="dmg">贴画爆炸-${e.stickerExplode}</span>`;
-    if (e.revived) html += `<span class="heal">九条命! +${e.revived}HP</span>`;
+    let html = `<div class="ac-replay-round"><span class="round-num">R${e.round}</span>`;
+    html += `<span>${e.attacker}→${e.atkKept?.join('+')}=${e.atkTotal}</span> `;
+    html += `<span>${e.defender}→${e.defKept?.join('+')}=${e.defTotal}</span>`;
+    if (e.damage > 0) html += `<span class="dmg">-${e.damage}</span>`;
+    if (e.healed) html += `<span class="heal">+${e.healed}</span>`;
+    if (e.stickerExplode) html += `<span class="dmg">贴画-${e.stickerExplode}</span>`;
+    if (e.revived) html += `<span class="heal">复活+${e.revived}</span>`;
     if (e.redHeatApplied) html += `<span class="debuff">红温+${e.redHeatApplied}</span>`;
-    if (e.bossRage) html += `<span class="debuff">狂暴+${e.bossRage}</span>`;
-    if (e.bossArmor) html += `<span class="heal">护甲+${e.bossArmor}</span>`;
     html += `</div>`;
 
     replayEl.innerHTML = html + replayEl.innerHTML;
-    replayEl.scrollTop = 0;
   }
 
-  timer = setInterval(showNext, 500);
+  timer = setInterval(showNext, 450);
   showNext();
 }
 
@@ -461,11 +567,6 @@ function showToast(msg, type = 'error') {
   el.className = `ac-toast ${type}`;
   el.textContent = msg;
   document.body.appendChild(el);
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => el.classList.add('show'));
-  });
-  setTimeout(() => {
-    el.classList.remove('show');
-    setTimeout(() => el.remove(), 300);
-  }, 2200);
+  requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('show')));
+  setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 2000);
 }
