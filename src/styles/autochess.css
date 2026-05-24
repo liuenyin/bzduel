@@ -154,6 +154,22 @@
 }
 .ac-plane-arrow { color: var(--text-muted); font-size: 0.65rem; }
 
+/* 位面进度条 */
+.ac-plane-progress {
+  width: 100%;
+  max-width: 200px;
+  height: 4px;
+  background: var(--bg-inset);
+  border-radius: 2px;
+  margin: 4px auto 0;
+  overflow: hidden;
+}
+.ac-plane-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
 /* ── 六边形蜂巢棋盘 ── */
 .ac-board {
   position: relative;
@@ -218,15 +234,21 @@
 
 .dragging { opacity: 0.4; }
 
-/* 头像 — 卡片核心 */
+/* 头像 — 全覆盖背景 */
 .ac-avatar {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
-  border: 2px solid var(--bg-inset);
+  border: none;
+  border-radius: 0;
+  z-index: -1;
+  opacity: 0.8;
+  mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 60%, rgba(0,0,0,0) 100%);
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 60%, rgba(0,0,0,0.2) 100%);
 }
-.ac-core-slot .ac-avatar { width: 40px; height: 40px; border-color: var(--accent-soft); }
+.ac-core-slot .ac-avatar { width: 100%; height: 100%; border: none; }
 
 .ac-hex-label {
   font-size: 0.55rem;
@@ -235,12 +257,22 @@
   top: 7px;
   z-index: 1;
   font-weight: 600;
+  text-shadow: 0 1px 2px rgba(255,255,255,0.8);
 }
 .ac-hex-empty { color: var(--text-muted); font-size: 0.65rem; margin-top: 6px; font-style: italic; }
 
-.ac-hex-char { display: flex; flex-direction: column; align-items: center; z-index: 2; margin-top: 6px; }
-.ac-char-star { color: var(--gold); font-size: 0.62rem; letter-spacing: -1px; margin-top: 1px; }
-.ac-efficacy { font-size: 0.5rem; padding: 1px 3px; border-radius: 3px; font-weight: 700; margin-top: 1px; }
+.ac-hex-char { 
+  position: absolute;
+  inset: 0;
+  display: flex; 
+  flex-direction: column; 
+  align-items: center; 
+  justify-content: flex-end;
+  padding-bottom: 8px;
+  z-index: 2; 
+}
+.ac-char-star { color: var(--gold); font-size: 0.62rem; letter-spacing: -1px; margin-top: 1px; text-shadow: 0 1px 2px rgba(0,0,0,0.8); }
+.ac-efficacy { font-size: 0.5rem; padding: 1px 3px; border-radius: 3px; font-weight: 700; margin-top: 1px; box-shadow: 0 1px 2px rgba(0,0,0,0.3); }
 
 .ac-hex-char.matched .ac-efficacy { background: rgba(106,158,109,0.2); color: var(--green); }
 .ac-hex-char.env-match .ac-efficacy { background: rgba(192,154,80,0.2); color: var(--gold); }
@@ -388,10 +420,21 @@
 .ac-bench-item.cost-5 { border-color: var(--gold); }
 
 .ac-bench-avatar {
-  width: 28px; height: 28px;
-  border-radius: 50%;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
-  border: 1.5px solid var(--bg-inset);
+  border-radius: 0;
+  border: none;
+  z-index: 0;
+  opacity: 0.85;
+}
+.ac-bench-item .ac-bench-star, .ac-shop-slot .ac-shop-star { 
+  z-index: 1; 
+  margin-top: auto; 
+  margin-bottom: 2px;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.8); 
 }
 .ac-bench-star { color: var(--gold); font-size: 0.5rem; letter-spacing: -1px; }
 .ac-bench-sell {
@@ -408,6 +451,7 @@
   opacity: 0;
   transition: opacity 0.15s;
   line-height: 1;
+  z-index: 5;
 }
 .ac-bench-item:hover .ac-bench-sell { opacity: 1; }
 .ac-empty-hint {

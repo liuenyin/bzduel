@@ -349,12 +349,13 @@ export function getCurrentNodeType(run) {
 /**
  * 处理事件节点选择
  * @param {object} run
- * @param {number} choice - 0=投资策略, 1=金矿
  */
-export function chooseEvent(run, choice) {
+export function chooseEvent(run) {
   if (run.phase !== 'event') return { ok: false };
 
-  if (choice === 0) {
+  const isInvestment = Math.random() < 0.5;
+
+  if (isInvestment) {
     // 投资策略：随机3选1
     const allBuffs = [
       { id: 'compound_interest', name: '利滚利', desc: '利息上限+2', effect: 'maxInterest', value: 2 },
@@ -370,9 +371,9 @@ export function chooseEvent(run, choice) {
     run.phase = 'event_choosing';
     return { ok: true, choice: 'investment', options };
   } else {
-    // 金矿：生成 1HP 敌人
-    run.phase = 'combat';
-    return { ok: true, choice: 'goldmine', goldReward: 15 + run.currentPlane * 2 };
+    // 金矿
+    run.phase = 'shop'; // 转入shop阶段以便玩家可以开始战斗
+    return { ok: true, choice: 'goldmine' };
   }
 }
 

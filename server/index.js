@@ -809,17 +809,17 @@ io.on('connection', (socket) => {
   });
 
   // ── 事件节点选择 ──
-  socket.on('ac_event_choice', ({ choice }) => {
+  socket.on('ac_event_choice', () => {
     const run = acRuns.get(socket.id);
     if (!run) return;
-    const result = chooseEvent(run, choice);
+    const result = chooseEvent(run);
     if (!result.ok) return;
     if (result.choice === 'investment') {
       socket.emit('ac_event_options', { options: result.options });
     } else {
-      // 金矿 → 直接触发战斗
+      // 金矿 → 进入shop阶段准备战斗
       socket.emit('ac_run_update', getRunView(run));
-      socket.emit('ac_start_combat'); // 触发战斗
+      socket.emit('error_msg', { message: '触发了金矿事件！请开始战斗。' }); 
     }
   });
 

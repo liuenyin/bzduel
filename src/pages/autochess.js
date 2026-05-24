@@ -45,7 +45,7 @@ export function renderAutochess(container, data = {}) {
         <div class="ac-topbar-wrapper">
           <div class="ac-topbar">
             <div class="ac-stat ac-stat-gold"><span class="ac-label">金</span><span class="ac-val">${run.gold}</span></div>
-            <div class="ac-stat"><span class="ac-label">Lv</span><span class="ac-val">${run.level}</span></div>
+            <div class="ac-stat"><span class="ac-label">Lv.${run.level}</span><span class="ac-val" style="font-size:0.75rem;color:var(--text-muted)">(${run.xp}/${run.xpToNext || 'Max'})</span></div>
             <div class="ac-hp-wrap">
               <div class="ac-hp-bar-bg"><div class="ac-hp-bar-fill" style="width:${hpPct}%;background:${hpColor}"></div></div>
               <span class="ac-hp-text">${run.commanderHP}</span>
@@ -61,6 +61,11 @@ export function renderAutochess(container, data = {}) {
               </div>
             `).join('<span class="ac-plane-arrow">›</span>')}
           </div>
+          ${run.nodeTypes?.[run.currentPlane] ? (() => {
+            const nodes = run.nodeTypes[run.currentPlane];
+            const pct = Math.round((run.currentNode / nodes.length) * 100);
+            return `<div class="ac-plane-progress"><div class="ac-plane-progress-fill" style="width:${pct}%"></div></div>`;
+          })() : ''}
         </div>
 
         <div class="ac-board-section">
@@ -105,8 +110,7 @@ export function renderAutochess(container, data = {}) {
               <button id="ac-btn-fight" class="btn btn-primary btn-lg" ${!run.board?.core ? 'disabled' : ''}>自动战斗</button>
               <button id="ac-btn-manual" class="btn btn-secondary btn-lg" ${!run.board?.core ? 'disabled' : ''}>手动战斗</button>
             ` : run.phase === 'event' ? `
-              <button id="ac-btn-invest" class="btn btn-primary btn-lg">投资策略</button>
-              <button id="ac-btn-goldmine" class="btn btn-success btn-lg">打劫金矿</button>
+              <button id="ac-btn-event" class="btn btn-primary btn-lg" style="width:100%">探索事件</button>
             ` : run.phase === 'victory' ? `
               <div class="ac-result ac-victory">
                 <div class="ac-result-title">通关成功</div>
@@ -280,8 +284,7 @@ export function renderAutochess(container, data = {}) {
       });
     }
 
-    q('#ac-btn-invest')?.addEventListener('click', () => gameSocket.emit('ac_event_choice', { choice: 0 }));
-    q('#ac-btn-goldmine')?.addEventListener('click', () => gameSocket.emit('ac_event_choice', { choice: 1 }));
+    q('#ac-btn-event')?.addEventListener('click', () => gameSocket.emit('ac_event_choice'));
 
     container.querySelectorAll('.ac-bev-item').forEach(el => {
       el.addEventListener('click', () => gameSocket.emit('ac_buy_beverage', { beverageId: el.dataset.bev }));
