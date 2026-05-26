@@ -39,7 +39,7 @@ export function renderLobby(container) {
           </div>
         </div>
 
-        <div style="margin-top:20px; padding-top:16px; border-top:2px solid var(--accent);">
+        <div style="margin-top:20px; padding-top:16px; border-top:2px solid var(--accent); display:none;">
           <p style="font-family:var(--font-display); font-weight:700; color:var(--gold, #f0c040); text-align:center; margin-bottom:12px;">🎲 货币战争 (自走棋)</p>
           <button id="btn-autochess" class="btn btn-lg" style="width:100%; background:linear-gradient(135deg, #f0c040, #e67e22); color:#1a1a2e; font-weight:900; font-size:1.1rem;">⚔️ 货币战争...?</button>
         </div>
