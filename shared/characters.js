@@ -400,7 +400,7 @@ export const characters = [
   {
     id: 'char_18',
     name: '廖展韬',
-    title: '大文豪',
+    title: '',
     subjects: ['chinese', 'math', 'english', 'physics', 'chemistry', 'geography'],
     electives: ['physics', 'chemistry', 'geography'],
     image: '/photos/lzt.jpg',
