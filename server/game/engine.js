@@ -219,6 +219,14 @@ export function rollAttack(state) {
 
   const rolls = rollDiceGroup(rollingPool);
 
+  // 廖展韬正面附加: 对方骰子无法投出最大值
+  const defPlayer = state.players[state.turnData.defenderIdx];
+  if (defPlayer?.card.positiveSkill?.id === SKILL.INVERT_DIE) {
+    for (let i = 0; i < rolls.length; i++) {
+      if (rolls[i] >= rollingPool[i]) rolls[i] = rollingPool[i] - 1;
+    }
+  }
+
   // 廖展韬正面: 字斟句酌 — 攻击掷骰后反转最小骰子
   let invertTriggered = false;
   if (atk.card.positiveSkill?.id === SKILL.INVERT_DIE) {
@@ -230,7 +238,7 @@ export function rollAttack(state) {
       const face = rollingPool[minIdx];
       rolls[minIdx] = face + 1 - minVal;
       invertTriggered = true;
-      // 深度思考: 对方永久减伤+1
+      // 深度思考: 攻击阶段反转给对方永久减伤+1
       if (atk.card.negativeSkill?.id === SKILL.DEEP_THOUGHT) {
         const defIdx = state.turnData.defenderIdx;
         if (defIdx != null) {
@@ -316,17 +324,31 @@ export function rerollDice(state, playerId, indices) {
         face += state.turnData.extraTurnFaceBoost;
       }
       rolls[minIdx] = face + 1 - minVal;
-      // 深度思考: 每次反转都给对方+1永久减伤
-      if (p.card.negativeSkill?.id === SKILL.DEEP_THOUGHT) {
-        if (state.turnPhase === TURN.ATK_ROLLED) {
-          const defIdx = state.turnData.defenderIdx;
-          if (defIdx != null) {
-            state.players[defIdx].invertReduction = (state.players[defIdx].invertReduction || 0) + 1;
-          }
-        } else if (state.turnPhase === TURN.DEF_ROLLED && !state.turnData.isAoE) {
-          const atkIdx = state.turnData.attackerIdx;
-          state.players[atkIdx].invertReduction = (state.players[atkIdx].invertReduction || 0) + 1;
+      // 深度思考: 仅攻击阶段反转给对方+1永久减伤
+      if (p.card.negativeSkill?.id === SKILL.DEEP_THOUGHT && state.turnPhase === TURN.ATK_ROLLED) {
+        const defIdx = state.turnData.defenderIdx;
+        if (defIdx != null) {
+          state.players[defIdx].invertReduction = (state.players[defIdx].invertReduction || 0) + 1;
         }
+      }
+    }
+  }
+
+  // 廖展韬正面附加: 对方骰子无法投出最大值
+  {
+    let opp = null;
+    if (state.turnPhase === TURN.ATK_ROLLED) {
+      opp = state.players[state.turnData.defenderIdx];
+    } else if (state.turnPhase === TURN.DEF_ROLLED && !state.turnData.isAoE) {
+      opp = state.players[state.turnData.attackerIdx];
+    }
+    if (opp?.card.positiveSkill?.id === SKILL.INVERT_DIE) {
+      for (let i = 0; i < rolls.length; i++) {
+        let face = faces[i];
+        if (state.turnData.isExtraTurn && p.card.positiveSkill?.id === SKILL.EXTRA_TURN && state.turnData.extraTurnFaceBoost) {
+          face += state.turnData.extraTurnFaceBoost;
+        }
+        if (rolls[i] >= face) rolls[i] = face - 1;
       }
     }
   }
@@ -441,7 +463,14 @@ export function confirmAttack(state, keepIndices) {
     state.turnData.isAoE = false;
     const defRolls = rollDiceGroup(def.card.dicePool);
 
-    // 廖展韬正面: 字斟句酌 — 防御掷骰后反转最小骰子
+    // 廖展韬正面附加: 对方骰子无法投出最大值
+    if (atk.card.positiveSkill?.id === SKILL.INVERT_DIE) {
+      for (let i = 0; i < defRolls.length; i++) {
+        if (defRolls[i] >= def.card.dicePool[i]) defRolls[i] = def.card.dicePool[i] - 1;
+      }
+    }
+
+    // 廖展韬正面: 字斟句酌 — 防御掷骰后反转最小骰子 (不叠加减伤)
     if (def.card.positiveSkill?.id === SKILL.INVERT_DIE) {
       let minVal = Infinity, minIdx = -1;
       for (let i = 0; i < defRolls.length; i++) {
@@ -450,9 +479,6 @@ export function confirmAttack(state, keepIndices) {
       if (minIdx >= 0) {
         const face = def.card.dicePool[minIdx];
         defRolls[minIdx] = face + 1 - minVal;
-        if (def.card.negativeSkill?.id === SKILL.DEEP_THOUGHT) {
-          atk.invertReduction = (atk.invertReduction || 0) + 1;
-        }
       }
     }
 

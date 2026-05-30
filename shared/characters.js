@@ -186,9 +186,9 @@ export const characters = [
     subjects: ['chinese', 'math', 'english', 'physics', 'chemistry', 'biology'],
     electives: ['physics', 'chemistry', 'biology'],
     image: '/photos/lc.jpg',
-    hp: 27,
+    hp: 30,
     dicePool: [6, 6, 6, 8],
-    atkSlots: 2,
+    atkSlots: 3,
     defSlots: 4,
     positiveSkill: {
       id: SKILL.GAL_PLAYER,
@@ -360,7 +360,7 @@ export const characters = [
     subjects: ['chinese', 'math', 'english', 'physics', 'chemistry', 'biology'],
     electives: ['physics', 'chemistry', 'biology'],
     image: '/photos/zjy.jpg',
-    hp: 25,
+    hp: 28,
     dicePool: [6, 6, 8, 10],
     atkSlots: 2,
     defSlots: 3,
@@ -394,7 +394,7 @@ export const characters = [
     negativeSkill: {
       id: SKILL.STICKER_SELF,
       name: '被发现了!',
-      desc: '<ul><li>受到伤害 ≥ <span style="color:var(--rose-gold)">10</span> 时，自己也被贴 1 张贴画</li><li>3 张引爆也适用于自身</li></ul>',
+      desc: '<ul><li>受到伤害 ≥ <span style="color:var(--rose-gold)">8</span> 时，自己也被贴 1 张贴画</li><li><span style="color:var(--rose-gold)">2 张</span>引爆也适用于自身</li></ul>',
     },
   },
   {
@@ -411,12 +411,12 @@ export const characters = [
     positiveSkill: {
       id: SKILL.INVERT_DIE,
       name: '字斟句酌',
-      desc: '<ul><li>每次掷骰后，自动将点数最小的骰子<span style="color:var(--rose-gold)">反转</span>（新点数 = 面值+1 - 原点数）</li><li>例：D8 掷出 2 → 反转为 7</li></ul>',
+      desc: '<ul><li>每次掷骰后，自动将点数最小的骰子<span style="color:var(--rose-gold)">反转</span>（新点数 = 面值+1 - 原点数）</li><li>对方骰子无法投出<span style="color:var(--rose-gold)">最大值</span></li><li>例：D8 掷出 2 → 反转为 7</li></ul>',
     },
     negativeSkill: {
       id: SKILL.DEEP_THOUGHT,
       name: '深度思考',
-      desc: '<ul><li>每次反转后，对方永久获得 <span style="color:var(--rose-gold)">+1</span> 固定减伤（无上限累加）</li></ul>',
+      desc: '<ul><li>攻击阶段每次反转后，对方永久获得 <span style="color:var(--rose-gold)">+1</span> 固定减伤（无上限累加）</li></ul>',
     },
   },
 ];
