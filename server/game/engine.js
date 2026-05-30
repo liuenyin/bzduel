@@ -304,6 +304,33 @@ export function rerollDice(state, playerId, indices) {
     }
   }
 
+  // 廖展韬: 重投后重新反转最小骰子
+  if (p.card.positiveSkill?.id === SKILL.INVERT_DIE) {
+    let minVal = Infinity, minIdx = -1;
+    for (let i = 0; i < rolls.length; i++) {
+      if (rolls[i] < minVal) { minVal = rolls[i]; minIdx = i; }
+    }
+    if (minIdx >= 0) {
+      let face = faces[minIdx];
+      if (state.turnData.isExtraTurn && p.card.positiveSkill?.id === SKILL.EXTRA_TURN && state.turnData.extraTurnFaceBoost) {
+        face += state.turnData.extraTurnFaceBoost;
+      }
+      rolls[minIdx] = face + 1 - minVal;
+      // 深度思考: 每次反转都给对方+1永久减伤
+      if (p.card.negativeSkill?.id === SKILL.DEEP_THOUGHT) {
+        if (state.turnPhase === TURN.ATK_ROLLED) {
+          const defIdx = state.turnData.defenderIdx;
+          if (defIdx != null) {
+            state.players[defIdx].invertReduction = (state.players[defIdx].invertReduction || 0) + 1;
+          }
+        } else if (state.turnPhase === TURN.DEF_ROLLED && !state.turnData.isAoE) {
+          const atkIdx = state.turnData.attackerIdx;
+          state.players[atkIdx].invertReduction = (state.players[atkIdx].invertReduction || 0) + 1;
+        }
+      }
+    }
+  }
+
   p.rerolls--;
   if (state.turnPhase === TURN.ATK_ROLLED) {
     state.turnData.hasAttackerRerolled = true;
@@ -861,12 +888,12 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
     }
   }
 
-  // 谢睿琦负面: 被发现了! — 受伤≥10时自己被贴贴画
+  // 谢睿琦负面: 被发现了! — 受伤≥8时自己被贴贴画，2张引爆
   let selfStickerExploded = false;
   let selfStickerDamage = 0;
-  if (damage >= 10 && def.card.negativeSkill?.id === SKILL.STICKER_SELF) {
+  if (damage >= 8 && def.card.negativeSkill?.id === SKILL.STICKER_SELF) {
     def.selfStickers = (def.selfStickers || 0) + 1;
-    if (def.selfStickers >= 3) {
+    if (def.selfStickers >= 2) {
       selfStickerDamage = Math.floor(def.hp * 0.3);
       def.hp = Math.max(0, def.hp - selfStickerDamage);
       def.redHeat = (def.redHeat || 0) + 3;

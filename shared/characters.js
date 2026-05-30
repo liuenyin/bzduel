@@ -339,8 +339,8 @@ export const characters = [
     electives: ['physics', 'chemistry', 'biology'],
     image: '/photos/yh.jpg',
     hp: 35,
-    dicePool: [4, 6, 6, 8],
-    atkSlots: 2,
+    dicePool: [4, 6, 6, 8, 8],
+    atkSlots: 3,
     defSlots: 3,
     positiveSkill: {
       id: SKILL.MAMA_HEAL,
