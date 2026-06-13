@@ -200,13 +200,10 @@ export function rollAttack(state) {
     atk.rerolls += 2;
   }
 
-  // 周煊声: 蓄势消耗 (每层+1重投)
-  let chargeConsumed = 0;
+  // 周煊声: 蓄势提供额外重投（不在此消耗，消耗在 confirmAttack 中进行）
   if (atk.chargeStacks > 0 && atk.card.positiveSkill?.id === SKILL.BUY_WATER && !state.turnData.isExtraTurn) {
-    chargeConsumed = atk.chargeStacks;
-    atk.rerolls += chargeConsumed;
-    state.turnData.chargeConsumed = chargeConsumed;
-    atk.chargeStacks = 0;
+    atk.rerolls += atk.chargeStacks;
+    state.turnData.pendingCharges = atk.chargeStacks;
   }
 
   // 张楚唯: 额外回合重投+2, 所有骰子面数临时+2
@@ -430,9 +427,12 @@ export function confirmAttack(state, keepIndices) {
 
   // 张楚唯: 额外回合 → 在 rollAttack 中处理 (+2重投, 面数临时+2)
 
-  // 周煊声: 蓄势消耗 (每层+8伤害)
-  if (state.turnData.chargeConsumed > 0) {
-    const chargeBonus = state.turnData.chargeConsumed * 8;
+  // 周煊声: 蓄势真正消耗（从 rollAttack 延迟到此处）
+  if (state.turnData.pendingCharges > 0) {
+    const chargeConsumed = state.turnData.pendingCharges;
+    atk.chargeStacks = 0;
+    state.turnData.chargeConsumed = chargeConsumed;
+    const chargeBonus = chargeConsumed * 8;
     state.turnData.atkResult.bonusDamage += chargeBonus;
     state.turnData.atkResult.finalAtk += chargeBonus;
     state.turnData.atkResult.posTriggered = true;
@@ -860,9 +860,9 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
     lcCounterTriggered = true;
   }
 
-  // 杂鱼自残判定 (HJC: 攻击力 < 防御力 → 自身血量减半)
+  // 杂鱼自残判定 (HJC: 最终攻击力 < 防御力 → 自身血量减半)
   let noobTriggered = false;
-  if (ar.finalAtk < finalFinalDef && atk.card.negativeSkill?.id === 'hjc_neg') {
+  if (finalBaseAtk < finalFinalDef && atk.card.negativeSkill?.id === 'hjc_neg') {
     atk.hp -= Math.floor(atk.hp / 2);
     noobTriggered = true;
   }
