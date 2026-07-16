@@ -910,7 +910,7 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
   let stickerDamage = 0;
   if (damage > 0 && atk.card.positiveSkill?.id === SKILL.STICKER_BOMB) {
     def.stickers = (def.stickers || 0) + 1;
-    if (def.stickers >= 3) {
+    if (def.stickers >= 2) {
       stickerDamage = Math.floor(def.hp * 0.35);
       def.hp = Math.max(0, def.hp - stickerDamage);
       def.redHeat = (def.redHeat || 0) + 3;

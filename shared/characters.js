@@ -383,13 +383,13 @@ export const characters = [
     electives: ['physics', 'chemistry', 'biology'],
     image: '/photos/xrq.jpg',
     hp: 33,
-    dicePool: [6, 6, 6, 8],
+    dicePool: [6, 6, 8, 8],
     atkSlots: 3,
     defSlots: 3,
     positiveSkill: {
       id: SKILL.STICKER_BOMB,
       name: '背后贴贴画',
-      desc: '<ul><li>每次造成伤害时，给对方贴 <span style="color:var(--rose-gold)">1 张</span> 贴画</li><li>累计 <span style="color:var(--rose-gold)">3 张</span> 引爆：造成对方当前 HP 的 <span style="color:var(--rose-gold)">35%</span> 伤害 + 叠加 <span style="color:var(--rose-gold)">3 层红温</span></li></ul>',
+      desc: '<ul><li>每次造成伤害时，给对方贴 <span style="color:var(--rose-gold)">1 张</span> 贴画</li><li>累计 <span style="color:var(--rose-gold)">2 张</span> 引爆：造成对方当前 HP 的 <span style="color:var(--rose-gold)">35%</span> 伤害 + 叠加 <span style="color:var(--rose-gold)">3 层红温</span></li></ul>',
     },
     negativeSkill: {
       id: SKILL.STICKER_SELF,
