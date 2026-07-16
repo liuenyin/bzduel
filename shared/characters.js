@@ -339,13 +339,13 @@ export const characters = [
     electives: ['physics', 'chemistry', 'biology'],
     image: '/photos/yh.jpg',
     hp: 35,
-    dicePool: [4, 6, 6, 8, 8],
+    dicePool: [6, 6, 8, 8, 8],
     atkSlots: 3,
     defSlots: 3,
     positiveSkill: {
       id: SKILL.MAMA_HEAL,
       name: '妈!',
-      desc: '<ul><li>防御时若防御总值 > 攻击总值，溢出部分 × <span style="color:var(--rose-gold)">课程倍率</span> 转化为回血（不超过生命上限）</li></ul>',
+      desc: '<ul><li>防御时获得 <span style="color:var(--rose-gold)">+1</span> 次重投机会</li><li>若防御总值 > 攻击总值，溢出部分 × <span style="color:var(--rose-gold)">课程倍率</span> 转化为回血（不超过生命上限）</li></ul>',
     },
     negativeSkill: {
       id: SKILL.MAMA_MERCY,
@@ -362,7 +362,7 @@ export const characters = [
     image: '/photos/zjy.jpg',
     hp: 28,
     dicePool: [6, 6, 8, 10],
-    atkSlots: 2,
+    atkSlots: 3,
     defSlots: 3,
     positiveSkill: {
       id: SKILL.NINE_LIVES,
@@ -372,7 +372,7 @@ export const characters = [
     negativeSkill: {
       id: SKILL.SLEEPY,
       name: '贪睡',
-      desc: '<ul><li>战斗前 <span style="color:var(--rose-gold)">2 回合</span>，攻击和防御各 <span style="color:var(--rose-gold)">-3</span></li></ul>',
+      desc: '<ul><li>战斗前 <span style="color:var(--rose-gold)">1 回合</span>，攻击和防御各 <span style="color:var(--rose-gold)">-3</span></li></ul>',
     },
   },
   {
@@ -385,11 +385,11 @@ export const characters = [
     hp: 33,
     dicePool: [6, 6, 6, 8],
     atkSlots: 3,
-    defSlots: 2,
+    defSlots: 3,
     positiveSkill: {
       id: SKILL.STICKER_BOMB,
       name: '背后贴贴画',
-      desc: '<ul><li>每次造成伤害时，给对方贴 <span style="color:var(--rose-gold)">1 张</span> 贴画</li><li>累计 <span style="color:var(--rose-gold)">3 张</span> 引爆：造成对方当前 HP 的 <span style="color:var(--rose-gold)">30%</span> 伤害 + 叠加 <span style="color:var(--rose-gold)">3 层红温</span></li></ul>',
+      desc: '<ul><li>每次造成伤害时，给对方贴 <span style="color:var(--rose-gold)">1 张</span> 贴画</li><li>累计 <span style="color:var(--rose-gold)">3 张</span> 引爆：造成对方当前 HP 的 <span style="color:var(--rose-gold)">35%</span> 伤害 + 叠加 <span style="color:var(--rose-gold)">3 层红温</span></li></ul>',
     },
     negativeSkill: {
       id: SKILL.STICKER_SELF,
@@ -405,13 +405,13 @@ export const characters = [
     electives: ['physics', 'chemistry', 'geography'],
     image: '/photos/lzt.jpg',
     hp: 34,
-    dicePool: [8, 8, 8, 8],
+    dicePool: [8, 8, 8, 8, 10],
     atkSlots: 3,
     defSlots: 2,
     positiveSkill: {
       id: SKILL.INVERT_DIE,
       name: '字斟句酌',
-      desc: '<ul><li>每次掷骰后，自动将点数最小的骰子<span style="color:var(--rose-gold)">反转</span>（新点数 = 面值+1 - 原点数）</li><li>对方骰子无法投出<span style="color:var(--rose-gold)">最大值</span></li><li>例：D8 掷出 2 → 反转为 7</li></ul>',
+      desc: '<ul><li>每次掷骰后，点数最小的骰子自动变为该骰子的<span style="color:var(--rose-gold)">最大值</span></li><li>对方骰子无法投出<span style="color:var(--rose-gold)">最大值</span></li><li>例：D8 掷出 3 → 变为 8</li></ul>',
     },
     negativeSkill: {
       id: SKILL.DEEP_THOUGHT,

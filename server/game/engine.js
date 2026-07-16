@@ -233,7 +233,7 @@ export function rollAttack(state) {
     }
     if (minIdx >= 0) {
       const face = rollingPool[minIdx];
-      rolls[minIdx] = face + 1 - minVal;
+      rolls[minIdx] = face;
       invertTriggered = true;
       // 深度思考: 攻击阶段反转给对方永久减伤+1
       if (atk.card.negativeSkill?.id === SKILL.DEEP_THOUGHT) {
@@ -245,9 +245,9 @@ export function rollAttack(state) {
     }
   }
 
-  // 张锦元负面: 贪睡 — 前2回合攻击-3
+  // 张锦元负面: 贪睡 — 前1回合攻击-3
   let sleepyAtkPenalty = 0;
-  if (atk.card.negativeSkill?.id === SKILL.SLEEPY && state.totalRound <= 2) {
+  if (atk.card.negativeSkill?.id === SKILL.SLEEPY && state.totalRound <= 1) {
     sleepyAtkPenalty = 3;
   }
 
@@ -320,7 +320,7 @@ export function rerollDice(state, playerId, indices) {
       if (state.turnData.isExtraTurn && p.card.positiveSkill?.id === SKILL.EXTRA_TURN && state.turnData.extraTurnFaceBoost) {
         face += state.turnData.extraTurnFaceBoost;
       }
-      rolls[minIdx] = face + 1 - minVal;
+      rolls[minIdx] = face;
       // 深度思考: 仅攻击阶段反转给对方+1永久减伤
       if (p.card.negativeSkill?.id === SKILL.DEEP_THOUGHT && state.turnPhase === TURN.ATK_ROLLED) {
         const defIdx = state.turnData.defenderIdx;
@@ -478,8 +478,13 @@ export function confirmAttack(state, keepIndices) {
       }
       if (minIdx >= 0) {
         const face = def.card.dicePool[minIdx];
-        defRolls[minIdx] = face + 1 - minVal;
+        defRolls[minIdx] = face;
       }
+    }
+
+    // 余汉正面: 防御时+1重投
+    if (def.card.positiveSkill?.id === SKILL.MAMA_HEAL) {
+      def.rerolls += 1;
     }
 
     state.turnData.defenseRolls = defRolls;
@@ -816,12 +821,12 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
 
     let damage = ar.pierce ? finalBaseAtk : Math.max(0, finalBaseAtk - finalFinalDef);
 
-  // 贪睡惩罚: 攻击-3, 防御-3 (前2回合)
+  // 贪睡惩罚: 攻击-3, 防御-3 (前1回合)
   if (state.turnData.sleepyAtkPenalty > 0) {
     damage = Math.max(0, damage - state.turnData.sleepyAtkPenalty); // 简化: 直接减伤
   }
   let sleepyDefPenalty = 0;
-  if (def.card.negativeSkill?.id === SKILL.SLEEPY && state.totalRound <= 2) {
+  if (def.card.negativeSkill?.id === SKILL.SLEEPY && state.totalRound <= 1) {
     sleepyDefPenalty = 3;
     damage += sleepyDefPenalty; // 防御-3等于对方多造成3点伤害
   }
@@ -906,7 +911,7 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
   if (damage > 0 && atk.card.positiveSkill?.id === SKILL.STICKER_BOMB) {
     def.stickers = (def.stickers || 0) + 1;
     if (def.stickers >= 3) {
-      stickerDamage = Math.floor(def.hp * 0.3);
+      stickerDamage = Math.floor(def.hp * 0.35);
       def.hp = Math.max(0, def.hp - stickerDamage);
       def.redHeat = (def.redHeat || 0) + 3;
       def.stickers = 0;
