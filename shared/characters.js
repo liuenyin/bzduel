@@ -411,12 +411,12 @@ export const characters = [
     positiveSkill: {
       id: SKILL.INVERT_DIE,
       name: '字斟句酌',
-      desc: '<ul><li>每次掷骰后，点数最小的骰子自动变为该骰子的<span style="color:var(--rose-gold)">最大值</span></li><li>对方骰子无法投出<span style="color:var(--rose-gold)">最大值</span></li><li>例：D8 掷出 3 → 变为 8</li></ul>',
+      desc: '<ul><li>攻击开始时获得 <span style="color:var(--rose-gold)">+1</span> 次重投</li><li>每次掷骰后，点数最小的骰子自动变为该骰子的<span style="color:var(--rose-gold)">最大值</span></li><li>对方骰子无法投出<span style="color:var(--rose-gold)">最大值</span></li><li>例：D8 掷出 3 → 变为 8</li></ul>',
     },
     negativeSkill: {
       id: SKILL.DEEP_THOUGHT,
       name: '深度思考',
-      desc: '<ul><li>攻击阶段每次反转后，对方永久获得 <span style="color:var(--rose-gold)">+1</span> 固定减伤（无上限累加）</li></ul>',
+      desc: '<ul><li>攻击阶段每次<span style="color:var(--rose-gold)">重投</span>后，对方永久获得 <span style="color:var(--rose-gold)">+1</span> 固定减伤（无上限累加）</li></ul>',
     },
   },
 ];

@@ -187,6 +187,11 @@ export function rollAttack(state) {
     atk.rerolls += 1;
   }
 
+  // 廖展韬: 攻击开始时获得 +1 重投
+  if (atk.card.positiveSkill?.id === SKILL.INVERT_DIE) {
+    atk.rerolls += 1;
+  }
+
   // 王鹤迪: 攻击回合开始时+2次重投 (在下方 L159 处理)
 
   // 黄佳程过敏判定 (10% 概率)
@@ -235,13 +240,7 @@ export function rollAttack(state) {
       const face = rollingPool[minIdx];
       rolls[minIdx] = face;
       invertTriggered = true;
-      // 深度思考: 攻击阶段反转给对方永久减伤+1
-      if (atk.card.negativeSkill?.id === SKILL.DEEP_THOUGHT) {
-        const defIdx = state.turnData.defenderIdx;
-        if (defIdx != null) {
-          state.players[defIdx].invertReduction = (state.players[defIdx].invertReduction || 0) + 1;
-        }
-      }
+      // 深度思考: 初始掷骰不触发，仅重投时触发（见 rerollDice）
     }
   }
 
