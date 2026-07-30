@@ -442,24 +442,7 @@ export function confirmAttack(state, keepIndices) {
     }
   }
 
-  // 闫紫铭正面: Timeless Grace (连击效果)
-  if (atk.card.positiveSkill?.id === SKILL.TIMELESS_GRACE) {
-    const freq = {};
-    for (let face of keptRolls) {
-      freq[face] = (freq[face] || 0) + 1;
-    }
-    const maxFreq = Math.max(...Object.values(freq));
-    if (maxFreq >= 3) {
-      atk.rerolls += 1;
-    }
-    if (maxFreq >= 4) {
-      pos.pierce = true;
-    }
-    if (maxFreq >= 5) {
-      state.extraTurnQueue = state.extraTurnQueue || [];
-      state.extraTurnQueue.push({ attackerId: atk.id, targetId: state.players[state.turnData.defenderIdx].id });
-    }
-  }
+
 
   state.turnData.atkResult = {
     baseAtk: finalBase, bonusDamage: pos.bonusDamage || 0, pierce: pos.pierce || false,
@@ -624,12 +607,38 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
         if (maxKeptRoll > 2) {
           globalAtkReduction = maxKeptRoll - 2;
           eatTriggeredBy = pid;
+          const idx = ar.faces.indexOf(maxKeptRoll);
+          if (idx !== -1) ar.faces[idx] = 2;
         }
       }
     });
     
     if (globalAtkReduction > 0) {
       finalBaseAtk -= globalAtkReduction;
+    }
+
+    // 闫紫铭正面: Timeless Grace 延后到攻击发动时结算
+    const atk = state.players[state.turnData.attackerIdx];
+    if (atk.card.positiveSkill?.id === SKILL.TIMELESS_GRACE) {
+      const freq = {};
+      for (let face of ar.faces) {
+        freq[face] = (freq[face] || 0) + 1;
+      }
+      const maxFreq = Math.max(...Object.values(freq));
+      if (maxFreq >= 3) {
+        atk.rerolls += 1;
+      }
+      if (maxFreq >= 4) {
+        ar.pierce = true;
+      }
+      if (maxFreq >= 5) {
+        // 大乱斗 AoE 模式下，如果触发额外回合，随便选一个存活的目标
+        const aliveOthers = state.players.filter((p, i) => i !== state.turnData.attackerIdx && !p.isDead);
+        if (aliveOthers.length > 0) {
+          if (!state.extraTurnQueue) state.extraTurnQueue = [];
+          state.extraTurnQueue.push({ attackerId: atk.id, targetId: aliveOthers[0].id });
+        }
+      }
     }
 
     // --- 2. Process each target ---
@@ -874,6 +883,27 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
       if (maxVal > 2) {
         finalBaseAtk = finalBaseAtk - maxVal + 2;
         eatTriggered = true;
+        const idx = ar.faces.indexOf(maxVal);
+        if (idx !== -1) ar.faces[idx] = 2;
+      }
+    }
+
+    // 闫紫铭正面: Timeless Grace 延后到攻击发动时结算
+    if (atk.card.positiveSkill?.id === SKILL.TIMELESS_GRACE) {
+      const freq = {};
+      for (let face of ar.faces) {
+        freq[face] = (freq[face] || 0) + 1;
+      }
+      const maxFreq = Math.max(...Object.values(freq));
+      if (maxFreq >= 3) {
+        atk.rerolls += 1;
+      }
+      if (maxFreq >= 4) {
+        ar.pierce = true;
+      }
+      if (maxFreq >= 5) {
+        if (!state.extraTurnQueue) state.extraTurnQueue = [];
+        state.extraTurnQueue.push({ attackerId: atk.id, targetId: def.id });
       }
     }
 
