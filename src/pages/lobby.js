@@ -190,14 +190,14 @@ export function renderLobby(container) {
 
   function renderStatsMatrix(data) {
     const chars = characters;
-    let html = \`<div style="margin-bottom:12px; display:flex; gap:12px; align-items:center;">
+    let html = `<div style="margin-bottom:12px; display:flex; gap:12px; align-items:center;">
       <span style="font-weight:700;">对战模式:</span>
       <select id="stats-mode-select" class="btn" style="background:var(--bg-inset); color:var(--text);">
         <option value="pvp">PvP (玩家 vs 玩家)</option>
         <option value="pve">PvE (玩家 vs 电脑)</option>
       </select>
     </div>
-    <div id="stats-matrix-container"></div>\`;
+    <div id="stats-matrix-container"></div>`;
     document.getElementById('stats-body').innerHTML = html;
     
     const modeSelect = document.getElementById('stats-mode-select');
@@ -206,33 +206,33 @@ export function renderLobby(container) {
     function drawTable(mode) {
       const stats = data[mode] || {};
       let table = '<table class="stats-matrix"><thead><tr><th>胜率(场次)</th>';
-      chars.forEach(c => { table += \`<th>\${c.name}</th>\`; });
+      chars.forEach(c => { table += `<th>${c.name}</th>`; });
       table += '</tr></thead><tbody>';
       
       chars.forEach(rowChar => {
-        table += \`<tr><th>\${rowChar.name}</th>\`;
+        table += `<tr><th>${rowChar.name}</th>`;
         chars.forEach(colChar => {
           if (rowChar.id === colChar.id) {
-            table += \`<td class="empty-cell">-</td>\`;
+            table += `<td class="empty-cell">-</td>`;
           } else {
             const wins = (stats[rowChar.id] && stats[rowChar.id][colChar.id]) || 0;
             const losses = (stats[colChar.id] && stats[colChar.id][rowChar.id]) || 0;
             const total = wins + losses;
             if (total === 0) {
-              table += \`<td class="empty-cell" style="color:var(--text-muted);">-</td>\`;
+              table += `<td class="empty-cell" style="color:var(--text-muted);">-</td>`;
             } else {
               const winRate = (wins / total * 100).toFixed(1);
               let colorClass = '';
               if (winRate >= 60) colorClass = 'win-high';
               else if (winRate <= 40) colorClass = 'win-low';
-              table += \`<td class="\${colorClass}">\${winRate}% <span class="total-matches" style="font-size:0.75rem; color:var(--text-muted);">(\${total})</span></td>\`;
+              table += `<td class="${colorClass}">${winRate}% <span class="total-matches" style="font-size:0.75rem; color:var(--text-muted);">(${total})</span></td>`;
             }
           }
         });
         table += '</tr>';
       });
       table += '</tbody></table>';
-      table += \`<p style="font-size:0.8rem; color:var(--text-muted); margin-top:10px;">* 行代表左侧角色(你)，列代表上方角色(对手)。单元格表示左侧角色战胜上方角色的胜率。</p>\`;
+      table += `<p style="font-size:0.8rem; color:var(--text-muted); margin-top:10px;">* 行代表左侧角色(你)，列代表上方角色(对手)。单元格表示左侧角色战胜上方角色的胜率。</p>`;
       document.getElementById('stats-matrix-container').innerHTML = table;
     }
     
