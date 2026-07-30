@@ -105,6 +105,7 @@ export function getSubjectIcon(subjectId) {
 
 /** 骰子颜色映射 (按面数) */
 export const DICE_COLORS = {
+  2:  { border: '#d69e2e', bg: '#fffff0', label: '2' },
   4:  { border: '#38b2ac', bg: '#e6fffa', label: '4' },
   6:  { border: '#4299e1', bg: '#ebf8ff', label: '6' },
   8:  { border: '#9f7aea', bg: '#faf5ff', label: '8' },

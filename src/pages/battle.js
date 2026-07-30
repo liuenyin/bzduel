@@ -77,8 +77,8 @@ function buildArena(s) {
               <span class="hp-label" id="hp-op-t">${op.hp}</span>
             </div>
             ${s.gameMode === 'sanguosha' ? `<div class="bc-identity-badge">${identityName(op.identity)}</div>` : ''}
-            <div class="skill-desc-box">
               ${op.card?.positiveSkill ? `<div class="skill-desc-line pos">✦ ${op.card.positiveSkill.name}: ${op.card.positiveSkill.desc}</div>` : ''}
+              ${op.card?.neutralSkill ? `<div class="skill-desc-line neu">⬩ ${op.card.neutralSkill.name}: ${op.card.neutralSkill.desc}</div>` : ''}
               ${op.card?.negativeSkill ? `<div class="skill-desc-line neg">✧ ${op.card.negativeSkill.name}: ${op.card.negativeSkill.desc}</div>` : ''}
             </div>
             <div class="bc-buffs" id="buffs-op">${buffIcons(op)}</div>
@@ -104,6 +104,7 @@ function buildArena(s) {
             ${s.gameMode === 'sanguosha' ? `<div class="bc-identity-badge">${identityName(me.identity)}</div>` : ''}
             <div class="skill-desc-box">
               ${me.card?.positiveSkill ? `<div class="skill-desc-line pos">✦ ${me.card.positiveSkill.name}: ${me.card.positiveSkill.desc}</div>` : ''}
+              ${me.card?.neutralSkill ? `<div class="skill-desc-line neu">⬩ ${me.card.neutralSkill.name}: ${me.card.neutralSkill.desc}</div>` : ''}
               ${me.card?.negativeSkill ? `<div class="skill-desc-line neg">✧ ${me.card.negativeSkill.name}: ${me.card.negativeSkill.desc}</div>` : ''}
             </div>
             <div class="bc-buffs" id="buffs-me">${buffIcons(me)}</div>
@@ -265,7 +266,7 @@ function renderDice() {
       const isYzx = v === -1;
       const color = DICE_COLORS[face];
       let style = color ? `border-color:${color.border}; color:${color.border};` : '';
-      if (!isMeAtk && S.atkResult && !isKept) style += 'opacity:0.3;';
+      if (S.atkResult && !isKept) style += 'opacity:0.3;';
       const displayVal = isYzx ? '?' : v;
       return `<div class="die attack${canSelect ? ' selectable' : ''}${canSelect ? ' rolling' : ''}" style="${style}" data-idx="${i}" data-val="${v}">
         ${color && !isYzx ? `<div class="die-corner" style="color:${color.border};background:${color.bg}">${color.label}</div>` : ''}

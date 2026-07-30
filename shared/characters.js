@@ -217,7 +217,7 @@ export const characters = [
       name: '吃掉!',
       desc: '<ul><li>防御时，将对方保留的最大骰子强制变为 <span style="color:var(--rose-gold)">2</span> 点</li></ul>',
     },
-    negativeSkill: {
+    neutralSkill: {
       id: SKILL.D10_LIMIT,
       name: '???',
       desc: '<ul><li>防御时，最多只能选中保留 <span style="color:var(--rose-gold)">1</span> 个 D10 骰子</li></ul>',
@@ -239,7 +239,7 @@ export const characters = [
       name: '隐藏信息',
       desc: '<ul><li>对方无法查看你的 HP 与掷骰点数</li><li>攻击力额外 <span style="color:var(--rose-gold)">+ 2 × 课程倍率</span></li></ul>',
     },
-    negativeSkill: {
+    neutralSkill: {
       id: SKILL.VULNERABLE,
       name: '???',
       desc: '<ul><li>受到最终伤害时（即伤害 > 0），伤害值额外 <span style="color:var(--rose-gold)">+ 2 × 课程倍率</span></li></ul>',
@@ -439,10 +439,15 @@ export const characters = [
       name: 'Timeless Grace',
       desc: '<ul><li>初始拥有 <span style="color:var(--rose-gold)">6次</span> 重投</li><li>攻击确认时，若包含至少 3 个相同数字，恢复 <span style="color:var(--rose-gold)">1 次</span> 重投；若包含至少 4 个相同数字，本次攻击<span style="color:var(--rose-gold)">无视防御</span>；若包含 5 个相同数字，获得 <span style="color:var(--rose-gold)">1 个</span> 额外攻击回合（此技能在额外回合内也能触发）</li></ul>',
     },
+    neutralSkill: {
+      id: SKILL.ROYAL_ETIQUETTE,
+      name: 'Royal Etiquette',
+      desc: '<ul><li>只要在场，所有人的课程倍率强制固定为 <span style="color:var(--rose-gold)">1.0</span></li></ul>',
+    },
     negativeSkill: {
       id: SKILL.ROYAL_ETIQUETTE,
-      name: 'Royal Etiquette / Inelegant!',
-      desc: '<ul><li>【Royal Etiquette】只要在场，所有人的课程倍率强制固定为 <span style="color:var(--rose-gold)">1.0</span></li><li>【Inelegant!】投掷骰子时，每出现一个 1（包含被重投掉的），立刻受到 <span style="color:var(--rose-gold)">1点</span> 真实伤害</li></ul>',
+      name: 'Inelegant!',
+      desc: '<ul><li>投掷骰子时，每出现一个 1（包含被重投掉的），立刻受到 <span style="color:var(--rose-gold)">1点</span> 真实伤害</li></ul>',
     },
   },
 ];

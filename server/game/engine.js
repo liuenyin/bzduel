@@ -83,10 +83,6 @@ export function selectCard(state, playerId, cardId) {
   p.card = JSON.parse(JSON.stringify(def));
   p.hp = def.hp; p.maxHp = def.hp; p.ready = false;
   
-  if (p.card.positiveSkill?.id === SKILL.TIMELESS_GRACE) {
-    p.rerolls = 6;
-  }
-  
   return { ok: true };
 }
 
@@ -693,7 +689,7 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
       let damage = ar.pierce ? targetFinalBaseAtk : Math.max(0, targetFinalBaseAtk - pFinalFinalDef);
 
       // 殷泽轩负面: 受到伤害时，最终伤害额外 +2 × 倍率
-      if (damage > 0 && p.card.negativeSkill?.id === SKILL.VULNERABLE) {
+      if (damage > 0 && p.card.neutralSkill?.id === SKILL.VULNERABLE) {
         damage += Math.floor(2 * pMulti);
       }
 
@@ -842,7 +838,7 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
     if (!keepIndices || keepIndices.length !== def.card.defSlots) return { ok: false, error: 'invalid_slots' };
 
     // 曾无畏负面: 防御时只能选中一个 D10
-    if (def.card.negativeSkill?.id === SKILL.D10_LIMIT) {
+    if (def.card.neutralSkill?.id === SKILL.D10_LIMIT) {
       const d10Count = keepIndices.filter(idx => def.card.dicePool[idx] === 10).length;
       if (d10Count > 1) return { ok: false, error: 'zww_d10_limit' };
     }
@@ -925,8 +921,8 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
     damage = Math.max(0, damage - def.invertReduction);
   }
   
-  // 殖泽轩负面: 受到伤害时，最终伤害额外 +2 × 倍率
-  if (damage > 0 && def.card.negativeSkill?.id === SKILL.VULNERABLE) {
+  // 殷泽轩负面: 受到伤害时，最终伤害额外 +2 × 倍率
+  if (damage > 0 && def.card.neutralSkill?.id === SKILL.VULNERABLE) {
     damage += Math.floor(2 * defMulti);
   }
 
