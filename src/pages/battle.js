@@ -550,6 +550,10 @@ export function onTurnResolved(data) {
 
 // ── 换课动画 ──
 function showClassChange(data) {
+  if (animLock) {
+    setTimeout(() => showClassChange(data), 500);
+    return;
+  }
   const s = SUBJECTS[data.subject];
   const overlay = document.createElement('div');
   overlay.className = 'class-change-overlay';
