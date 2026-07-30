@@ -82,6 +82,11 @@ export function selectCard(state, playerId, cardId) {
   p.cardId = cardId;
   p.card = JSON.parse(JSON.stringify(def));
   p.hp = def.hp; p.maxHp = def.hp; p.ready = false;
+  
+  if (p.card.positiveSkill?.id === SKILL.TIMELESS_GRACE) {
+    p.rerolls = 6;
+  }
+  
   return { ok: true };
 }
 
@@ -144,7 +149,10 @@ export function rollAttack(state) {
   if (state.phase !== PHASE.BATTLE || state.turnPhase !== TURN.WAITING_ATK) return { ok: false };
   const atk = state.players[state.turnData.attackerIdx];
   const subj = state.schedule[state.currentClassIndex];
-  const multi = getSkillMultiplier(atk.card.subjects, subj);
+  let multi = getSkillMultiplier(atk.card.subjects, subj);
+  if (state.players.some(p => p.card?.negativeSkill?.id === SKILL.ROYAL_ETIQUETTE)) {
+    multi = 1.0;
+  }
 
   // 清理过期 buff
   if (!atk.buffs) atk.buffs = [];
@@ -220,6 +228,20 @@ export function rollAttack(state) {
   }
 
   const rolls = rollDiceGroup(rollingPool);
+
+  // 闫紫铭负面: Inelegant! 掷骰出1自伤
+  if (atk.card.negativeSkill?.id === SKILL.ROYAL_ETIQUETTE) {
+    const ones = rolls.filter(r => r === 1).length;
+    if (ones > 0) {
+      atk.hp -= ones;
+      if (atk.hp <= 0) {
+        atk.hp = 0;
+        state.phase = PHASE.GAME_OVER;
+        state.winner = state.turnData.defenderIdx;
+        return { ok: true, rolls: [...rolls], selfKill: true };
+      }
+    }
+  }
 
   // 廖展韬正面附加: 对方骰子无法投出最大值
   const defPlayer = state.players[state.turnData.defenderIdx];
@@ -349,6 +371,21 @@ export function rerollDice(state, playerId, indices) {
     }
   }
 
+  // 闫紫铭负面: Inelegant! 重投出1自伤
+  if (p.card.negativeSkill?.id === SKILL.ROYAL_ETIQUETTE) {
+    const newlyRolledOnes = indices.map(idx => rolls[idx]).filter(r => r === 1).length;
+    if (newlyRolledOnes > 0) {
+      p.hp -= newlyRolledOnes;
+      if (p.hp <= 0) {
+        p.hp = 0;
+        state.phase = PHASE.GAME_OVER;
+        // 如果是大乱斗模式，逻辑较复杂，这里简化为单挑判断
+        state.winner = (state.turnPhase === TURN.ATK_ROLLED) ? state.turnData.defenderIdx : state.turnData.attackerIdx;
+        return { ok: true, rolls: [...rolls], remaining: p.rerolls, selfKill: true };
+      }
+    }
+  }
+
   p.rerolls--;
   if (state.turnPhase === TURN.ATK_ROLLED) {
     state.turnData.hasAttackerRerolled = true;
@@ -409,6 +446,25 @@ export function confirmAttack(state, keepIndices) {
     }
   }
 
+  // 闫紫铭正面: Timeless Grace (连击效果)
+  if (atk.card.positiveSkill?.id === SKILL.TIMELESS_GRACE) {
+    const freq = {};
+    for (let face of keptRolls) {
+      freq[face] = (freq[face] || 0) + 1;
+    }
+    const maxFreq = Math.max(...Object.values(freq));
+    if (maxFreq >= 3) {
+      atk.rerolls += 1;
+    }
+    if (maxFreq >= 4) {
+      pos.pierce = true;
+    }
+    if (maxFreq >= 5) {
+      state.extraTurnQueue = state.extraTurnQueue || [];
+      state.extraTurnQueue.push({ attackerId: atk.id, targetId: state.players[state.turnData.defenderIdx].id });
+    }
+  }
+
   state.turnData.atkResult = {
     baseAtk: finalBase, bonusDamage: pos.bonusDamage || 0, pierce: pos.pierce || false,
     selfDamage: neg.selfDamage || 0, finalAtk: finalBase + (pos.bonusDamage || 0),
@@ -416,6 +472,7 @@ export function confirmAttack(state, keepIndices) {
     negTriggered: neg.triggered || state.turnData.allergyTriggered, 
     negName: state.turnData.allergyTriggered ? "过敏" : (neg.triggered ? atk.card.negativeSkill.name : null),
     keptIndices: keepIndices,
+    faces: keptRolls,
   };
 
   // 殷泽轩正面: 攻击力额外 +2 × 课程倍率
@@ -446,6 +503,16 @@ export function confirmAttack(state, keepIndices) {
     state.players.forEach(p => {
       if (!p.isDead && p.id !== atk.id) {
         const rolls = rollDiceGroup(p.card.dicePool);
+        
+        // 闫紫铭负面: Inelegant! AoE防守时
+        if (p.card.negativeSkill?.id === SKILL.ROYAL_ETIQUETTE) {
+          const ones = rolls.filter(r => r === 1).length;
+          if (ones > 0) {
+            p.hp = Math.max(0, p.hp - ones);
+            if (p.hp === 0) p.isDead = true; // 简单处理死亡
+          }
+        }
+        
         state.turnData.aoeDefenses[p.id] = {
           rolls,
           confirmed: false,
@@ -461,6 +528,20 @@ export function confirmAttack(state, keepIndices) {
   } else {
     state.turnData.isAoE = false;
     const defRolls = rollDiceGroup(def.card.dicePool);
+
+    // 闫紫铭负面: Inelegant! 1v1防守时
+    if (def.card.negativeSkill?.id === SKILL.ROYAL_ETIQUETTE) {
+      const ones = defRolls.filter(r => r === 1).length;
+      if (ones > 0) {
+        def.hp -= ones;
+        if (def.hp <= 0) {
+          def.hp = 0;
+          state.phase = PHASE.GAME_OVER;
+          state.winner = state.turnData.attackerIdx;
+          return { ok: true, atkResult: state.turnData.atkResult, defenseRolls: [...defRolls], selfKill: true };
+        }
+      }
+    }
 
     // 廖展韬正面附加: 对方骰子无法投出最大值
     if (atk.card.positiveSkill?.id === SKILL.INVERT_DIE) {
@@ -498,7 +579,10 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
   
   const atk = state.players[state.turnData.attackerIdx];
   const subj = state.schedule[state.currentClassIndex];
-  const atkMulti = getSkillMultiplier(atk.card.subjects, subj);
+  let atkMulti = getSkillMultiplier(atk.card.subjects, subj);
+  if (state.players.some(p => p.card?.negativeSkill?.id === SKILL.ROYAL_ETIQUETTE)) {
+    atkMulti = 1.0;
+  }
   const ar = state.turnData.atkResult;
   let finalBaseAtk = ar.finalAtk;
 
@@ -556,7 +640,10 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
     Object.keys(state.turnData.aoeDefenses).forEach(pid => {
       const p = findPlayer(state, pid);
       const ds = state.turnData.aoeDefenses[pid];
-      const pMulti = getSkillMultiplier(p.card.subjects, subj);
+      let pMulti = getSkillMultiplier(p.card.subjects, subj);
+      if (state.players.some(pl => pl.card?.negativeSkill?.id === SKILL.ROYAL_ETIQUETTE)) {
+        pMulti = 1.0;
+      }
       const isPrimary = state.players[state.turnData.defenderIdx].id === pid;
 
       const pKeptRolls = ds.keepIndices.map(i => ds.rolls[i]);
@@ -760,7 +847,10 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
       if (d10Count > 1) return { ok: false, error: 'zww_d10_limit' };
     }
     
-    const defMulti = getSkillMultiplier(def.card.subjects, subj);
+    let defMulti = getSkillMultiplier(def.card.subjects, subj);
+    if (state.players.some(p => p.card?.negativeSkill?.id === SKILL.ROYAL_ETIQUETTE)) {
+      defMulti = 1.0;
+    }
 
     const defRolls = state.turnData.defenseRolls;
     const keptRolls = keepIndices.map(i => defRolls[i]);

@@ -46,6 +46,10 @@ export const SKILL = {
   STICKER_SELF: 'sticker_self',              // 被发现了! (谢睿琦: 被贴画)
   INVERT_DIE: 'invert_die',                  // 字斟句酌 (廖展韬: 反转最小骰子)
   DEEP_THOUGHT: 'deep_thought',              // 深度思考 (廖展韬: 反转给对方减伤)
+
+  // 新角色技能（闫紫铭）
+  TIMELESS_GRACE: 'timeless_grace',          // Timeless Grace (闫紫铭: 初始6重投，连击奖励)
+  ROYAL_ETIQUETTE: 'royal_etiquette',        // Royal Etiquette / Inelegant! (闫紫铭: 固定倍率 + 掷1自伤)
 };
 
 /**
@@ -417,6 +421,28 @@ export const characters = [
       id: SKILL.DEEP_THOUGHT,
       name: '深度思考',
       desc: '<ul><li>攻击阶段每次<span style="color:var(--rose-gold)">重投</span>后，对方永久获得 <span style="color:var(--rose-gold)">+1</span> 固定减伤（无上限累加）</li></ul>',
+    },
+  },
+  {
+    id: 'char_19',
+    name: '闫紫铭',
+    title: '优雅',
+    subjects: ['chinese', 'math', 'english', 'physics', 'chemistry', 'biology'],
+    electives: ['physics', 'chemistry', 'biology'],
+    image: '/photos/yzm.png',
+    hp: 33,
+    dicePool: [2, 2, 4, 4, 4, 4, 6, 6],
+    atkSlots: 5,
+    defSlots: 4,
+    positiveSkill: {
+      id: SKILL.TIMELESS_GRACE,
+      name: 'Timeless Grace',
+      desc: '<ul><li>初始拥有 <span style="color:var(--rose-gold)">6次</span> 重投</li><li>攻击确认时，若包含至少 3 个相同数字，恢复 <span style="color:var(--rose-gold)">1 次</span> 重投；若包含至少 4 个相同数字，本次攻击<span style="color:var(--rose-gold)">无视防御</span>；若包含 5 个相同数字，获得 <span style="color:var(--rose-gold)">1 个</span> 额外攻击回合（此技能在额外回合内也能触发）</li></ul>',
+    },
+    negativeSkill: {
+      id: SKILL.ROYAL_ETIQUETTE,
+      name: 'Royal Etiquette / Inelegant!',
+      desc: '<ul><li>【Royal Etiquette】只要在场，所有人的课程倍率强制固定为 <span style="color:var(--rose-gold)">1.0</span></li><li>【Inelegant!】投掷骰子时，每出现一个 1（包含被重投掉的），立刻受到 <span style="color:var(--rose-gold)">1点</span> 真实伤害</li></ul>',
     },
   },
 ];
