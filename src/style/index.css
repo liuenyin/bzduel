@@ -846,3 +846,7 @@ input[type="text"]::placeholder{color:var(--text-muted)}
   box-shadow: var(--shadow);
 }
 
+
+.die-mini { width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-family: var(--font-display); font-weight: 800; font-size: 0.75rem; border-radius: 5px; background: #fff; border: 1.5px solid currentColor; margin: 0 2px; position: relative; vertical-align: middle; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+.die-mini-corner { position: absolute; top: -3px; right: -3px; font-size: 0.4rem; font-weight: 800; font-family: var(--font-body); padding: 0 2px; border-radius: 2px; border: 1px solid currentColor; line-height: 1; }
+

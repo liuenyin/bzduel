@@ -4,7 +4,7 @@
 import { gameSocket } from '../net/socket.js';
 import { navigate } from '../main.js';
 import { characters } from '../../shared/characters.js';
-import { SUBJECTS, getSubjectLabel, getSubjectIcon, getSkillMultiplier } from '../../shared/rules.js';
+import { SUBJECTS, getSubjectLabel, getSubjectIcon, getSkillMultiplier, DICE_COLORS } from '../../shared/rules.js';
 
 export function renderPreparation(container, data) {
   const { schedule, state, opponent } = data;
@@ -55,7 +55,12 @@ export function renderPreparation(container, data) {
       else if (m === 0.5) away++;
       else neutral++;
     }
-    const diceDesc = char.dicePool.map(d => `D${d}`).join('+');
+    const diceHtml = char.dicePool.map(d => {
+      const color = DICE_COLORS[d];
+      const style = color ? `border-color:${color.border}; color:${color.border};` : '';
+      const corner = color ? `<div class="die-mini-corner" style="color:${color.border};background:${color.bg}">${color.label}</div>` : '';
+      return `<div class="die-mini" style="${style}">${corner}${d}</div>`;
+    }).join('');
     const electLabel = char.electives.map(e => SUBJECTS[e]?.label || e).join('·');
 
     return `
@@ -76,7 +81,7 @@ export function renderPreparation(container, data) {
                   <div class="stat-lbl">HP</div>
                 </div>
                 <div class="stat" style="flex:1; padding-left:8px; text-align:right;">
-                  <div class="stat-val" style="color:var(--text); letter-spacing:1px;">${diceDesc}</div>
+                  <div class="stat-val" style="color:var(--text); display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap;">${diceHtml}</div>
                   <div class="stat-lbl">骰池 (攻${char.atkSlots === -1 ? '全选' : char.atkSlots} 守${char.defSlots})</div>
                 </div>
               </div>
