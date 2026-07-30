@@ -427,6 +427,11 @@ export function confirmAttack(state, keepIndices) {
     finalBase = Math.floor(baseAtk * (0.5 + multi));
   }
 
+  // 贪睡惩罚
+  if (state.turnData.sleepyAtkPenalty > 0) {
+    finalBase = Math.max(0, finalBase - state.turnData.sleepyAtkPenalty);
+  }
+
   // 黄佳程过敏处理: 强制锁定攻击力
   if (state.turnData.allergyTriggered) {
     finalBase = Math.floor(4 * multi);
@@ -565,11 +570,6 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
   const ar = state.turnData.atkResult;
   let finalBaseAtk = ar.finalAtk;
 
-  // 贪睡惩罚: 攻击-3 (前1回合)
-  if (state.turnData.sleepyAtkPenalty > 0) {
-    finalBaseAtk = Math.max(0, finalBaseAtk - state.turnData.sleepyAtkPenalty);
-  }
-
   if (state.turnData.isAoE) {
     if (!state.turnData.aoeDefenses[playerId]) return { ok: false };
     const defState = state.turnData.aoeDefenses[playerId];
@@ -664,12 +664,7 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
       const turnDataSimulated = { hasDefenderRerolled: ds.hasRerolled };
       const defNeg = resolveDefenderNegativeSkill(p.card.negativeSkill, pMulti, state.totalRound, turnDataSimulated);
       if (defNeg.addPermanentPenalty) p.permanentDefPenalty = (p.permanentDefPenalty || 0) + defNeg.addPermanentPenalty;
-      
-      let sleepyDefPenalty = 0;
-      if (p.card.negativeSkill?.id === SKILL.SLEEPY && state.totalRound <= 1) {
-        sleepyDefPenalty = 3;
-      }
-      const penalty = (defNeg.defensePenalty || 0) + (p.permanentDefPenalty || 0) + sleepyDefPenalty;
+      const penalty = (defNeg.defensePenalty || 0) + (p.permanentDefPenalty || 0);
       const finalDef = Math.max(0, pBaseDef - penalty);
 
       // 李灿正面B: 献祭骰子回血
@@ -878,12 +873,7 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
       def.permanentDefPenalty = (def.permanentDefPenalty || 0) + defNeg.addPermanentPenalty;
     }
     
-    let sleepyDefPenalty = 0;
-    if (def.card.negativeSkill?.id === SKILL.SLEEPY && state.totalRound <= 1) {
-      sleepyDefPenalty = 3;
-    }
-    
-    const penalty = (defNeg.defensePenalty || 0) + (def.permanentDefPenalty || 0) + sleepyDefPenalty;
+    const penalty = (defNeg.defensePenalty || 0) + (def.permanentDefPenalty || 0);
     const finalDef = Math.max(0, baseDef - penalty);
 
     // 曾无畏正面: “吃掉!” 将对方选定的最大骰子改为 2
@@ -950,6 +940,8 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
     }
 
     let damage = ar.pierce ? finalBaseAtk : Math.max(0, finalBaseAtk - finalFinalDef);
+
+
 
   // 廖展韬深度思考: 对方的永久减伤
   if (damage > 0 && (def.invertReduction || 0) > 0) {
@@ -1235,6 +1227,10 @@ function resolveNegativeSkill(skill, multi, rolls, round) {
 function resolveDefenderNegativeSkill(skill, multi, totalRound, turnData) {
   if (!skill) return { triggered: false };
   switch (skill.id) {
+    case SKILL.SLEEPY: {
+      if (totalRound <= 1) return { triggered: true, defensePenalty: 3 };
+      return { triggered: false };
+    }
     case SKILL.REROLL_PENALTY: {
       if (turnData && turnData.hasDefenderRerolled) return { triggered: true, addPermanentPenalty: skill.baseValue };
       return { triggered: false };

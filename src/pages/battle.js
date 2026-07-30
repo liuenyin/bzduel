@@ -550,22 +550,20 @@ export function onTurnResolved(data) {
 
 // ── 换课动画 ──
 function showClassChange(data) {
-  if (animLock) {
-    setTimeout(() => showClassChange(data), 500);
-    return;
-  }
-  const s = SUBJECTS[data.subject];
-  const overlay = document.createElement('div');
-  overlay.className = 'class-change-overlay';
-  overlay.innerHTML = `
-    <div class="class-change-content">
-      <div class="cc-icon">${s?.icon || '📝'}</div>
-      <div class="cc-label">第 ${data.index + 1} 节课</div>
-      <div class="cc-name">${s?.label || data.subject}</div>
-    </div>
-  `;
-  document.body.appendChild(overlay);
-  setTimeout(() => { overlay.classList.add('fade-out'); setTimeout(() => overlay.remove(), 500); }, 1800);
+  setTimeout(() => {
+    const s = SUBJECTS[data.subject];
+    const overlay = document.createElement('div');
+    overlay.className = 'class-change-overlay';
+    overlay.innerHTML = `
+      <div class="class-change-content">
+        <div class="cc-icon">${s?.icon || '📝'}</div>
+        <div class="cc-label">第 ${data.index + 1} 节课</div>
+        <div class="cc-name">${s?.label || data.subject}</div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    setTimeout(() => { overlay.classList.add('fade-out'); setTimeout(() => overlay.remove(), 500); }, 1800);
+  }, 2500);
 }
 
 // ── 调课权弹窗 ──

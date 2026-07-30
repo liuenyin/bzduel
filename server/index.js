@@ -298,7 +298,7 @@ io.on('connection', (socket) => {
       emitToAll(room, 'class_change', () => ({
         subject: res.nextSubject, index: g.currentClassIndex,
       }));
-      setTimeout(() => triggerAiPhase(roomId), 2000);
+      setTimeout(() => triggerAiPhase(roomId), 5000);
     } else {
       triggerAiPhase(roomId);
     }
@@ -378,7 +378,7 @@ io.on('connection', (socket) => {
         emitToAll(room, 'class_change', () => ({
           subject: res.nextSubject, index: g.currentClassIndex,
         }));
-        setTimeout(() => triggerAiPhase(roomId), 2000);
+        setTimeout(() => triggerAiPhase(roomId), 5000);
       } else {
         triggerAiPhase(roomId);
       }
@@ -567,7 +567,7 @@ function triggerAiPhase(roomId) {
         setTimeout(() => cleanupRoom(room), 30000);
       } else if (res.classChanged) {
         emitToAll(room, 'class_change', () => ({ subject: res.nextSubject, index: g.currentClassIndex }));
-        setTimeout(() => triggerAiPhase(roomId), 2500);
+        setTimeout(() => triggerAiPhase(roomId), 5000);
       } else {
         triggerAiPhase(roomId);
       }
