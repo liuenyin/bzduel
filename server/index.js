@@ -21,9 +21,11 @@ import {
 import { buyCharacter, sellCharacter, refreshShop as shopRefresh, scaleCharStats } from './game/shop.js';
 import { autoResolveMatch, createGoldMineBattle } from './game/auto-combat.js';
 import { AC_CHAR_MAP, AC } from '../shared/autochess-config.js';
+import { recordMatch, getStats } from './statsManager.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
+app.get('/api/stats', (req, res) => res.json(getStats()));
 const httpServer = createServer(app);
 const io = new Server(httpServer, { cors: { origin: '*' }, pingTimeout: 30000, pingInterval: 10000 });
 
@@ -373,6 +375,13 @@ io.on('connection', (socket) => {
       });
       const roomId = socketToRoom.get(socket.id);
       if (res.gameOver) {
+        if (g.gameMode === '1v1' && g.winner !== null && g.winner !== 'draw') {
+          const winnerCardId = g.players[g.winner].cardId;
+          const loserIdx = g.winner === 0 ? 1 : 0;
+          const loserCardId = g.players[loserIdx].cardId;
+          const isPvE = g.players[0].id.startsWith('AI_') || g.players[1].id.startsWith('AI_');
+          recordMatch(winnerCardId, loserCardId, isPvE);
+        }
         setTimeout(() => cleanupRoom(room), 30000);
       } else if (res.classChanged) {
         emitToAll(room, 'class_change', () => ({
@@ -564,6 +573,13 @@ function triggerAiPhase(roomId) {
       emitToAll(room, 'turn_resolved', (pid) => ({ ...res, state: getStateView(g, pid) }));
 
       if (res.gameOver) {
+        if (g.gameMode === '1v1' && g.winner !== null && g.winner !== 'draw') {
+          const winnerCardId = g.players[g.winner].cardId;
+          const loserIdx = g.winner === 0 ? 1 : 0;
+          const loserCardId = g.players[loserIdx].cardId;
+          const isPvE = g.players[0].id.startsWith('AI_') || g.players[1].id.startsWith('AI_');
+          recordMatch(winnerCardId, loserCardId, isPvE);
+        }
         setTimeout(() => cleanupRoom(room), 30000);
       } else if (res.classChanged) {
         emitToAll(room, 'class_change', () => ({ subject: res.nextSubject, index: g.currentClassIndex }));

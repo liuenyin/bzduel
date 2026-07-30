@@ -850,3 +850,11 @@ input[type="text"]::placeholder{color:var(--text-muted)}
 .die-mini { width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-family: var(--font-display); font-weight: 800; font-size: 0.75rem; border-radius: 5px; background: #fff; border: 1.5px solid currentColor; margin: 0 2px; position: relative; vertical-align: middle; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
 .die-mini-corner { position: absolute; top: -3px; right: -3px; font-size: 0.4rem; font-weight: 800; font-family: var(--font-body); padding: 0 2px; border-radius: 2px; border: 1px solid currentColor; line-height: 1; }
 
+
+.stats-matrix { border-collapse: collapse; width: 100%; min-width: 800px; text-align: center; font-size: 0.85rem; }
+.stats-matrix th, .stats-matrix td { border: 1px solid var(--bg-inset); padding: 6px; }
+.stats-matrix th { background: var(--bg-inset); font-family: var(--font-display); position: sticky; top: 0; left: 0; z-index: 2; }
+.stats-matrix thead th { z-index: 3; }
+.stats-matrix td.win-high { background: rgba(106,158,109,0.2); color: #3d6e40; font-weight: 700; }
+.stats-matrix td.win-low { background: rgba(196,92,92,0.2); color: #944; font-weight: 700; }
+

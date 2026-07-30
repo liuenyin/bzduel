@@ -431,7 +431,7 @@ export const characters = [
     electives: ['physics', 'chemistry', 'biology'],
     image: '/photos/yzm.png',
     hp: 33,
-    dicePool: [2, 2, 2, 4, 4, 4, 6, 6],
+    dicePool: [2, 2, 2, 4, 4, 6, 6],
     atkSlots: 5,
     defSlots: 4,
     positiveSkill: {

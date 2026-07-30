@@ -3,6 +3,7 @@
 // ============================================================
 import { gameSocket } from '../net/socket.js';
 import { navigate, showGlobalChat } from '../main.js';
+import { characters } from '../../shared/characters.js';
 
 export function renderLobby(container) {
   container.innerHTML = `
@@ -42,6 +43,22 @@ export function renderLobby(container) {
         <div style="margin-top:20px; padding-top:16px; border-top:2px solid var(--accent); display:none;">
           <p style="font-family:var(--font-display); font-weight:700; color:var(--gold, #f0c040); text-align:center; margin-bottom:12px;">🎲 货币战争 (自走棋)</p>
           <button id="btn-autochess" class="btn btn-lg" style="width:100%; background:linear-gradient(135deg, #f0c040, #e67e22); color:#1a1a2e; font-weight:900; font-size:1.1rem;">⚔️ 货币战争...?</button>
+        </div>
+
+        <div style="margin-top:12px; text-align:center;">
+          <button id="btn-stats" class="btn btn-secondary" style="width:100%;">📊 查看全服角色胜率数据</button>
+        </div>
+      </div>
+
+      <div id="stats-modal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6); z-index:999; align-items:center; justify-content:center;">
+        <div class="modal-content" style="background:var(--bg-card); max-width:900px; width:95%; max-height:90vh; border-radius:12px; display:flex; flex-direction:column; box-shadow:0 10px 30px rgba(0,0,0,0.5);">
+          <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; padding:16px; border-bottom:1px solid var(--bg-inset);">
+            <h2 style="margin:0; font-family:var(--font-display);">📊 角色胜率矩阵</h2>
+            <button id="btn-close-stats" class="btn" style="background:var(--bg-inset); color:var(--text); padding:4px 12px;">关闭</button>
+          </div>
+          <div class="modal-body" id="stats-body" style="padding:16px; overflow-x:auto; overflow-y:auto; flex:1;">
+            Loading...
+          </div>
         </div>
       </div>
 
@@ -154,6 +171,73 @@ export function renderLobby(container) {
     const n = getNick(); if (!n) return;
     gameSocket.emit('start_autochess', { nickname: n });
   });
+
+  document.getElementById('btn-stats').addEventListener('click', async () => {
+    document.getElementById('stats-modal').style.display = 'flex';
+    document.getElementById('stats-body').innerHTML = '<p style="text-align:center;">加载中...</p>';
+    try {
+      const res = await fetch('/api/stats');
+      const data = await res.json();
+      renderStatsMatrix(data);
+    } catch (e) {
+      document.getElementById('stats-body').innerHTML = '<p style="color:var(--red); text-align:center;">获取数据失败</p>';
+    }
+  });
+
+  document.getElementById('btn-close-stats').addEventListener('click', () => {
+    document.getElementById('stats-modal').style.display = 'none';
+  });
+
+  function renderStatsMatrix(data) {
+    const chars = characters;
+    let html = \`<div style="margin-bottom:12px; display:flex; gap:12px; align-items:center;">
+      <span style="font-weight:700;">对战模式:</span>
+      <select id="stats-mode-select" class="btn" style="background:var(--bg-inset); color:var(--text);">
+        <option value="pvp">PvP (玩家 vs 玩家)</option>
+        <option value="pve">PvE (玩家 vs 电脑)</option>
+      </select>
+    </div>
+    <div id="stats-matrix-container"></div>\`;
+    document.getElementById('stats-body').innerHTML = html;
+    
+    const modeSelect = document.getElementById('stats-mode-select');
+    modeSelect.addEventListener('change', () => drawTable(modeSelect.value));
+    
+    function drawTable(mode) {
+      const stats = data[mode] || {};
+      let table = '<table class="stats-matrix"><thead><tr><th>胜率(场次)</th>';
+      chars.forEach(c => { table += \`<th>\${c.name}</th>\`; });
+      table += '</tr></thead><tbody>';
+      
+      chars.forEach(rowChar => {
+        table += \`<tr><th>\${rowChar.name}</th>\`;
+        chars.forEach(colChar => {
+          if (rowChar.id === colChar.id) {
+            table += \`<td class="empty-cell">-</td>\`;
+          } else {
+            const wins = (stats[rowChar.id] && stats[rowChar.id][colChar.id]) || 0;
+            const losses = (stats[colChar.id] && stats[colChar.id][rowChar.id]) || 0;
+            const total = wins + losses;
+            if (total === 0) {
+              table += \`<td class="empty-cell" style="color:var(--text-muted);">-</td>\`;
+            } else {
+              const winRate = (wins / total * 100).toFixed(1);
+              let colorClass = '';
+              if (winRate >= 60) colorClass = 'win-high';
+              else if (winRate <= 40) colorClass = 'win-low';
+              table += \`<td class="\${colorClass}">\${winRate}% <span class="total-matches" style="font-size:0.75rem; color:var(--text-muted);">(\${total})</span></td>\`;
+            }
+          }
+        });
+        table += '</tr>';
+      });
+      table += '</tbody></table>';
+      table += \`<p style="font-size:0.8rem; color:var(--text-muted); margin-top:10px;">* 行代表左侧角色(你)，列代表上方角色(对手)。单元格表示左侧角色战胜上方角色的胜率。</p>\`;
+      document.getElementById('stats-matrix-container').innerHTML = table;
+    }
+    
+    drawTable('pvp');
+  }
 
   // ── 服务端事件 ──
   gameSocket.on('room_created', ({ roomId, mode }) => {
