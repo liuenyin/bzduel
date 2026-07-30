@@ -146,9 +146,6 @@ export function rollAttack(state) {
   const atk = state.players[state.turnData.attackerIdx];
   const subj = state.schedule[state.currentClassIndex];
   let multi = getSkillMultiplier(atk.card.subjects, subj);
-  if (state.players.some(p => p.card?.negativeSkill?.id === SKILL.ROYAL_ETIQUETTE)) {
-    multi = 1.0;
-  }
 
   // 清理过期 buff
   if (!atk.buffs) atk.buffs = [];
@@ -564,9 +561,6 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
   const atk = state.players[state.turnData.attackerIdx];
   const subj = state.schedule[state.currentClassIndex];
   let atkMulti = getSkillMultiplier(atk.card.subjects, subj);
-  if (state.players.some(p => p.card?.negativeSkill?.id === SKILL.ROYAL_ETIQUETTE)) {
-    atkMulti = 1.0;
-  }
   const ar = state.turnData.atkResult;
   let finalBaseAtk = ar.finalAtk;
 
@@ -651,9 +645,6 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
       const p = findPlayer(state, pid);
       const ds = state.turnData.aoeDefenses[pid];
       let pMulti = getSkillMultiplier(p.card.subjects, subj);
-      if (state.players.some(pl => pl.card?.negativeSkill?.id === SKILL.ROYAL_ETIQUETTE)) {
-        pMulti = 1.0;
-      }
       const isPrimary = state.players[state.turnData.defenderIdx].id === pid;
 
       const pKeptRolls = ds.keepIndices.map(i => ds.rolls[i]);
@@ -858,9 +849,6 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
     }
     
     let defMulti = getSkillMultiplier(def.card.subjects, subj);
-    if (state.players.some(p => p.card?.negativeSkill?.id === SKILL.ROYAL_ETIQUETTE)) {
-      defMulti = 1.0;
-    }
 
     const defRolls = state.turnData.defenseRolls;
     const keptRolls = keepIndices.map(i => defRolls[i]);

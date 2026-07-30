@@ -439,11 +439,7 @@ export const characters = [
       name: 'Timeless Grace',
       desc: '<ul><li>攻击发动时，若包含至少 3 个相同数字，恢复 <span style="color:var(--rose-gold)">1 次</span> 重投；若包含至少 4 个相同数字，本次攻击<span style="color:var(--rose-gold)">无视防御</span>；若包含 5 个相同数字，获得 <span style="color:var(--rose-gold)">1 个</span> 额外攻击回合（此技能在额外回合内也能触发）</li></ul>',
     },
-    neutralSkill: {
-      id: SKILL.ROYAL_ETIQUETTE,
-      name: 'Royal Etiquette',
-      desc: '<ul><li>在场时，所有人的课程倍率强制固定为 <span style="color:var(--rose-gold)">1.0</span></li></ul>',
-    },
+
     negativeSkill: {
       id: SKILL.ROYAL_ETIQUETTE,
       name: 'Inelegant!',
