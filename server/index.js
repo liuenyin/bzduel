@@ -8,7 +8,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import {
   createGame, selectCard, setReady, useReschedule,
-  rollAttack, rerollDice, confirmAttack, confirmDefense, selectTarget, buyWater,
+  rollAttack, rerollDice, confirmAttack, confirmDefense, selectTarget, buyWater, chooseDreamTarget,
   getCurrentAttackerId, getCurrentDefenderId, getStateView, TURN,
 } from './game/engine.js';
 import { aiSelectCard } from './game/ai.js';
@@ -212,6 +212,14 @@ io.on('connection', (socket) => {
       room.playerSockets.forEach(pid => {
         io.to(pid).emit('state_update', getStateView(room.game, pid));
       });
+    }
+  });
+
+  socket.on('choose_dream_target', ({ targetIndex }) => {
+    const room = getRoom(socket.id); if (!room) return;
+    const res = chooseDreamTarget(room.game, socket.id, targetIndex);
+    if (res.ok) {
+      emitStateToAll(room);
     }
   });
 
@@ -460,6 +468,14 @@ function triggerAiPhase(roomId) {
   const room = rooms.get(roomId);
   if (!room || !room.isAI || room.game.phase !== 'battle') return;
   const g = room.game;
+
+  // AI 自动盲选目标
+  const fxr = g.players.find(p => p.card?.positiveSkill?.id === SKILL.DREAM_KING);
+  if (fxr && fxr.inDreamState && !fxr.lgpyForm && fxr.dreamTargetChoice === null) {
+    const aiTargetIdx = Math.floor(Math.random() * 3);
+    chooseDreamTarget(g, room.aiId, aiTargetIdx);
+    emitStateToAll(room);
+  }
 
   // 1. 等待攻击阶段 (掷骰)
   if (g.turnPhase === TURN.WAITING_ATK && getCurrentAttackerId(g) === room.aiId) {

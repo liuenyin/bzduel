@@ -70,6 +70,15 @@ function makePlayer(id, name) {
     selfStickers: 0,         // 谢睿琦: 自身贴画数
     invertReduction: 0,      // 廖展韬: 永久减伤叠加
     nineLivesUsed: false,    // 张锦元: 是否已复活
+    // 付修然 (fxr) 状态
+    dreamStacks: 0,          // 梦境层数 (0-3)
+    inDreamState: false,      // 是否处于“梦境之王”状态
+    pendingDreamState: false, // 满3次记录，下一节课进入梦境
+    dreamTargetChoice: null,  // 对手本节课盲选的目标 (0, 1, 2)
+    realTargetIdx: null,      // 本节课哪个是本体 (0, 1, 2)
+    lgpyForm: false,          // 是否处于 lgpy 斩杀形态
+    lgpyTurnsLeft: 0,         // lgpy 形态剩余课时
+    lgpyTriggered: false,     // 是否已触发过 lgpy 形态
   };
 }
 
@@ -214,6 +223,11 @@ export function rollAttack(state) {
 
   // 张楚唯: 额外回合重投+2, 所有骰子面数临时+2
   let rollingPool = atk.card.dicePool;
+  if (atk.card.positiveSkill?.id === SKILL.DREAM_KING || atk.card.negativeSkill?.id === SKILL.ELEPHANT_CONDEMN) {
+    if (atk.lgpyForm || (atk.inDreamState && atk.dreamTargetChoice !== null && atk.dreamTargetChoice !== atk.realTargetIdx)) {
+      rollingPool = [7, 9, 9, 9, 11];
+    }
+  }
   if (state.turnData.isExtraTurn && atk.card.positiveSkill?.id === SKILL.EXTRA_TURN) {
     atk.rerolls += 2;
     rollingPool = rollingPool.map(f => f + 2);
@@ -440,6 +454,17 @@ export function confirmAttack(state, keepIndices) {
     for (let i of keepIndices) {
       if (i < pool.length) {
         pool[i] += 2;
+      }
+    }
+  }
+
+  // 付修然正面: 攻击选中的骰点数和 >= 15 记一次梦境
+  if (atk.card.positiveSkill?.id === SKILL.DREAM_KING) {
+    const sumChosen = keptRolls.reduce((s, v) => s + v, 0);
+    if (sumChosen >= 15) {
+      atk.dreamStacks = Math.min(3, (atk.dreamStacks || 0) + 1);
+      if (atk.dreamStacks >= 3 && !atk.inDreamState && !atk.pendingDreamState) {
+        atk.pendingDreamState = true;
       }
     }
   }
@@ -956,6 +981,30 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
     damage += def.chargeStacks * 3;
   }
 
+  // 付修然正面: 防御选中的骰点数和 >= 15 记一次梦境
+  if (def.card.positiveSkill?.id === SKILL.DREAM_KING) {
+    const sumChosen = keptRolls.reduce((s, v) => s + v, 0);
+    if (sumChosen >= 15) {
+      def.dreamStacks = Math.min(3, (def.dreamStacks || 0) + 1);
+      if (def.dreamStacks >= 3 && !def.inDreamState && !def.pendingDreamState) {
+        def.pendingDreamState = true;
+      }
+    }
+  }
+
+  // 付修然梦境判定 (分身无伤害 / 本体锁血3)
+  if (def.card.positiveSkill?.id === SKILL.DREAM_KING && def.inDreamState && !def.lgpyForm) {
+    if (def.dreamTargetChoice !== null && def.dreamTargetChoice !== def.realTargetIdx) {
+      // 选中分身: 本体不受伤害
+      damage = 0;
+    } else if (def.dreamTargetChoice === def.realTargetIdx) {
+      // 选中本体: 致命伤害强制锁血为 3
+      if (def.hp - damage < 3) {
+        damage = Math.max(0, def.hp - 3);
+      }
+    }
+  }
+
   // 李灿正面A: 反击伤害
   let lcCounterTriggered = false;
   let lcCounterDamage = 0;
@@ -983,6 +1032,23 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
   // 应用伤害
   def.hp = Math.max(0, def.hp - damage);
   atk.hp = Math.max(0, atk.hp - ar.selfDamage);
+
+  // 付修然负面: 小象的谴责 (对手血量 < 20% 触发 lgpy 斩杀形态)
+  const checkLgpy = (p, op) => {
+    if (p.card.negativeSkill?.id === SKILL.ELEPHANT_CONDEMN && !p.lgpyTriggered) {
+      if (op.hp > 0 && op.hp < op.maxHp * 0.2) {
+        p.lgpyTriggered = true;
+        p.lgpyForm = true;
+        p.lgpyTurnsLeft = 1;
+        p.inDreamState = false;
+        p.pendingDreamState = false;
+        p.dreamTargetChoice = null;
+        state.log.push({ text: `【狂暴】${p.nickname} 触发[小象的谴责]，瞬间切为 lgpy 斩杀形态！`, type: 'skill' });
+      }
+    }
+  };
+  checkLgpy(atk, def);
+  checkLgpy(def, atk);
 
   // 余汉正面: 妈! — 防御溢出回血
   let mamaHealTriggered = false;
@@ -1239,6 +1305,19 @@ export function getCurrentDefenderId(state) {
   return state.players[state.turnData.defenderIdx].id;
 }
 
+export function chooseDreamTarget(state, playerId, targetIndex) {
+  if (state.phase !== PHASE.BATTLE) return { ok: false };
+  const fxr = state.players.find(p => p.card?.positiveSkill?.id === SKILL.DREAM_KING);
+  if (!fxr || !fxr.inDreamState || fxr.lgpyForm) return { ok: false };
+  if (playerId === fxr.id) return { ok: false };
+  if (fxr.dreamTargetChoice !== null) return { ok: false, error: 'already_chosen' };
+  if (targetIndex < 0 || targetIndex > 2) return { ok: false, error: 'invalid_index' };
+
+  fxr.dreamTargetChoice = targetIndex;
+  const isReal = targetIndex === fxr.realTargetIdx;
+  return { ok: true, isReal };
+}
+
 export function selectTarget(state, playerId, targetId) {
   if (state.gameMode !== GAME_MODE.MODE_FFA || state.phase !== PHASE.BATTLE || state.turnPhase !== TURN.CHOOSE_TARGET) return { ok: false };
   const pIdx = state.players.findIndex(p => p.id === playerId);
@@ -1277,6 +1356,12 @@ export function getStateView(state, playerId) {
       chargeStacks: p.chargeStacks || 0,
       isDead: !!p.isDead,
       identity: hideIdentity ? '?' : p.identity,
+      // 付修然 (fxr) 状态
+      dreamStacks: p.dreamStacks || 0,
+      inDreamState: !!p.inDreamState,
+      dreamTargetChoice: p.dreamTargetChoice,
+      realTargetIdx: isMe ? p.realTargetIdx : (p.dreamTargetChoice !== null ? p.realTargetIdx : null),
+      lgpyForm: !!p.lgpyForm,
     };
   };
 
@@ -1420,6 +1505,26 @@ export function resolvePhaseEnd(state) {
         state.firstAttacker = nextFirst;
         
         classChanged = true;
+        state.players.forEach(p => {
+          if (p.card?.positiveSkill?.id === SKILL.DREAM_KING) {
+            if (p.pendingDreamState && !p.lgpyForm) {
+              p.inDreamState = true;
+              p.pendingDreamState = false;
+              p.dreamTargetChoice = null;
+              p.realTargetIdx = Math.floor(Math.random() * 3);
+              state.log.push({ text: `【梦境之王】${p.nickname} 展开梦境领域！`, type: 'skill' });
+            } else if (p.inDreamState && !p.lgpyForm) {
+              p.dreamTargetChoice = null;
+              p.realTargetIdx = Math.floor(Math.random() * 3);
+            }
+            if (p.lgpyForm) {
+              p.lgpyTurnsLeft--;
+              if (p.lgpyTurnsLeft <= 0) {
+                p.lgpyForm = false;
+              }
+            }
+          }
+        });
         if (state.currentClassIndex >= GAME_CONFIG.CLASSES_PER_GAME) {
           gameOver = true;
           state.phase = PHASE.GAME_OVER;

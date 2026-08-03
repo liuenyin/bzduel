@@ -35,6 +35,7 @@ class GameSocket {
   rerollDice(indices) { this.socket.emit('reroll_dice', { indices }); }
   confirmDice(indices, options = {}) { this.socket.emit('confirm_dice', { indices, options }); }
   buyWater() { this.socket.emit('buy_water'); }
+  chooseDreamTarget(idx) { this.socket.emit('choose_dream_target', { targetIndex: idx }); }
 
   sendChat(n, msg) { if (this.currentRoomId) this.socket.emit('chat_msg', { roomId: this.currentRoomId, sender: n, msg }); }
 

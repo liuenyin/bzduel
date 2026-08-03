@@ -50,6 +50,10 @@ export const SKILL = {
   // 新角色技能（闫紫铭）
   TIMELESS_GRACE: 'timeless_grace',          // Timeless Grace (闫紫铭: 初始6重投，连击奖励)
   ROYAL_ETIQUETTE: 'royal_etiquette',        // Royal Etiquette / Inelegant! (闫紫铭: 固定倍率 + 掷1自伤)
+
+  // 新角色技能（付修然）
+  DREAM_KING: 'dream_king',                  // 梦境之王 (付修然: 选中>=15记梦境，满3次建分身/盲盒/锁血3)
+  ELEPHANT_CONDEMN: 'elephant_condemn',      // 小象的谴责 (付修然: 对手血量<20%触发lgpy狂暴形态)
 };
 
 /**
@@ -444,6 +448,28 @@ export const characters = [
       id: SKILL.ROYAL_ETIQUETTE,
       name: 'Inelegant!',
       desc: '<ul><li>投掷骰子时，每出现一个 1（包含被重投掉的），立刻受到 <span style="color:var(--rose-gold)">1点</span> 真实伤害</li></ul>',
+    },
+  },
+  {
+    id: 'char_fxr',
+    name: '付修然',
+    title: '梦境之王',
+    subjects: ['chinese', 'math', 'english', 'physics', 'chemistry', 'biology'],
+    electives: ['physics', 'chemistry', 'biology'],
+    image: '/photos/fxr.png',
+    hp: 41,
+    dicePool: [4, 6, 6, 6, 8],
+    atkSlots: 3,
+    defSlots: 3,
+    positiveSkill: {
+      id: SKILL.DREAM_KING,
+      name: '梦境之王',
+      desc: '<ul><li>攻防选中的骰点数和 <span style="color:var(--rose-gold)">≥15</span> 时记录1次“梦境”；累计3次后由下一节课起进入“梦境之王”状态</li><li>在梦境中，对手每节课需盲选三卡之一进入回合。若选中分身，分身骰池变为 <span style="color:var(--rose-gold)">D7+D9+D9+D9+D11</span> (攻3) 且无法伤及本体；若选中本体，本体受致命伤害时强制锁血为 <span style="color:var(--rose-gold)">3</span> 点</li></ul>',
+    },
+    negativeSkill: {
+      id: SKILL.ELEPHANT_CONDEMN,
+      name: '小象的谴责',
+      desc: '<ul><li>当对手血量降至 <span style="color:var(--rose-gold)">20%以下</span> 时，瞬间切为 lgpy 斩杀形态：无技能、骰池变为 <span style="color:var(--rose-gold)">D7+D9+D9+D9+D11</span> 持续一节课；若处于梦境中，梦境状态强制结束</li></ul>',
     },
   },
 ];

@@ -194,6 +194,45 @@ function refreshAll() {
   rebindActionButtons();
   // Dice - render if available
   renderDice();
+  // Check dream target modal
+  checkDreamTargetModal(S);
+}
+
+function checkDreamTargetModal(s) {
+  const existing = document.getElementById('dream-target-modal');
+  const fxr = s.players?.find(p => p.card?.positiveSkill?.id === 'dream_king');
+  if (s.phase === 'battle' && fxr && fxr.inDreamState && !fxr.lgpyForm && s.me.id !== fxr.id && fxr.dreamTargetChoice === null) {
+    if (existing) return;
+    const overlay = document.createElement('div');
+    overlay.className = 'result-overlay';
+    overlay.id = 'dream-target-modal';
+    overlay.style.zIndex = '10000';
+    overlay.innerHTML = `
+      <div class="panel" style="max-width:460px; width:90%; text-align:center; background:linear-gradient(135deg, #2e1065, #0f172a); border:2px solid #a855f7; color:#fff;">
+        <h2 style="color:#fef08a; margin-bottom:8px; font-size:1.4rem;">👑 梦境之王 - 盲选真身</h2>
+        <p style="font-size:0.9rem; color:#e9d5ff; margin-bottom:20px;">付修然展开了梦境领域！出现 1 个本体与 2 个分身，请选择你本节课攻击的目标：</p>
+        <div style="display:flex; justify-content:space-around; gap:12px; margin-bottom:20px;">
+          <button class="btn" style="flex:1; padding:20px 8px; background:rgba(255,255,255,0.1); border:2px solid #a855f7; border-radius:12px; color:#fff; cursor:pointer; font-size:1.1rem; font-weight:bold; transition:all 0.2s;" onclick="window._pickDreamTarget(0)">
+            🔮 目标 A
+          </button>
+          <button class="btn" style="flex:1; padding:20px 8px; background:rgba(255,255,255,0.1); border:2px solid #a855f7; border-radius:12px; color:#fff; cursor:pointer; font-size:1.1rem; font-weight:bold; transition:all 0.2s;" onclick="window._pickDreamTarget(1)">
+            🔮 目标 B
+          </button>
+          <button class="btn" style="flex:1; padding:20px 8px; background:rgba(255,255,255,0.1); border:2px solid #a855f7; border-radius:12px; color:#fff; cursor:pointer; font-size:1.1rem; font-weight:bold; transition:all 0.2s;" onclick="window._pickDreamTarget(2)">
+            🔮 目标 C
+          </button>
+        </div>
+        <p style="font-size:0.75rem; color:#a855f7;">* 若选错分身：分身使用超强骰池 (D7+D9+D9+D9+D11)，且无法伤及本体！</p>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    window._pickDreamTarget = (idx) => {
+      gameSocket.chooseDreamTarget(idx);
+      overlay.remove();
+    };
+  } else {
+    if (existing) existing.remove();
+  }
 }
 
 // ── FFA UI ──
@@ -396,11 +435,25 @@ window._doSacrifice = (idx) => {
 
 // ── 增益/状态图标 ──
 function buffIcons(p) {
+  if (!p) return '';
   let h = '';
   if (p.hasReschedule) h += `<div class="buff-icon pos" title="拥有调课权">🔄</div>`;
   if (p.permanentDefPenalty) h += `<div class="buff-icon neg" title="体力透支: 防御力永久 -${p.permanentDefPenalty}">💦</div>`;
   if (p.buffs && p.buffs.find(b => b.id === 'sugar_crash')) h += `<div class="buff-icon neg" title="犯糖: 禁锢重投，回合开始受击">🍭</div>`;
   if (p.redHeat > 0) h += `<div class="buff-icon neg" title="红温: ${p.redHeat}层">🔥${p.redHeat}</div>`;
+  if (p.chargeStacks > 0) h += `<div class="buff-icon pos" title="蓄势: ${p.chargeStacks}层">💧${p.chargeStacks}</div>`;
+  if (p.stickers > 0) h += `<div class="buff-icon neg" title="贴画: ${p.stickers}张">🎨${p.stickers}</div>`;
+
+  // 付修然 (fxr) 状态
+  if (p.dreamStacks > 0 && !p.inDreamState) {
+    h += `<div class="buff-icon pos" style="background:#6b21a8;" title="梦境层数: ${p.dreamStacks}/3">🌙${p.dreamStacks}</div>`;
+  }
+  if (p.inDreamState && !p.lgpyForm) {
+    h += `<div class="buff-icon pos" style="background:#581c87; color:#fef08a;" title="梦境领域开启中">👑梦境</div>`;
+  }
+  if (p.lgpyForm) {
+    h += `<div class="buff-icon neg" style="background:#991b1b;" title="lgpy 狂暴斩杀形态">🐘狂暴</div>`;
+  }
   return h;
 }
 
