@@ -905,6 +905,30 @@ input[type="text"]::placeholder{color:var(--text-muted)}
   border-color: #facc15 !important;
 }
 
+.aura-wrc-redheat {
+  box-shadow: 0 0 16px rgba(239, 68, 68, 0.7) !important;
+  border-color: #ef4444 !important;
+  animation: auraPulseRedHeat 1.5s infinite ease-in-out;
+}
+@keyframes auraPulseRedHeat {
+  0%, 100% { box-shadow: 0 0 10px rgba(239, 68, 68, 0.5); }
+  50% { box-shadow: 0 0 24px rgba(239, 68, 68, 0.9); }
+}
+
+.aura-whd-sugar {
+  box-shadow: 0 0 16px rgba(236, 72, 153, 0.6) !important;
+  border-color: #ec4899 !important;
+  animation: auraGlitchPink 0.3s infinite;
+}
+@keyframes auraGlitchPink {
+  0% { transform: translate(0) }
+  20% { transform: translate(-1px, 1px) }
+  40% { transform: translate(-1px, -1px) }
+  60% { transform: translate(1px, 1px) }
+  80% { transform: translate(1px, -1px) }
+  100% { transform: translate(0) }
+}
+
 /* 梦境盲选弹窗 (移动端高度适配) */
 .dream-target-modal-panel {
   max-width: 440px;

@@ -149,6 +149,15 @@ export function useReschedule(state, playerId, classIndex, newSubject) {
   return { ok: true };
 }
 
+function getRollingPool(player) {
+  let pool = player.card.dicePool;
+  if (player.card.positiveSkill?.id === SKILL.DREAM_KING || player.card.negativeSkill?.id === SKILL.ELEPHANT_CONDEMN) {
+    if (player.lgpyForm || (player.inDreamState && player.dreamTargetChoice !== null && player.dreamTargetChoice !== player.realTargetIdx)) {
+      pool = [7, 9, 9, 9, 11];
+    }
+  }
+  return pool;
+}
 // ── 阶段1: 攻击方掷骰 ──
 export function rollAttack(state) {
   if (state.phase !== PHASE.BATTLE || state.turnPhase !== TURN.WAITING_ATK) return { ok: false };
@@ -222,12 +231,7 @@ export function rollAttack(state) {
   }
 
   // 张楚唯: 额外回合重投+2, 所有骰子面数临时+2
-  let rollingPool = atk.card.dicePool;
-  if (atk.card.positiveSkill?.id === SKILL.DREAM_KING || atk.card.negativeSkill?.id === SKILL.ELEPHANT_CONDEMN) {
-    if (atk.lgpyForm || (atk.inDreamState && atk.dreamTargetChoice !== null && atk.dreamTargetChoice !== atk.realTargetIdx)) {
-      rollingPool = [7, 9, 9, 9, 11];
-    }
-  }
+  let rollingPool = getRollingPool(atk);
   if (state.turnData.isExtraTurn && atk.card.positiveSkill?.id === SKILL.EXTRA_TURN) {
     atk.rerolls += 2;
     rollingPool = rollingPool.map(f => f + 2);
@@ -315,7 +319,7 @@ export function rerollDice(state, playerId, indices) {
     return { ok: false };
   }
 
-  const faces = p.card.dicePool;
+  const faces = getRollingPool(p);
 
   // 王鹤迪 rerollAll: 重投时所有骰子均重投
   if (p.card.rerollAll) {
@@ -508,7 +512,7 @@ export function confirmAttack(state, keepIndices) {
     let defenseRollsRecord = {};
     state.players.forEach(p => {
       if (!p.isDead && p.id !== atk.id) {
-        const rolls = rollDiceGroup(p.card.dicePool);
+        const rolls = rollDiceGroup(getRollingPool(p));
         
         // 闫紫铭负面: Inelegant! AoE防守时
         if (p.card.negativeSkill?.id === SKILL.ROYAL_ETIQUETTE) {
@@ -533,7 +537,7 @@ export function confirmAttack(state, keepIndices) {
     return { ok: true, atkResult: state.turnData.atkResult, aoeDefenseRolls: defenseRollsRecord };
   } else {
     state.turnData.isAoE = false;
-    const defRolls = rollDiceGroup(def.card.dicePool);
+    const defRolls = rollDiceGroup(getRollingPool(def));
 
     // 闫紫铭负面: Inelegant! 1v1防守时
     if (def.card.negativeSkill?.id === SKILL.ROYAL_ETIQUETTE) {

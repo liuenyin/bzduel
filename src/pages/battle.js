@@ -775,6 +775,8 @@ function getAuraClass(p) {
   if (p.inDreamState) return 'aura-dream-domain';
   if (p.chargeStacks > 0) return 'aura-zxs-water';
   if (p.cardId === 'char_15') return 'aura-yzm-gold';
+  if (p.redHeat > 0) return 'aura-wrc-redheat';
+  if (p.buffs && p.buffs.find(b => b.id === 'sugar_crash')) return 'aura-whd-sugar';
   return '';
 }
 
