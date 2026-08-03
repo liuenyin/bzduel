@@ -858,3 +858,103 @@ input[type="text"]::placeholder{color:var(--text-muted)}
 .stats-matrix td.win-high { background: rgba(106,158,109,0.2); color: #3d6e40; font-weight: 700; }
 .stats-matrix td.win-low { background: rgba(196,92,92,0.2); color: #944; font-weight: 700; }
 
+/* ── 优雅特效 & 移动端友好适配 ──────────────── */
+.vfx-heavy-hit {
+  animation: heavyHitShake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+@keyframes heavyHitShake {
+  10%, 90% { transform: translate3d(-2px, 0, 0); }
+  20%, 80% { transform: translate3d(3px, 0, 0); }
+  30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+  40%, 60% { transform: translate3d(4px, 0, 0); }
+}
+
+/* 角色 Aura 光环 (高质感微光) */
+.aura-gpy-rage {
+  box-shadow: 0 0 16px rgba(220, 38, 38, 0.6), inset 0 0 10px rgba(220, 38, 38, 0.4) !important;
+  border-color: #ef4444 !important;
+  animation: auraPulseRed 1.8s infinite ease-in-out;
+}
+@keyframes auraPulseRed {
+  0%, 100% { box-shadow: 0 0 12px rgba(220, 38, 38, 0.5); }
+  50% { box-shadow: 0 0 24px rgba(220, 38, 38, 0.9); }
+}
+
+.aura-dream-domain {
+  box-shadow: 0 0 16px rgba(168, 85, 247, 0.6), inset 0 0 10px rgba(168, 85, 247, 0.4) !important;
+  border-color: #c084fc !important;
+  animation: auraPulsePurple 2s infinite ease-in-out;
+}
+@keyframes auraPulsePurple {
+  0%, 100% { box-shadow: 0 0 12px rgba(168, 85, 247, 0.5); }
+  50% { box-shadow: 0 0 22px rgba(168, 85, 247, 0.85); }
+}
+
+.aura-zxs-water {
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.6) !important;
+  border-color: #38bdf8 !important;
+  animation: auraPulseBlue 2s infinite ease-in-out;
+}
+@keyframes auraPulseBlue {
+  0%, 100% { box-shadow: 0 0 10px rgba(56, 189, 248, 0.4); }
+  50% { box-shadow: 0 0 20px rgba(56, 189, 248, 0.8); }
+}
+
+.aura-yzm-gold {
+  box-shadow: 0 0 14px rgba(234, 179, 8, 0.6) !important;
+  border-color: #facc15 !important;
+}
+
+/* 梦境盲选弹窗 (移动端高度适配) */
+.dream-target-modal-panel {
+  max-width: 440px;
+  width: 92%;
+  padding: 24px 16px;
+  background: rgba(23, 15, 38, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1.5px solid rgba(168, 85, 247, 0.5);
+  border-radius: 20px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  color: #fff;
+  text-align: center;
+  margin: auto;
+}
+
+.dream-target-cards-container {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin: 18px 0;
+}
+
+.dream-target-btn {
+  flex: 1;
+  padding: 16px 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1.5px solid rgba(168, 85, 247, 0.4);
+  border-radius: 14px;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.dream-target-btn:active {
+  transform: scale(0.95);
+  background: rgba(168, 85, 247, 0.3);
+}
+
+@media (max-width: 480px) {
+  .dream-target-cards-container {
+    gap: 8px;
+  }
+  .dream-target-btn {
+    padding: 14px 4px;
+    font-size: 0.85rem;
+  }
+}
+

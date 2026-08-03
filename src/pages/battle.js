@@ -68,7 +68,7 @@ function buildArena(s) {
           ${ s.gameMode === 'sanguosha' ? `<div id="ffa-grid-container">${buildFfaGrid(s)}</div>` : `
           <div class="battle-card-wrap" id="card-op">
             <div class="bc-multi" id="multi-op">${multiTag(getM(op,subj))}</div>
-            <div class="battle-card">
+            <div class="battle-card ${getAuraClass(op)}">
               <img src="${op.card?.image||''}" alt="" onerror="this.style.display='none'">
               <div class="bc-name">${op.card?.name||'???'}</div>
             </div>
@@ -92,7 +92,7 @@ function buildArena(s) {
 
           <div class="battle-card-wrap self-side ${s.attackerIdx === s.myIndex ? 'active-attacker' : ''} ${me.isDead ? 'dead' : ''}" id="card-me">
             <div class="bc-multi" id="multi-me">${multiTag(getM(me,subj))}</div>
-            <div class="battle-card" style="border: 3px solid ${s.attackerIdx === s.myIndex ? 'var(--red)' : 'transparent'}">
+            <div class="battle-card ${getAuraClass(me)}" style="border: 3px solid ${s.attackerIdx === s.myIndex ? 'var(--red)' : 'transparent'}">
               <img src="${me.card?.image||''}" alt="" onerror="this.style.display='none'">
               <div class="bc-name">${me.card?.name||'???'}</div>
               ${s.attackerIdx === s.myIndex ? `<div class="atk-badge-lg">ATTACKING</div>` : ''}
@@ -208,21 +208,21 @@ function checkDreamTargetModal(s) {
     overlay.id = 'dream-target-modal';
     overlay.style.zIndex = '10000';
     overlay.innerHTML = `
-      <div class="panel" style="max-width:460px; width:90%; text-align:center; background:linear-gradient(135deg, #2e1065, #0f172a); border:2px solid #a855f7; color:#fff;">
-        <h2 style="color:#fef08a; margin-bottom:8px; font-size:1.4rem;">👑 梦境之王 - 盲选真身</h2>
-        <p style="font-size:0.9rem; color:#e9d5ff; margin-bottom:20px;">付修然展开了梦境领域！出现 1 个本体与 2 个分身，请选择你本节课攻击的目标：</p>
-        <div style="display:flex; justify-content:space-around; gap:12px; margin-bottom:20px;">
-          <button class="btn" style="flex:1; padding:20px 8px; background:rgba(255,255,255,0.1); border:2px solid #a855f7; border-radius:12px; color:#fff; cursor:pointer; font-size:1.1rem; font-weight:bold; transition:all 0.2s;" onclick="window._pickDreamTarget(0)">
+      <div class="dream-target-modal-panel">
+        <h2 style="color:#fef08a; margin-bottom:6px; font-size:1.35rem;">👑 梦境之王 - 盲选真身</h2>
+        <p style="font-size:0.88rem; color:#e9d5ff; margin-bottom:14px; line-height:1.4;">付修然展开了梦境领域！出现 1 个本体与 2 个分身，请盲选本节课的攻击目标：</p>
+        <div class="dream-target-cards-container">
+          <button class="dream-target-btn" onclick="window._pickDreamTarget(0)">
             🔮 目标 A
           </button>
-          <button class="btn" style="flex:1; padding:20px 8px; background:rgba(255,255,255,0.1); border:2px solid #a855f7; border-radius:12px; color:#fff; cursor:pointer; font-size:1.1rem; font-weight:bold; transition:all 0.2s;" onclick="window._pickDreamTarget(1)">
+          <button class="dream-target-btn" onclick="window._pickDreamTarget(1)">
             🔮 目标 B
           </button>
-          <button class="btn" style="flex:1; padding:20px 8px; background:rgba(255,255,255,0.1); border:2px solid #a855f7; border-radius:12px; color:#fff; cursor:pointer; font-size:1.1rem; font-weight:bold; transition:all 0.2s;" onclick="window._pickDreamTarget(2)">
+          <button class="dream-target-btn" onclick="window._pickDreamTarget(2)">
             🔮 目标 C
           </button>
         </div>
-        <p style="font-size:0.75rem; color:#a855f7;">* 若选错分身：分身使用超强骰池 (D7+D9+D9+D9+D11)，且无法伤及本体！</p>
+        <p style="font-size:0.75rem; color:#c084fc;">* 选错分身：分身使用超强骰池 (D7+D9+D9+D9+D11) 且无法伤及本体！</p>
       </div>
     `;
     document.body.appendChild(overlay);
@@ -452,7 +452,7 @@ function buffIcons(p) {
     h += `<div class="buff-icon pos" style="background:#581c87; color:#fef08a;" title="梦境领域开启中">👑梦境</div>`;
   }
   if (p.lgpyForm) {
-    h += `<div class="buff-icon neg" style="background:#991b1b;" title="lgpy 狂暴斩杀形态">🐘狂暴</div>`;
+    h += `<div class="buff-icon neg" style="background:#991b1b;" title="gpy 狂暴斩杀形态">🐘狂暴</div>`;
   }
   return h;
 }
@@ -768,6 +768,15 @@ function addLog(r) {
 function curSubj() { return S.schedule[S.currentClassIndex] || S.schedule[S.schedule.length-1]; }
 function pct(c,m) { if (typeof c !== 'number' || typeof m !== 'number') return 100; return m>0 ? Math.max(0,Math.round(c/m*100)) : 0; }
 function getM(p,subj) { return p.card ? getSkillMultiplier(p.card.subjects, subj) : 1; }
+
+function getAuraClass(p) {
+  if (!p) return '';
+  if (p.lgpyForm) return 'aura-gpy-rage';
+  if (p.inDreamState) return 'aura-dream-domain';
+  if (p.chargeStacks > 0) return 'aura-zxs-water';
+  if (p.cardId === 'char_15') return 'aura-yzm-gold';
+  return '';
+}
 
 function multiTag(m) {
   if (m===2) return '<span class="multiplier x2">×2</span>';

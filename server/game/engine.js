@@ -1043,7 +1043,7 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
         p.inDreamState = false;
         p.pendingDreamState = false;
         p.dreamTargetChoice = null;
-        state.log.push({ text: `【狂暴】${p.nickname} 触发[小象的谴责]，瞬间切为 lgpy 斩杀形态！`, type: 'skill' });
+        state.log.push({ text: `【狂暴】${p.nickname} 触发[小象的谴责]，瞬间切为 gpy 斩杀形态！`, type: 'skill' });
       }
     }
   };
