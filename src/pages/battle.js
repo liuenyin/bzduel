@@ -166,12 +166,14 @@ function rebindActionButtons() {
 function refreshAll() {
   const subj = curSubj();
   // HP
-  // HP
   setHP('hp-me', S.me.hp, S.me.maxHp, 'hp-me-t');
   if (S.gameMode === '1v1') {
     setHP('hp-op', S.opponent.hp, S.opponent.maxHp, 'hp-op-t');
     setText('multi-op', multiTag(getM(S.opponent, subj)));
     const bOp = document.getElementById('buffs-op'); if (bOp) bOp.innerHTML = buffIcons(S.opponent);
+    // 动态更新对手 aura
+    const opCard = document.querySelector('#card-op .battle-card');
+    if (opCard) updateAura(opCard, S.opponent);
   } else {
     const grid = document.getElementById('ffa-grid-container');
     if (grid) grid.innerHTML = buildFfaGrid(S);
@@ -179,6 +181,9 @@ function refreshAll() {
   // Multipliers & Buffs
   setText('multi-me', multiTag(getM(S.me, subj)));
   const bMe = document.getElementById('buffs-me'); if (bMe) bMe.innerHTML = buffIcons(S.me);
+  // 动态更新自己 aura
+  const meCard = document.querySelector('#card-me .battle-card');
+  if (meCard) updateAura(meCard, S.me);
   // Schedule
   const sb = document.getElementById('sidebar-schedule');
   if (sb) {
@@ -288,8 +293,9 @@ function renderDice() {
     defPlayer = S.defenderIdx !== null ? S.players[S.defenderIdx] : null;
   }
 
-  const atkPool = atkPlayer?.card?.dicePool || [];
-  const defPool = defPlayer?.card?.dicePool || [];
+  // 使用 effectiveDicePool 以正确反映状态覆盖后的骰池
+  const atkPool = atkPlayer?.effectiveDicePool || atkPlayer?.card?.dicePool || [];
+  const defPool = defPlayer?.effectiveDicePool || defPlayer?.card?.dicePool || [];
 
   let html = '';
   if (S.attackRolls) {
@@ -437,22 +443,24 @@ window._doSacrifice = (idx) => {
 function buffIcons(p) {
   if (!p) return '';
   let h = '';
-  if (p.hasReschedule) h += `<div class="buff-icon pos" title="拥有调课权">🔄</div>`;
-  if (p.permanentDefPenalty) h += `<div class="buff-icon neg" title="体力透支: 防御力永久 -${p.permanentDefPenalty}">💦</div>`;
-  if (p.buffs && p.buffs.find(b => b.id === 'sugar_crash')) h += `<div class="buff-icon neg" title="犯糖: 禁锢重投，回合开始受击">🍭</div>`;
-  if (p.redHeat > 0) h += `<div class="buff-icon neg" title="红温: ${p.redHeat}层">🔥${p.redHeat}</div>`;
-  if (p.chargeStacks > 0) h += `<div class="buff-icon pos" title="蓄势: ${p.chargeStacks}层">💧${p.chargeStacks}</div>`;
-  if (p.stickers > 0) h += `<div class="buff-icon neg" title="贴画: ${p.stickers}张">🎨${p.stickers}</div>`;
+  if (p.hasReschedule) h += `<div class="buff-icon buff-neutral" title="拥有调课权"><span class="buff-label">调课</span></div>`;
+  if (p.permanentDefPenalty) h += `<div class="buff-icon buff-debuff" title="体力透支: 防御力永久 -${p.permanentDefPenalty}"><span class="buff-label">-${p.permanentDefPenalty}DEF</span></div>`;
+  if (p.buffs && p.buffs.find(b => b.id === 'sugar_crash')) h += `<div class="buff-icon buff-debuff buff-sugar" title="犯糖: 禁锢重投，回合开始受击"><span class="buff-label">犯糖</span></div>`;
+  if (p.redHeat > 0) h += `<div class="buff-icon buff-debuff buff-heat" title="红温: ${p.redHeat}层"><span class="buff-label">${p.redHeat}</span></div>`;
+  if (p.chargeStacks > 0) h += `<div class="buff-icon buff-charge" title="蓄势: ${p.chargeStacks}层"><span class="buff-label">${p.chargeStacks}</span></div>`;
+  if (p.stickers > 0) h += `<div class="buff-icon buff-debuff buff-sticker" title="贴画: ${p.stickers}张"><span class="buff-label">${p.stickers}</span></div>`;
+  if (p.invertReduction > 0) h += `<div class="buff-icon buff-neutral" title="深度思考: 永久减伤 ${p.invertReduction}"><span class="buff-label">-${p.invertReduction}DMG</span></div>`;
+  if (p.nineLivesUsed) h += `<div class="buff-icon buff-neutral" title="九条命已触发"><span class="buff-label">D10</span></div>`;
 
   // 付修然 (fxr) 状态
   if (p.dreamStacks > 0 && !p.inDreamState) {
-    h += `<div class="buff-icon pos" style="background:#6b21a8;" title="梦境层数: ${p.dreamStacks}/3">🌙${p.dreamStacks}</div>`;
+    h += `<div class="buff-icon buff-dream" title="梦境层数: ${p.dreamStacks}/3"><span class="buff-label">${p.dreamStacks}/3</span></div>`;
   }
   if (p.inDreamState && !p.lgpyForm) {
-    h += `<div class="buff-icon pos" style="background:#581c87; color:#fef08a;" title="梦境领域开启中">👑梦境</div>`;
+    h += `<div class="buff-icon buff-dream-active" title="梦境领域开启中"><span class="buff-label">梦境</span></div>`;
   }
   if (p.lgpyForm) {
-    h += `<div class="buff-icon neg" style="background:#991b1b;" title="gpy 狂暴斩杀形态">🐘狂暴</div>`;
+    h += `<div class="buff-icon buff-gpy" title="gpy 狂暴斩杀形态"><span class="buff-label">狂暴</span></div>`;
   }
   return h;
 }
@@ -774,10 +782,18 @@ function getAuraClass(p) {
   if (p.lgpyForm) return 'aura-gpy-rage';
   if (p.inDreamState) return 'aura-dream-domain';
   if (p.chargeStacks > 0) return 'aura-zxs-water';
-  if (p.cardId === 'char_15') return 'aura-yzm-gold';
+  if (p.cardId === 'char_19') return 'aura-yzm-gold';
   if (p.redHeat > 0) return 'aura-wyc-redheat';
   if (p.buffs && p.buffs.find(b => b.id === 'sugar_crash')) return 'aura-whd-sugar';
   return '';
+}
+
+const AURA_CLASSES = ['aura-gpy-rage', 'aura-dream-domain', 'aura-zxs-water', 'aura-yzm-gold', 'aura-wyc-redheat', 'aura-whd-sugar'];
+function updateAura(el, p) {
+  if (!el) return;
+  AURA_CLASSES.forEach(c => el.classList.remove(c));
+  const newAura = getAuraClass(p);
+  if (newAura) el.classList.add(newAura);
 }
 
 function multiTag(m) {
@@ -791,22 +807,43 @@ function multiTag(m) {
 function phasePrompt(s) {
   let p = '';
   if (s.turnPhase === 'choose_target') p = s.isMyAttackTurn ? '选择目标' : '等待攻击方选择目标…';
-  if (s.turnPhase === 'waiting_atk') p = s.isMyAttackTurn ? '你的攻击回合' : '等待攻击…';
+  if (s.turnPhase === 'waiting_atk') {
+    if (s.isMyAttackTurn) {
+      // 检查是否需要等待梦境盲选
+      if (isDreamBlocking(s)) {
+        p = '<span style="color:#c084fc;">等待对手完成梦境盲选…</span>';
+      } else {
+        p = '你的攻击回合';
+      }
+    } else {
+      p = '等待攻击…';
+    }
+  }
   if (s.turnPhase === 'atk_rolled') p = s.isMyAttackTurn ? '选择骰子重投或确认' : '对手选择中…';
   if (s.turnPhase === 'def_rolled') p = s.isMyDefendTurn ? '你的防御 — 重投或确认' : '对手防御中…';
   
   if (s.allergyTriggered && s.isMyAttackTurn) {
-    p = `<span style="color:var(--red); font-weight:bold;">⚠️ 过敏：伤害已锁定！</span><br/>${p}`;
+    p = `<span style="color:var(--red); font-weight:bold;">过敏发作 — 伤害已锁定</span><br/>${p}`;
   }
   return p;
 }
 
+function isDreamBlocking(s) {
+  if (!s || s.defenderIdx === null) return false;
+  const def = s.players[s.defenderIdx];
+  return def && def.inDreamState && !def.lgpyForm && def.dreamTargetChoice === null;
+}
+
 function actionButtons(s) {
-  if (s.turnPhase === 'waiting_atk' && s.isMyAttackTurn)
+  if (s.turnPhase === 'waiting_atk' && s.isMyAttackTurn) {
+    if (isDreamBlocking(s)) {
+      return '<button id="btn-roll" class="btn btn-primary btn-lg" disabled style="opacity:0.5;">等待盲选…</button>';
+    }
     return '<button id="btn-roll" class="btn btn-primary btn-lg">掷骰</button>';
+  }
   if (s.turnPhase === 'atk_rolled' && s.isMyAttackTurn) {
     const buyBtn = (s.me.cardId === 'char_14' && !s.hasAttackerRerolled && s.me.chargeStacks < 2) 
-      ? '<button id="btn-buy-water" class="btn btn-secondary" style="margin-left:8px;">💧 买水</button>' 
+      ? '<button id="btn-buy-water" class="btn btn-secondary" style="margin-left:8px;">买水</button>' 
       : '';
     return `<div>
           <button id="btn-confirm" class="btn btn-success" disabled>✓ 确认</button>
@@ -814,7 +851,7 @@ function actionButtons(s) {
         </div>` + `${s.me.card.atkSlots === -1 ? '至少选 1 颗' : `需选 ${s.me.card.atkSlots} 颗`}`;
   }
   if (s.turnPhase === 'def_rolled' && s.isMyDefendTurn) {
-    const sacBtn = s.me.cardId === 'char_8' ? '<button id="btn-sacrifice" class="btn btn-secondary" style="display:none;" onclick="window._showSacrifice()">🩸 献祭回血</button>' : '';
+    const sacBtn = s.me.cardId === 'char_8' ? '<button id="btn-sacrifice" class="btn btn-secondary" style="display:none;" onclick="window._showSacrifice()">献祭回血</button>' : '';
     return `<div>
           <button id="btn-confirm" class="btn btn-primary" disabled>✓ 确认</button>
           ${sacBtn}

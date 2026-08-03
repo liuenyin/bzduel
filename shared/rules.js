@@ -108,8 +108,11 @@ export const DICE_COLORS = {
   2:  { border: '#d69e2e', bg: '#fffff0', label: '2' },
   4:  { border: '#38b2ac', bg: '#e6fffa', label: '4' },
   6:  { border: '#4299e1', bg: '#ebf8ff', label: '6' },
+  7:  { border: '#c084fc', bg: '#2e1065', label: '7' },   // FXR 梦境/gpy 专属
   8:  { border: '#9f7aea', bg: '#faf5ff', label: '8' },
+  9:  { border: '#a855f7', bg: '#1e1b4b', label: '9' },   // FXR 梦境/gpy 专属
   10: { border: '#ed8936', bg: '#fffaf0', label: '10' },
+  11: { border: '#e879f9', bg: '#1a0a2e', label: '11' },  // FXR 梦境/gpy 专属
   12: { border: '#ecc94b', bg: '#fffff0', label: '12' },
   14: { border: '#e53e3e', bg: '#fff5f5', label: '14' },
   16: { border: '#dd6b20', bg: '#fffff0', label: '16' },

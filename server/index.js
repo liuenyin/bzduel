@@ -267,7 +267,12 @@ io.on('connection', (socket) => {
     const g = room.game;
     if (getCurrentAttackerId(g) !== socket.id) return;
     const res = rollAttack(g);
-    if (res.ok) {
+    if (!res.ok) {
+      if (res.error === 'dream_target_required') {
+        socket.emit('error_msg', { message: '梦境盲选尚未完成，请等待对手选择目标。' });
+      }
+      return;
+    }
       emitStateToAll(room);
       if (res.selfKill) {
         emitToAll(room, 'turn_resolved', (pid) => ({
@@ -279,7 +284,6 @@ io.on('connection', (socket) => {
         }));
         setTimeout(() => cleanupRoom(room), 30000);
       }
-    }
   });
 
   // ── 重投骰子 ──
@@ -469,12 +473,16 @@ function triggerAiPhase(roomId) {
   if (!room || !room.isAI || room.game.phase !== 'battle') return;
   const g = room.game;
 
-  // AI 自动盲选目标
+  // AI 自动盲选目标（梦境）
   const fxr = g.players.find(p => p.card?.positiveSkill?.id === SKILL.DREAM_KING);
   if (fxr && fxr.inDreamState && !fxr.lgpyForm && fxr.dreamTargetChoice === null) {
-    const aiTargetIdx = Math.floor(Math.random() * 3);
-    chooseDreamTarget(g, room.aiId, aiTargetIdx);
-    emitStateToAll(room);
+    // 找到非 FXR 的 AI 玩家来盲选
+    const nonFxrAi = fxr.id === room.aiId ? null : room.aiId;
+    if (nonFxrAi) {
+      const aiTargetIdx = Math.floor(Math.random() * 3);
+      chooseDreamTarget(g, nonFxrAi, aiTargetIdx);
+      emitStateToAll(room);
+    }
   }
 
   // 1. 等待攻击阶段 (掷骰)

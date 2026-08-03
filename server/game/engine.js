@@ -161,6 +161,15 @@ function getRollingPool(player) {
 // ── 阶段1: 攻击方掷骰 ──
 export function rollAttack(state) {
   if (state.phase !== PHASE.BATTLE || state.turnPhase !== TURN.WAITING_ATK) return { ok: false };
+
+  // 梦境前置检查：如果对手是 FXR 且在梦境中，必须先完成盲选
+  const defIdx = state.turnData.defenderIdx;
+  if (defIdx !== null) {
+    const defP = state.players[defIdx];
+    if (defP.card?.positiveSkill?.id === SKILL.DREAM_KING && defP.inDreamState && !defP.lgpyForm && defP.dreamTargetChoice === null) {
+      return { ok: false, error: 'dream_target_required' };
+    }
+  }
   const atk = state.players[state.turnData.attackerIdx];
   const subj = state.schedule[state.currentClassIndex];
   let multi = getSkillMultiplier(atk.card.subjects, subj);
@@ -1360,6 +1369,13 @@ export function getStateView(state, playerId) {
       chargeStacks: p.chargeStacks || 0,
       isDead: !!p.isDead,
       identity: hideIdentity ? '?' : p.identity,
+      // 新增字段
+      stickers: p.stickers || 0,
+      selfStickers: p.selfStickers || 0,
+      invertReduction: p.invertReduction || 0,
+      nineLivesUsed: !!p.nineLivesUsed,
+      effectiveDicePool: (state.phase === PHASE.BATTLE || state.phase === PHASE.GAME_OVER) ? getRollingPool(p) : null,
+      pendingDreamState: !!p.pendingDreamState,
       // 付修然 (fxr) 状态
       dreamStacks: p.dreamStacks || 0,
       inDreamState: !!p.inDreamState,
