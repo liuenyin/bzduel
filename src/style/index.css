@@ -905,7 +905,7 @@ input[type="text"]::placeholder{color:var(--text-muted)}
   border-color: #facc15 !important;
 }
 
-.aura-wrc-redheat {
+.aura-wyc-redheat {
   box-shadow: 0 0 16px rgba(239, 68, 68, 0.7) !important;
   border-color: #ef4444 !important;
   animation: auraPulseRedHeat 1.5s infinite ease-in-out;
