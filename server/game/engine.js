@@ -307,7 +307,10 @@ export function rollAttack(state) {
 
 // ── 阶段2: 重投骰子 (攻击或防御阶段通用) ──
 export function rerollDice(state, playerId, indices) {
+  if (state.phase !== PHASE.BATTLE) return { ok: false, error: '非战斗阶段' };
   const p = findPlayer(state, playerId);
+  const opp = state.players.find(x => x.id !== playerId && !x.isDead);
+  if (opp && opp.playedTurnCard?.id === 'card_gen_09') return { ok: false, error: '对方使用了【重投锁死】，无法重投！' };
   if (!p || p.rerolls <= 0) return { ok: false };
   if (!indices || indices.length === 0) return { ok: false };
 
@@ -1678,7 +1681,10 @@ function calcTacticalCardEffects(state, atk, def, keptRolls) {
       case 'card_chi_1': if (curSubj === 'chinese') atkBonus += 2; break;
       case 'card_mat_2': atkBonus += 3; break;
       case 'card_pe_2': atkBonus += 4; break;
-      case 'card_gen_02': atkBonus += 2; break;
+      case 'card_gen_01': atkBonus += 8; break; // 必定最大值，给个高额攻击加成
+        case 'card_gen_02': atkBonus += 2; break;
+        case 'card_gen_06': defBonus -= 2; break; // 压制对方点数
+        case 'card_gen_08': defBonus -= 2; break; // 创伤加深
       case 'card_phy_1':
         if (curSubj === 'physics' && keptRolls) {
           const evens = keptRolls.filter(r => r % 2 === 0).length;
@@ -1716,7 +1722,11 @@ function calcTacticalCardEffects(state, atk, def, keptRolls) {
     switch (c.id) {
       case 'card_pol_1': if (curSubj === 'politics') isNoFixedBonus = true; break;
       case 'card_pol_2': defBonus += 3; break;
-      case 'card_gen_05': defBonus += 3; break;
+      case 'card_gen_01': defBonus -= 99; break; // 无法防御
+        case 'card_gen_05': defBonus += 3; break;
+        case 'card_gen_06': atkBonus -= 2; break;
+        case 'card_gen_08': atkBonus += 2; break; // 防御结算额外受2伤害
+        case 'card_gen_13': defBonus += Math.floor((atk.keptRolls ? atk.keptRolls.reduce((a,b)=>a+b,0) : 10) * 0.5); break;
       case 'card_tec_1': if (curSubj === 'tech') defBonus += 2; break;
       case 'card_pol_3': maxDmgCap = Math.min(maxDmgCap, 8); break;
       case 'card_bio_1': if (curSubj === 'biology') defBonus += 3; break;
@@ -1792,7 +1802,20 @@ function applyInstantCardEffect(state, p, card) {
         p.handCards.push(getRandomCard(curSubj, p.card?.subjects || []));
       }
       break;
-    case 'card_gen_10':
+    case 'card_gen_11':
+        if (p.handCards && p.handCards.length > 0) {
+          p.handCards.splice(Math.floor(Math.random() * p.handCards.length), 1);
+        }
+        p.handCards.push(getRandomCard(state.schedule[state.currentClassIndex] || 'chinese', p.card?.subjects || []));
+        break;
+      case 'card_gen_12':
+        p.stealthActive = true;
+        break;
+      case 'card_gen_14':
+        p.hp = Math.max(0, p.hp - 5);
+        if (opp) opp.hp = Math.max(0, opp.hp - 5);
+        break;
+      case 'card_gen_10':
       if (opp) opp.redHeat = (opp.redHeat || 0) + 2;
       break;
   }

@@ -78,8 +78,11 @@ function buildArena(s) {
               <span class="hp-label" id="hp-op-t">${op.hp}</span>
             </div>
             ${s.gameMode === 'sanguosha' ? `<div class="bc-identity-badge">${identityName(op.identity)}</div>` : ''}
-            <div class="skill-desc-box">
-              ${op.card?.positiveSkill ? `<div class="skill-desc-line pos">✦ ${op.card.positiveSkill.name}: ${op.card.positiveSkill.desc}</div>` : ''}
+            <details class="skill-details">
+              <summary style="font-size:0.75rem; color:var(--text-secondary); cursor:pointer; text-align:center; padding-top:4px;">查看技能 (点击展开)</summary>
+              <div class="skill-desc-box">
+              ${op.card?.positiveSkill ? `<div class="skill-desc-line pos">✦ ${op.card.positiveSkill.name}: ${op.card.positiveSkill.desc}</div>
+            </details>` : ''}
               ${op.card?.neutralSkill ? `<div class="skill-desc-line neu">⬩ ${op.card.neutralSkill.name}: ${op.card.neutralSkill.desc}</div>` : ''}
               ${op.card?.negativeSkill ? `<div class="skill-desc-line neg">✧ ${op.card.negativeSkill.name}: ${op.card.negativeSkill.desc}</div>` : ''}
             </div>
@@ -104,8 +107,11 @@ function buildArena(s) {
               <span class="hp-label" id="hp-me-t">${me.hp}</span>
             </div>
             ${s.gameMode === 'sanguosha' ? `<div class="bc-identity-badge">${identityName(me.identity)}</div>` : ''}
-            <div class="skill-desc-box">
-              ${me.card?.positiveSkill ? `<div class="skill-desc-line pos">✦ ${me.card.positiveSkill.name}: ${me.card.positiveSkill.desc}</div>` : ''}
+            <details class="skill-details">
+              <summary style="font-size:0.75rem; color:var(--text-secondary); cursor:pointer; text-align:center; padding-top:4px;">查看技能 (点击展开)</summary>
+              <div class="skill-desc-box">
+              ${me.card?.positiveSkill ? `<div class="skill-desc-line pos">✦ ${me.card.positiveSkill.name}: ${me.card.positiveSkill.desc}</div>
+            </details>` : ''}
               ${me.card?.neutralSkill ? `<div class="skill-desc-line neu">⬩ ${me.card.neutralSkill.name}: ${me.card.neutralSkill.desc}</div>` : ''}
               ${me.card?.negativeSkill ? `<div class="skill-desc-line neg">✧ ${me.card.negativeSkill.name}: ${me.card.negativeSkill.desc}</div>` : ''}
             </div>
@@ -477,7 +483,7 @@ function renderDice() {
         face += S.extraTurnFaceBoost;
       }
       // 殷泽轩屏蔽：如果不是我掷出的且对方是 YZX
-      const isYzx = v === -1;
+      const isYzx = v === -1 || p.stealth;
       const color = DICE_COLORS[face];
       let style = color ? `border-color:${color.border}; color:${color.border};` : '';
       if (S.atkResult && !isKept) style += 'opacity:0.3;';
@@ -507,7 +513,7 @@ function renderDice() {
         const face = defPool[i] || 6;
         const color = DICE_COLORS[face];
         // 如果点数是 -1，说明被后端屏蔽了
-        const isYzx = v === -1;
+        const isYzx = v === -1 || p.stealth;
         let style = color ? `border-color:${color.border}; color:${color.border};` : '';
         if (isConfirmed) style += 'opacity:0.5;';
         const displayVal = isYzx ? '?' : v;
@@ -879,7 +885,7 @@ function showGameOver(s) {
     if (!p) return '';
     const isMe = index === s.myIndex;
     const card = p.card;
-    const isYzx = p.cardId === 'char_10' && !isMe;
+    const isYzx = (p.cardId === 'char_10' || p.stealth) && !isMe;
     const hpText = isYzx ? '??' : p.hp;
     const maxHpText = isYzx ? '??' : p.maxHp;
     const hpPercent = isYzx ? 100 : (p.hp / p.maxHp) * 100;
