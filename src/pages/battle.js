@@ -492,7 +492,7 @@ function renderDice() {
         face += S.extraTurnFaceBoost;
       }
       // 殷泽轩屏蔽：如果不是我掷出的且对方是 YZX
-      const isYzx = v === -1 || p.stealth;
+      const isYzx = v === -1 || (atkPlayer && atkPlayer.stealth);
       const color = DICE_COLORS[face];
       let style = color ? `border-color:${color.border}; color:${color.border};` : '';
       if (S.atkResult && !isKept) style += 'opacity:0.3;';
@@ -522,7 +522,7 @@ function renderDice() {
         const face = defPool[i] || 6;
         const color = DICE_COLORS[face];
         // 如果点数是 -1，说明被后端屏蔽了
-        const isYzx = v === -1 || p.stealth;
+        const isYzx = v === -1 || (defPlayer && defPlayer.stealth);
         let style = color ? `border-color:${color.border}; color:${color.border};` : '';
         if (isConfirmed) style += 'opacity:0.5;';
         const displayVal = isYzx ? '?' : v;
@@ -678,6 +678,7 @@ function buildAlerts(data) {
     if (res.detonateTriggered) alerts.push(`<div class="skill-alert negative">红温引爆 — ${res.detonateDamage}伤害！</div>`);
     if (res.redHeatApplied > 0) alerts.push(`<div class="skill-alert negative">红温 +${res.redHeatApplied}层</div>`);
     if (res.extraTurnTriggered) alerts.push(`<div class="skill-alert positive">死磕 — 获得额外攻击回合！</div>`);
+    if (res.nineLivesTriggered || data.nineLivesTriggered) alerts.push(`<div class="skill-alert positive">九条命 — 满血复活！</div>`);
   });
 
   if (data.firstBloodTriggered) alerts.push(`<div class="skill-alert negative">偏科 — 防御选骰数 -1！</div>`);
@@ -720,7 +721,13 @@ export function onTurnResolved(data) {
           const dmgEl = document.createElement('div');
           dmgEl.className = `floating-damage ${res.damage === 0 ? 'miss' : ''}`;
           dmgEl.textContent = res.damage > 0 ? `−${res.damage}` : 'MISS';
-          if (dCard) dCard.appendChild(dmgEl);
+          if (dCard) {
+            dCard.appendChild(dmgEl);
+            if (res.nineLivesTriggered) {
+              dCard.classList.add('revival-halo');
+              setTimeout(() => dCard.classList.remove('revival-halo'), 1500);
+            }
+          }
           setTimeout(() => dmgEl.remove(), 1200);
         }, 400);
       });
@@ -741,7 +748,7 @@ export function onTurnResolved(data) {
           S = newState;
           animLock = false;
           refreshAll();
-          addLog(data); // TODO aoe log
+          data.aoeResults.forEach(r => addLog(r));
           if (data.gameOver) setTimeout(() => showGameOver(S), 800);
         }, data.classChanged ? 1500 : 500);
       }, 1500);
@@ -768,7 +775,13 @@ export function onTurnResolved(data) {
         const dmgEl = document.createElement('div');
         dmgEl.className = `floating-damage ${damage === 0 ? 'miss' : ''}`;
         dmgEl.textContent = damage > 0 ? `−${damage}` : 'MISS';
-        if (defCard) defCard.appendChild(dmgEl);
+        if (defCard) {
+          defCard.appendChild(dmgEl);
+          if (data.nineLivesTriggered) {
+            defCard.classList.add('revival-halo');
+            setTimeout(() => defCard.classList.remove('revival-halo'), 1500);
+          }
+        }
         playHit(damage >= 8);
         if (damage >= 8) {
           document.body.classList.add('shake-screen');
