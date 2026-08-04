@@ -1055,8 +1055,8 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
     if (p.card.negativeSkill?.id === SKILL.ELEPHANT_CONDEMN && !p.lgpyTriggered) {
       if (op.hp > 0 && op.hp < op.maxHp * 0.2) {
         p.lgpyTriggered = true;
-        p.lgpyForm = true;
-        p.lgpyTurnsLeft = 1;
+        op.lgpyForm = true;
+        op.lgpyTurnsLeft = 1;
         p.inDreamState = false;
         p.pendingDreamState = false;
         p.dreamTargetChoice = null;
