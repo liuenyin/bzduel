@@ -22,6 +22,12 @@ const identityName = (id) => {
 export function renderBattle(container, data) {
   S = data.state;
   animLock = false; // 重置动画锁
+
+  window._refreshDraftSlot = (idx) => { gameSocket.refreshDraftSlot(idx); };
+  window._buyDraftCard = (idx) => { gameSocket.buyDraftCard(idx); };
+  window._confirmDraftReady = () => { gameSocket.confirmDraftReady(); };
+  window._playTacticalCard = (id) => { gameSocket.playTacticalCard(id); };
+
   container.innerHTML = buildArena(S);
   bindCoreEvents();
 
@@ -334,28 +340,11 @@ function checkDraftShopModal(s) {
     const pDraft = s.draftShop.players?.[s.me.id];
     if (!pDraft) return;
 
-    if (pDraft.ready) {
-      if (existing) {
-        existing.querySelector('.draft-shop-panel').innerHTML = `
-          <h2 style="color:var(--gold); font-size:1.2rem; margin-bottom:8px;">⚡ 战术补给站</h2>
-          <p style="color:var(--accent); font-size:1rem; animation:pulse 1s infinite;">已完成选牌，等待对方选择…</p>
-        `;
-      }
-      return;
-    }
-
-    if (existing) return;
-
-    const overlay = document.createElement('div');
-    overlay.className = 'result-overlay';
-    overlay.id = 'draft-shop-modal';
-    overlay.style.zIndex = '9999';
-
     const renderSlots = () => {
       const curSubj = s.schedule[s.currentClassIndex];
       return pDraft.slots.map((slot, idx) => {
         const c = slot.card;
-        if (!c) return `<div class="draft-slot-card"><p>已领完</p></div>`;
+        if (!c) return `<div class="draft-slot-card"><p style="color:var(--text-muted); text-align:center;">已领完</p></div>`;
         const typeLabel = c.type === 'blessing' ? '祝福' : (c.type === 'buff' ? '增益' : (c.type === 'debuff' ? '减益' : '其他'));
         const typeClass = c.type || 'buff';
         const scopeLabel = c.subject === 'universal' ? '通用' : (SUBJECTS[c.subject]?.label || c.subject);
@@ -386,11 +375,36 @@ function checkDraftShopModal(s) {
       }).join('');
     };
 
+    if (pDraft.ready) {
+      if (existing) {
+        existing.querySelector('.draft-shop-panel').innerHTML = `
+          <h2 style="color:var(--gold); font-size:1.2rem; margin-bottom:8px;">⚡ 战术补给站</h2>
+          <p style="color:var(--accent); font-size:1rem; animation:pulse 1s infinite;">已完成选牌，等待对方选择…</p>
+        `;
+      }
+      return;
+    }
+
+    if (existing) {
+      const slotsWrap = existing.querySelector('#draft-slots-wrap');
+      if (slotsWrap) slotsWrap.innerHTML = renderSlots();
+      const subTitle = existing.querySelector('.draft-shop-panel p');
+      if (subTitle) {
+        subTitle.innerHTML = `下节课即将开始！请选择 1~3 张战术卡加入手牌（当前持有: ${s.me.handCards?.length || 0}/3 | 持有TP: ⚡${s.me.tp}）`;
+      }
+      return;
+    }
+
+    const overlay = document.createElement('div');
+    overlay.className = 'result-overlay';
+    overlay.id = 'draft-shop-modal';
+    overlay.style.zIndex = '9999';
+
     overlay.innerHTML = `
       <div class="draft-shop-panel">
         <h2 style="color:var(--gold); font-size:1.25rem; margin-bottom:4px;">战术补给站</h2>
         <p style="font-size:0.82rem; color:var(--text-secondary); margin-bottom:12px;">
-          下节课即将开始！请选择 1~3 张战术卡加入手牌（当前持有: ${s.me.handCards?.length || 0}/3）
+          下节课即将开始！请选择 1~3 张战术卡加入手牌（当前持有: ${s.me.handCards?.length || 0}/3 | 持有TP: ⚡${s.me.tp}）
         </p>
         <div class="draft-slots-container" id="draft-slots-wrap">
           ${renderSlots()}
@@ -404,11 +418,6 @@ function checkDraftShopModal(s) {
     `;
 
     document.body.appendChild(overlay);
-
-    window._refreshDraftSlot = (idx) => { gameSocket.refreshDraftSlot(idx); };
-    window._buyDraftCard = (idx) => { gameSocket.buyDraftCard(idx); };
-    window._confirmDraftReady = () => { gameSocket.confirmDraftReady(); };
-    window._playTacticalCard = (id) => { gameSocket.playTacticalCard(id); };
   } else {
     if (existing) existing.remove();
   }
