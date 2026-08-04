@@ -81,12 +81,12 @@ function buildArena(s) {
             <details class="skill-details">
               <summary style="font-size:0.75rem; color:var(--text-secondary); cursor:pointer; text-align:center; padding-top:4px;">查看技能 (点击展开)</summary>
               <div class="skill-desc-box">
-              ${op.card?.positiveSkill ? `<div class="skill-desc-line pos">✦ ${op.card.positiveSkill.name}: ${op.card.positiveSkill.desc}</div>
-            </details>` : ''}
+              ${op.card?.positiveSkill ? `<div class="skill-desc-line pos">✦ ${op.card.positiveSkill.name}: ${op.card.positiveSkill.desc}</div>` : ''}
               ${op.card?.neutralSkill ? `<div class="skill-desc-line neu">⬩ ${op.card.neutralSkill.name}: ${op.card.neutralSkill.desc}</div>` : ''}
               ${op.card?.negativeSkill ? `<div class="skill-desc-line neg">✧ ${op.card.negativeSkill.name}: ${op.card.negativeSkill.desc}</div>` : ''}
             </div>
-            <div class="bc-buffs" id="buffs-op">${buffIcons(op)}</div>
+              </details>
+              <div class="bc-buffs" id="buffs-op">${buffIcons(op)}</div>
           </div>
           `}
 
@@ -110,12 +110,12 @@ function buildArena(s) {
             <details class="skill-details">
               <summary style="font-size:0.75rem; color:var(--text-secondary); cursor:pointer; text-align:center; padding-top:4px;">查看技能 (点击展开)</summary>
               <div class="skill-desc-box">
-              ${me.card?.positiveSkill ? `<div class="skill-desc-line pos">✦ ${me.card.positiveSkill.name}: ${me.card.positiveSkill.desc}</div>
-            </details>` : ''}
+              ${me.card?.positiveSkill ? `<div class="skill-desc-line pos">✦ ${me.card.positiveSkill.name}: ${me.card.positiveSkill.desc}</div>` : ''}
               ${me.card?.neutralSkill ? `<div class="skill-desc-line neu">⬩ ${me.card.neutralSkill.name}: ${me.card.neutralSkill.desc}</div>` : ''}
               ${me.card?.negativeSkill ? `<div class="skill-desc-line neg">✧ ${me.card.negativeSkill.name}: ${me.card.negativeSkill.desc}</div>` : ''}
             </div>
-            <div class="bc-buffs" id="buffs-me">${buffIcons(me)}</div>
+              </details>
+              <div class="bc-buffs" id="buffs-me">${buffIcons(me)}</div>
           </div>
         </div>
 

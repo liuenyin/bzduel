@@ -304,6 +304,7 @@ input[type="text"]::placeholder{color:var(--text-muted)}
 .hp-bar-h.enemy{background:linear-gradient(to right,#b35555,#d07070)}
 .hp-label{position:absolute;top:0;width:100%;text-align:center;font-size:.55rem;font-weight:800;line-height:12px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.4)}
 
+.skill-details{width:100%}
 .skill-desc-box{width:100%;background:var(--bg-card);border:1.5px solid var(--bg-inset);border-radius:8px;padding:6px;font-size:.65rem;line-height:1.3;color:var(--text-secondary);text-align:center;box-shadow:0 2px 6px rgba(0,0,0,.03)}
 .skill-desc-line{margin-bottom:2px; text-align: left;}.skill-desc-line:last-child{margin-bottom:0}
 .skill-desc-line.pos{color:#3d6e40}.skill-desc-line.neu{color:#4a5568}.skill-desc-line.neg{color:#944}
