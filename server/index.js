@@ -527,6 +527,40 @@ function triggerAiPhase(roomId) {
     }
   }
 
+  // AI 选卡商店自动补牌与确认
+  if (g.draftShop && g.draftShop.active) {
+    const aiDraft = g.draftShop.players?.[room.aiId];
+    if (aiDraft && !aiDraft.ready) {
+      const aiPlayer = g.players.find(p => p.id === room.aiId);
+      if (aiPlayer) {
+        for (let i = 0; i < aiDraft.slots.length; i++) {
+          if ((aiPlayer.handCards || []).length < 3 && aiDraft.slots[i].card) {
+            buyDraftCard(g, room.aiId, i);
+          }
+        }
+      }
+      confirmDraftReady(g, room.aiId);
+      emitStateToAll(room);
+    }
+  }
+
+  // AI 打出战术卡策略 (在自己攻防回合自动打出可用卡)
+  const aiPlayer = g.players.find(p => p.id === room.aiId);
+  if (aiPlayer && !aiPlayer.isDead && aiPlayer.handCards && aiPlayer.handCards.length > 0) {
+    const curSubj = g.schedule[g.currentClassIndex];
+    if (aiPlayer.card?.subjects?.includes(curSubj)) {
+      const playableCard = aiPlayer.handCards.find(c => {
+        const canAfford = (aiPlayer.tp || 0) >= c.tpCost;
+        const subjMatch = c.subject === 'universal' || c.subject === curSubj;
+        return canAfford && subjMatch;
+      });
+      if (playableCard) {
+        playTacticalCard(g, room.aiId, playableCard.id);
+        emitStateToAll(room);
+      }
+    }
+  }
+
   // 1. 等待攻击阶段 (掷骰)
   if (g.turnPhase === TURN.WAITING_ATK && getCurrentAttackerId(g) === room.aiId) {
     setTimeout(() => {

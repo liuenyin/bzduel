@@ -500,6 +500,16 @@ export function confirmAttack(state, keepIndices) {
     faces: keptRolls,
   };
 
+  // 战术卡攻击攻击力/加成计算
+  const def = state.gameMode === GAME_MODE.MODE_FFA ? null : state.players[state.turnData.defenderIdx];
+  if (def) {
+    const tac = calcTacticalCardEffects(state, atk, def, keptRolls);
+    if (tac.atkBonus > 0) {
+      state.turnData.atkResult.bonusDamage += tac.atkBonus;
+      state.turnData.atkResult.finalAtk += tac.atkBonus;
+    }
+  }
+
   // 殷泽轩正面: 攻击力额外 +2 × 课程倍率
   if (atk.card.positiveSkill?.id === SKILL.STEALTH_STRIKE) {
     state.turnData.atkResult.bonusDamage += Math.floor(2 * multi);
@@ -1645,6 +1655,74 @@ export function buyWater(state, playerId) {
   // Skip attack and advance turn
   const phaseEnd = resolvePhaseEnd(state);
   return { ok: true, chargeStacks: atk.chargeStacks, ...phaseEnd };
+}
+
+// ── 战术卡战斗效果计算器 ──
+function calcTacticalCardEffects(state, atk, def, keptRolls) {
+  let atkBonus = 0;
+  let defBonus = 0;
+  let flatPierce = 0;
+  let isNoFixedBonus = false;
+  let maxDmgCap = Infinity;
+  let damageMultiplier = 1.0;
+  const curSubj = state.schedule[state.currentClassIndex];
+
+  if (!atk || !def) return { atkBonus, defBonus, flatPierce, isNoFixedBonus, maxDmgCap, damageMultiplier };
+
+  // 1. 检查攻击者的祝福与单轮卡
+  const atkCards = [...(atk.activeBlessings || []), ...(atk.playedTurnCard ? [atk.playedTurnCard] : [])];
+  atkCards.forEach(c => {
+    switch (c.id) {
+      case 'card_chi_1': if (curSubj === 'chinese') atkBonus += 2; break;
+      case 'card_mat_2': atkBonus += 3; break;
+      case 'card_pe_2': atkBonus += 4; break;
+      case 'card_gen_02': atkBonus += 2; break;
+      case 'card_phy_1':
+        if (curSubj === 'physics' && keptRolls) {
+          const evens = keptRolls.filter(r => r % 2 === 0).length;
+          atkBonus += evens * 2;
+        }
+        break;
+      case 'card_phy_2': flatPierce += 3; break;
+      case 'card_gen_04': flatPierce += 2; break;
+      case 'card_pol_1': if (curSubj === 'politics') isNoFixedBonus = true; break;
+      case 'card_mus_1':
+        if (curSubj === 'music' && keptRolls && keptRolls.length >= 2) {
+          const maxR = Math.max(...keptRolls), minR = Math.min(...keptRolls);
+          if (maxR - minR <= 2) damageMultiplier *= 1.3;
+        }
+        break;
+      case 'card_mus_2':
+        if (keptRolls && new Set(keptRolls).size < keptRolls.length) atkBonus += 4;
+        break;
+      case 'card_geo_1':
+        if (curSubj === 'geography') atkBonus += Math.min(12, Math.floor(keptRolls ? keptRolls.reduce((a,b)=>a+b,0)*0.5 : 4));
+        break;
+      case 'card_bio_3': {
+        const hpCost = Math.floor(atk.hp * 0.3);
+        const realDmg = Math.min(10, Math.max(1, hpCost));
+        atk.hp = Math.max(1, atk.hp - hpCost);
+        flatPierce += realDmg;
+        break;
+      }
+    }
+  });
+
+  // 2. 检查防御者的祝福与单轮卡
+  const defCards = [...(def.activeBlessings || []), ...(def.playedTurnCard ? [def.playedTurnCard] : [])];
+  defCards.forEach(c => {
+    switch (c.id) {
+      case 'card_pol_1': if (curSubj === 'politics') isNoFixedBonus = true; break;
+      case 'card_pol_2': defBonus += 3; break;
+      case 'card_gen_05': defBonus += 3; break;
+      case 'card_tec_1': if (curSubj === 'tech') defBonus += 2; break;
+      case 'card_pol_3': maxDmgCap = Math.min(maxDmgCap, 8); break;
+      case 'card_bio_1': if (curSubj === 'biology') defBonus += 3; break;
+      case 'card_his_1': if (curSubj === 'history') damageMultiplier *= 0.5; break;
+    }
+  });
+
+  return { atkBonus, defBonus, flatPierce, isNoFixedBonus, maxDmgCap, damageMultiplier };
 }
 
 // ── 战术卡打出与操作 ──

@@ -11,11 +11,11 @@ let animLock = false; // prevent state_update during animations
 
 const identityName = (id) => {
   switch(id) {
-    case IDENTITY.LORD: return '👑 主公';
-    case IDENTITY.LOYALIST: return '🛡️ 忠臣';
-    case IDENTITY.REBEL: return '🐺 反贼';
-    case IDENTITY.SPY: return '🕵️ 内奸';
-    default: return '❓ 身份';
+    case IDENTITY.LORD: return '主公';
+    case IDENTITY.LOYALIST: return '忠臣';
+    case IDENTITY.REBEL: return '反贼';
+    case IDENTITY.SPY: return '内奸';
+    default: return '身份';
   }
 };
 
@@ -219,17 +219,17 @@ function checkDreamTargetModal(s) {
     overlay.style.zIndex = '10000';
     overlay.innerHTML = `
       <div class="dream-target-modal-panel">
-        <h2 style="color:#fef08a; margin-bottom:6px; font-size:1.35rem;">👑 梦境之王 - 盲选真身</h2>
+        <h2 style="color:#fef08a; margin-bottom:6px; font-size:1.35rem;">梦境之王 - 盲选真身</h2>
         <p style="font-size:0.88rem; color:#e9d5ff; margin-bottom:14px; line-height:1.4;">付修然展开了梦境领域！出现 1 个本体与 2 个分身，请盲选本节课的攻击目标：</p>
         <div class="dream-target-cards-container">
           <button class="dream-target-btn" onclick="window._pickDreamTarget(0)">
-            🔮 目标 A
+            目标 A
           </button>
           <button class="dream-target-btn" onclick="window._pickDreamTarget(1)">
-            🔮 目标 B
+            目标 B
           </button>
           <button class="dream-target-btn" onclick="window._pickDreamTarget(2)">
-            🔮 目标 C
+            目标 C
           </button>
         </div>
         <p style="font-size:0.75rem; color:#c084fc;">* 选错分身：分身使用超强骰池 (D7+D9+D9+D9+D11) 且无法伤及本体！</p>
@@ -300,8 +300,8 @@ function tacticalBarHTML(s) {
 
   return `
     <div class="tactical-header">
-      <span>🎒 战术手牌 (${handCards.length}/3)</span>
-      <span class="tp-badge">⚡ 战术点: ${tp} TP</span>
+      <span>战术手牌 (${handCards.length}/3)</span>
+      <span class="tp-badge">战术点: ${tp} TP</span>
     </div>
     <div class="hand-cards-list">
       ${cardsHtml}
@@ -367,7 +367,7 @@ function checkDraftShopModal(s) {
 
     overlay.innerHTML = `
       <div class="draft-shop-panel">
-        <h2 style="color:var(--gold); font-size:1.25rem; margin-bottom:4px;">⚡ 战术补给站</h2>
+        <h2 style="color:var(--gold); font-size:1.25rem; margin-bottom:4px;">战术补给站</h2>
         <p style="font-size:0.82rem; color:var(--text-secondary); margin-bottom:12px;">
           下节课即将开始！请选择 1~3 张战术卡加入手牌（当前持有: ${s.me.handCards?.length || 0}/3）
         </p>
@@ -632,25 +632,25 @@ function buildAlerts(data) {
   let alerts = [];
   const ar = data.atkResult || {};
 
-  if (ar.posTriggered) alerts.push(`<div class="skill-alert positive">✦ ${ar.posName} 发动！</div>`);
-  if (ar.negTriggered) alerts.push(`<div class="skill-alert negative">✧ ${ar.negName} 发动！</div>`);
+  if (ar.posTriggered) alerts.push(`<div class="skill-alert positive">[${ar.posName}] 发动</div>`);
+  if (ar.negTriggered) alerts.push(`<div class="skill-alert negative">[${ar.negName}] 发动</div>`);
 
   const results = data.isAoE ? data.aoeResults : [data];
 
   results.forEach(res => {
-    if (res.defPosTriggered) alerts.push(`<div class="skill-alert positive">✦ ${res.defPosName} 发动！</div>`);
-    if (res.defNegTriggered) alerts.push(`<div class="skill-alert negative">✧ ${res.defNegName} 发动！</div>`);
+    if (res.defPosTriggered) alerts.push(`<div class="skill-alert positive">[${res.defPosName}] 发动</div>`);
+    if (res.defNegTriggered) alerts.push(`<div class="skill-alert negative">[${res.defNegName}] 发动</div>`);
     
-    if (res.lcCounterDamage > 0) alerts.push(`<div class="skill-alert positive">🗡️ 反击伤害: ${res.lcCounterDamage}</div>`);
-    if (res.lcHealTriggered) alerts.push(`<div class="skill-alert positive">💚 献祭回复: ${res.healAmount}HP</div>`);
-    if (res.eatTriggered) alerts.push(`<div class="skill-alert positive">🍴 吃掉！攻击降为 2</div>`);
-    if (res.noobTriggered) alerts.push(`<div class="skill-alert negative">✧ 杂鱼反噬 — 血量减半！</div>`);
-    if (res.detonateTriggered) alerts.push(`<div class="skill-alert negative">💥 红温引爆 — ${res.detonateDamage}伤害！</div>`);
-    if (res.redHeatApplied > 0) alerts.push(`<div class="skill-alert negative">🔥 红温 +${res.redHeatApplied}层</div>`);
-    if (res.extraTurnTriggered) alerts.push(`<div class="skill-alert positive">⚡ 死磕 — 获得额外攻击回合！</div>`);
+    if (res.lcCounterDamage > 0) alerts.push(`<div class="skill-alert positive">反击伤害: ${res.lcCounterDamage}</div>`);
+    if (res.lcHealTriggered) alerts.push(`<div class="skill-alert positive">献祭回复: ${res.healAmount}HP</div>`);
+    if (res.eatTriggered) alerts.push(`<div class="skill-alert positive">吃掉！攻击降为 2</div>`);
+    if (res.noobTriggered) alerts.push(`<div class="skill-alert negative">杂鱼反噬 — 血量减半！</div>`);
+    if (res.detonateTriggered) alerts.push(`<div class="skill-alert negative">红温引爆 — ${res.detonateDamage}伤害！</div>`);
+    if (res.redHeatApplied > 0) alerts.push(`<div class="skill-alert negative">红温 +${res.redHeatApplied}层</div>`);
+    if (res.extraTurnTriggered) alerts.push(`<div class="skill-alert positive">死磕 — 获得额外攻击回合！</div>`);
   });
 
-  if (data.firstBloodTriggered) alerts.push(`<div class="skill-alert negative">📉 偏科 — 防御选骰数 -1！</div>`);
+  if (data.firstBloodTriggered) alerts.push(`<div class="skill-alert negative">偏科 — 防御选骰数 -1！</div>`);
 
   return [...new Set(alerts)].join('');
 }
