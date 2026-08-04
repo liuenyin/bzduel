@@ -1057,10 +1057,14 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
         p.lgpyTriggered = true;
         op.lgpyForm = true;
         op.lgpyTurnsLeft = 1;
+        op.skillsSealed = true;
+        op.skillsSealedTurnsLeft = 1;
+        p.skillsSealed = true;
+        p.skillsSealedTurnsLeft = 1;
         p.inDreamState = false;
         p.pendingDreamState = false;
         p.dreamTargetChoice = null;
-        state.log.push({ text: `【狂暴】${p.nickname} 触发[小象的谴责]，瞬间切为 gpy 斩杀形态！`, type: 'skill' });
+        state.log.push({ text: `【小象的谴责】${op.nickname} 被迫进入 gpy 斩杀形态！${p.nickname} 的技能同时被封印！`, type: 'skill' });
       }
     }
   };
@@ -1530,6 +1534,13 @@ export function resolvePhaseEnd(state) {
         
         classChanged = true;
         state.players.forEach(p => {
+          // lgpyForm 计时器：可以出现在任何角色上（由对手的小象谴责触发）
+          if (p.lgpyForm) {
+            p.lgpyTurnsLeft--;
+            if (p.lgpyTurnsLeft <= 0) {
+              p.lgpyForm = false;
+            }
+          }
           if (p.card?.positiveSkill?.id === SKILL.DREAM_KING) {
             if (p.pendingDreamState && !p.lgpyForm) {
               p.inDreamState = true;
@@ -1540,12 +1551,6 @@ export function resolvePhaseEnd(state) {
             } else if (p.inDreamState && !p.lgpyForm) {
               p.dreamTargetChoice = null;
               p.realTargetIdx = Math.floor(Math.random() * 3);
-            }
-            if (p.lgpyForm) {
-              p.lgpyTurnsLeft--;
-              if (p.lgpyTurnsLeft <= 0) {
-                p.lgpyForm = false;
-              }
             }
           }
         });

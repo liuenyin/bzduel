@@ -469,7 +469,7 @@ export const characters = [
     negativeSkill: {
       id: SKILL.ELEPHANT_CONDEMN,
       name: '小象的谴责',
-      desc: '<ul><li>当对手血量降至 <span style="color:var(--rose-gold)">20%以下</span> 时，瞬间切为 gpy 斩杀形态：无技能、骰池变为 <span style="color:var(--rose-gold)">D7+D9+D9+D9+D11</span> 持续一节课；若处于梦境中，梦境状态强制结束</li></ul>',
+      desc: '<ul><li>当对手血量降至 <span style="color:var(--rose-gold)">20%以下</span> 时，<b>对手</b>被迫进入 gpy 斩杀形态：对手无技能、骰池变为 <span style="color:var(--rose-gold)">D7+D9+D9+D9+D11</span> 持续一节课；付修然自身技能同时被封印，梦境状态强制结束</li></ul>',
     },
   },
 ];
