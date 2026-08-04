@@ -501,7 +501,6 @@ export function confirmAttack(state, keepIndices) {
   };
 
   // 战术卡攻击攻击力/加成计算
-  const def = state.gameMode === GAME_MODE.MODE_FFA ? null : state.players[state.turnData.defenderIdx];
   if (def) {
     const tac = calcTacticalCardEffects(state, atk, def, keptRolls);
     if (tac.atkBonus > 0) {
