@@ -4,6 +4,7 @@
 import { gameSocket } from '../net/socket.js';
 import { navigate } from '../main.js';
 import { SUBJECTS, CORE_SUBJECTS, ELECTIVE_SUBJECTS, MINOR_SUBJECTS, getSkillMultiplier, DICE_COLORS, IDENTITY } from '../../shared/rules.js';
+import { playDiceRoll, playHit, playSkillTrigger } from '../utils/audio.js';
 
 let S; // module-level state ref
 let animLock = false; // prevent state_update during animations
@@ -128,7 +129,7 @@ function buildArena(s) {
 }
 // ── 事件绑定 (仅初始化时调用一次) ──
 function bindCoreEvents() {
-  on('btn-roll', 'click', () => { gameSocket.rollDice(); disableBtn('btn-roll'); });
+  on('btn-roll', 'click', () => { playDiceRoll(); gameSocket.rollDice(); disableBtn('btn-roll'); });
   on('btn-confirm', 'click', () => {
     const sel = document.querySelectorAll('.die.selected');
     const indices = [...sel].map(d => parseInt(d.dataset.idx));
@@ -140,6 +141,7 @@ function bindCoreEvents() {
   if (rr) rr.onclick = () => {
     const sel = document.querySelectorAll('.die.selected');
     if (sel.length === 0) return;
+    playDiceRoll();
     gameSocket.rerollDice([...sel].map(d => parseInt(d.dataset.idx)));
     sel.forEach(d => d.classList.remove('selected'));
     hide('btn-reroll');
@@ -150,7 +152,7 @@ function bindCoreEvents() {
 // ── 仅重绑 action-bar 内的按钮 (refreshAll 每次重建 action-bar HTML) ──
 function rebindActionButtons() {
   const roll = document.getElementById('btn-roll');
-  if (roll) roll.onclick = () => { gameSocket.rollDice(); disableBtn('btn-roll'); };
+  if (roll) roll.onclick = () => { playDiceRoll(); gameSocket.rollDice(); disableBtn('btn-roll'); };
   const conf = document.getElementById('btn-confirm');
   if (conf) conf.onclick = () => {
     const sel = document.querySelectorAll('.die.selected');
@@ -205,7 +207,7 @@ function refreshAll() {
 
 function checkDreamTargetModal(s) {
   const existing = document.getElementById('dream-target-modal');
-  const fxr = s.players?.find(p => p.card?.positiveSkill?.id === 'dream_king');
+  const fxr = s.players?.find(p => (p.card?.positiveSkill?.id === 'dream_king' || p.cardId === 'char_fxr'));
   if (s.phase === 'battle' && fxr && fxr.inDreamState && !fxr.lgpyForm && s.me.id !== fxr.id && fxr.dreamTargetChoice === null) {
     if (existing) return;
     const overlay = document.createElement('div');
@@ -586,6 +588,14 @@ export function onTurnResolved(data) {
         dmgEl.className = `floating-damage ${damage === 0 ? 'miss' : ''}`;
         dmgEl.textContent = damage > 0 ? `−${damage}` : 'MISS';
         if (defCard) defCard.appendChild(dmgEl);
+        playHit(damage >= 8);
+        if (damage >= 8) {
+          const arena = document.querySelector('.arena');
+          if (arena) {
+            arena.classList.add('shake-screen');
+            setTimeout(() => arena.classList.remove('shake-screen'), 300);
+          }
+        }
         setHP('hp-me', newState.me.hp, newState.me.maxHp, 'hp-me-t');
         if (newState.gameMode === '1v1') {
           setHP('hp-op', newState.opponent.hp, newState.opponent.maxHp, 'hp-op-t');
@@ -829,9 +839,9 @@ function phasePrompt(s) {
 }
 
 function isDreamBlocking(s) {
-  if (!s || s.defenderIdx === null) return false;
-  const def = s.players[s.defenderIdx];
-  return def && def.inDreamState && !def.lgpyForm && def.dreamTargetChoice === null;
+  if (!s || !s.players) return false;
+  const fxr = s.players.find(p => (p.card?.positiveSkill?.id === 'dream_king' || p.cardId === 'char_fxr'));
+  return fxr && fxr.inDreamState && !fxr.lgpyForm && fxr.dreamTargetChoice === null;
 }
 
 function actionButtons(s) {
