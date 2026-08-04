@@ -858,6 +858,8 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
         noobTriggered,
         detonateTriggered, detonateDamage,
         redHeatApplied,
+        firstBloodTriggered: damage > 0 && p.card.negativeSkill?.id === SKILL.FIRST_BLOOD && !p.hasTakenDamage,
+        nineLivesTriggered: p.hp <= 0 && p.card.positiveSkill?.id === SKILL.NINE_LIVES && !p.nineLivesUsed
       });
     });
 
@@ -1209,7 +1211,7 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
       // Lord kills Loyalist penalty
       if (state.gameMode === GAME_MODE.MODE_FFA && atk.identity === IDENTITY.LORD && def.identity === IDENTITY.LOYALIST) {
         atk.card.positiveSkill = null; // 主公误杀忠臣，失去正面技能
-        state.log.push({ text: `【系统】主公 ${atk.nickname} 误杀忠臣，失去了正面技能！`, type: 'system' });
+        state.log.push({ text: `【系统】主公 ${atk.nickname} 误杀忠臣，失去了正面技能！`, type: 'skill' });
       }
     }
   }
@@ -1279,6 +1281,7 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
       lcCounterDamage, healAmount, lcHealTriggered, eatTriggered,
       extraTurnTriggered,
       firstBloodTriggered: firstBloodTriggeredThisTurn,
+      nineLivesTriggered,
       gameOver, winner, classChanged, nextSubject,
       attackerIdx: prevAttackerIdx,
     };
@@ -1734,20 +1737,13 @@ export function playTacticalCard(state, playerId, cardId) {
   if (cIdx === -1) return { ok: false, error: '手牌中无此卡牌' };
   const card = p.handCards[cIdx];
 
-  if ((p.tp || 0) < card.tpCost) return { ok: false, error: `TP不足 (需 ${card.tpCost} TP)` };
-
   const curSubj = state.schedule[state.currentClassIndex];
-  // 校验选科（只能在自己的选科课程使用战术卡）
-  if (!p.card?.subjects?.includes(curSubj)) {
-    return { ok: false, error: '只能在自己的选科课程使用战术卡！' };
-  }
 
   // 校验学科限制（学科卡只能在对应课程使用）
   if (card.subject !== 'universal' && card.subject !== curSubj) {
     return { ok: false, error: `【${card.name}】只能在 ${card.subject} 课使用！` };
   }
 
-  p.tp -= card.tpCost;
   p.handCards.splice(cIdx, 1);
 
   if (card.type === CARD_TYPE.BLESSING) {
@@ -1827,6 +1823,9 @@ export function buyDraftCard(state, playerId, slotIndex) {
   const p = findPlayer(state, playerId);
   if (!p) return { ok: false };
   if ((p.handCards || []).length >= 3) return { ok: false, error: '手牌已满 (最多持有 3 张)' };
+
+  if ((p.tp || 0) < slot.card.tpCost) return { ok: false, error: 'TP 不足' };
+  p.tp -= slot.card.tpCost;
 
   p.handCards.push(slot.card);
 

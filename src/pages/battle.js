@@ -181,6 +181,18 @@ function refreshAll() {
     const grid = document.getElementById('ffa-grid-container');
     if (grid) grid.innerHTML = buildFfaGrid(S);
   }
+  // FXR dream domain background
+  const anyDreaming = S.players.some(p => p.inDreamState && !p.lgpyForm);
+  let dreamBg = document.getElementById('fxr-dream-bg');
+  if (anyDreaming && !dreamBg) {
+    dreamBg = document.createElement('div');
+    dreamBg.id = 'fxr-dream-bg';
+    dreamBg.className = 'fxr-dream-bg';
+    document.body.appendChild(dreamBg);
+  } else if (!anyDreaming && dreamBg) {
+    dreamBg.remove();
+  }
+
   // Multipliers & Buffs
   setText('multi-me', multiTag(getM(S.me, subj)));
   const bMe = document.getElementById('buffs-me'); if (bMe) bMe.innerHTML = buffIcons(S.me);
@@ -342,6 +354,9 @@ function checkDraftShopModal(s) {
         const typeClass = c.type || 'buff';
         const scopeLabel = c.subject === 'universal' ? '通用' : (SUBJECTS[c.subject]?.label || c.subject);
         const isHandFull = (s.me.handCards || []).length >= 3;
+        const isAfford = s.me.tp >= c.tpCost;
+        const buyDisabled = isHandFull || !isAfford;
+        const buyReason = isHandFull ? '手牌已满' : (!isAfford ? 'TP不足' : '选择');
 
         return `
           <div class="draft-slot-card">
@@ -356,8 +371,8 @@ function checkDraftShopModal(s) {
               <button class="btn-draft-action btn-draft-refresh" ${slot.refreshesLeft > 0 ? '' : 'disabled'} onclick="window._refreshDraftSlot(${idx})">
                 ↻ 刷新 (${slot.refreshesLeft})
               </button>
-              <button class="btn-draft-action btn-draft-buy" ${isHandFull ? 'disabled' : ''} onclick="window._buyDraftCard(${idx})">
-                ${isHandFull ? '手牌已满' : '选择'}
+              <button class="btn-draft-action btn-draft-buy" ${buyDisabled ? 'disabled' : ''} onclick="window._buyDraftCard(${idx})">
+                ${buyReason}
               </button>
             </div>
           </div>
@@ -407,7 +422,7 @@ function buildFfaGrid(s) {
     const identityDisplay = p.identity === 'lord' ? '👑主' : (p.identity === '?' ? '❓' : identityName(p.identity));
     
     html += `
-      <div class="ffa-micro-card ${isDefender ? 'active-target' : ''} ${isAttacker ? 'active-attacker' : ''} ${p.isDead ? 'dead' : ''} ${canBeTargeted ? 'selectable-target' : ''}" 
+      <div data-pid="${p.id}" class="ffa-micro-card ${getAuraClass(p)} ${isDefender ? 'active-target' : ''} ${isAttacker ? 'active-attacker' : ''} ${p.isDead ? 'dead' : ''} ${canBeTargeted ? 'selectable-target' : ''}" 
            style="position:relative; width:80px; background:var(--bg-card); border:2px solid ${isDefender ? 'var(--red)' : (isAttacker ? 'var(--gold)' : (canBeTargeted ? 'var(--accent)' : 'var(--bg-inset)'))}; border-radius:8px; padding:4px; text-align:center; cursor:${canBeTargeted ? 'pointer' : 'default'}; transition:all 0.2s;"
            ${canBeTargeted ? `onclick="window.selectFfaTarget('${p.id}')"` : ''}>
         <div style="font-size:10px; color:var(--text-secondary); margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p.nickname}</div>
@@ -741,10 +756,11 @@ export function onTurnResolved(data) {
         if (defCard) defCard.appendChild(dmgEl);
         playHit(damage >= 8);
         if (damage >= 8) {
-          const arena = document.querySelector('.arena');
-          if (arena) {
-            arena.classList.add('shake-screen');
-            setTimeout(() => arena.classList.remove('shake-screen'), 300);
+          document.body.classList.add('shake-screen');
+          setTimeout(() => document.body.classList.remove('shake-screen'), 300);
+          if (damage > 15 && defCard) {
+            defCard.classList.add('damage-flash');
+            setTimeout(() => defCard.classList.remove('damage-flash'), 500);
           }
         }
         setHP('hp-me', newState.me.hp, newState.me.maxHp, 'hp-me-t');

@@ -424,6 +424,7 @@ io.on('connection', (socket) => {
       socket.emit('error_msg', { message: res.error || '无法打出此战术卡' });
       return;
     }
+    io.to(room.id).emit('tactical_card_played', { playerId: socket.id, card: res.card });
     emitStateToAll(room);
   });
 
