@@ -715,7 +715,14 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
       const turnDataSimulated = { hasDefenderRerolled: ds.hasRerolled };
       const defNeg = resolveDefenderNegativeSkill(p.card.negativeSkill, pMulti, state.totalRound, turnDataSimulated);
       if (defNeg.addPermanentPenalty) p.permanentDefPenalty = (p.permanentDefPenalty || 0) + defNeg.addPermanentPenalty;
-      const penalty = (defNeg.defensePenalty || 0) + (p.permanentDefPenalty || 0);
+      
+      const tac = calcTacticalCardEffects(state, atk, p, ar.keptIndices.map(i => state.turnData.attackRolls[i]));
+      let appliedDefBonus = tac.defBonus;
+      if (tac.isNoFixedBonus && appliedDefBonus > 0) {
+        appliedDefBonus = 0;
+      }
+      
+      const penalty = (defNeg.defensePenalty || 0) + (p.permanentDefPenalty || 0) - appliedDefBonus;
       const finalDef = Math.max(0, pBaseDef - penalty);
 
       // 李灿正面B: 献祭骰子回血
@@ -752,6 +759,9 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
       }
 
       let damage = ar.pierce ? targetFinalBaseAtk : Math.max(0, targetFinalBaseAtk - pFinalFinalDef);
+      damage += tac.flatPierce;
+      damage = Math.floor(damage * tac.damageMultiplier);
+      if (damage > tac.maxDmgCap) damage = tac.maxDmgCap;
 
       // 殷泽轩负面: 受到伤害时，最终伤害额外 +2 × 倍率
       if (damage > 0 && p.card.neutralSkill?.id === SKILL.VULNERABLE) {
@@ -923,7 +933,14 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
       def.permanentDefPenalty = (def.permanentDefPenalty || 0) + defNeg.addPermanentPenalty;
     }
     
-    const penalty = (defNeg.defensePenalty || 0) + (def.permanentDefPenalty || 0);
+    const tac = calcTacticalCardEffects(state, atk, def, ar.keptIndices.map(i => state.turnData.attackRolls[i]));
+    
+    let appliedDefBonus = tac.defBonus;
+    if (tac.isNoFixedBonus && appliedDefBonus > 0) {
+      appliedDefBonus = 0;
+    }
+    
+    const penalty = (defNeg.defensePenalty || 0) + (def.permanentDefPenalty || 0) - appliedDefBonus;
     const finalDef = Math.max(0, baseDef - penalty);
 
     // 曾无畏正面: “吃掉!” 将对方选定的最大骰子改为 2
@@ -990,6 +1007,9 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
     }
 
     let damage = ar.pierce ? finalBaseAtk : Math.max(0, finalBaseAtk - finalFinalDef);
+    damage += tac.flatPierce;
+    damage = Math.floor(damage * tac.damageMultiplier);
+    if (damage > tac.maxDmgCap) damage = tac.maxDmgCap;
 
 
 
@@ -1707,12 +1727,9 @@ function calcTacticalCardEffects(state, atk, def, keptRolls) {
         if (curSubj === 'geography') atkBonus += Math.min(12, Math.floor(keptRolls ? keptRolls.reduce((a,b)=>a+b,0)*0.5 : 4));
         break;
       case 'card_bio_3': {
-        const hpCost = Math.floor(atk.hp * 0.3);
-        const realDmg = Math.min(10, Math.max(1, hpCost));
-        atk.hp = Math.max(1, atk.hp - hpCost);
-        flatPierce += realDmg;
-        break;
-      }
+          flatPierce += c.metadata?.realDmg || 1;
+          break;
+        }
     }
   });
 
@@ -1812,9 +1829,16 @@ function applyInstantCardEffect(state, p, card) {
         p.stealthActive = true;
         break;
       case 'card_gen_14':
-        p.hp = Math.max(0, p.hp - 5);
-        if (opp) opp.hp = Math.max(0, opp.hp - 5);
-        break;
+      p.hp = Math.max(0, p.hp - 5);
+      if (opp) opp.hp = Math.max(0, opp.hp - 5);
+      break;
+    case 'card_bio_3': {
+      const hpCost = Math.floor(p.hp * 0.3);
+      const realDmg = Math.min(10, Math.max(1, hpCost));
+      p.hp = Math.max(1, p.hp - hpCost);
+      card.metadata = { realDmg };
+      break;
+    }
       case 'card_gen_10':
       if (opp) opp.redHeat = (opp.redHeat || 0) + 2;
       break;
