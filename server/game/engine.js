@@ -151,8 +151,10 @@ export function useReschedule(state, playerId, classIndex, newSubject) {
 
 function getRollingPool(player) {
   let pool = player.card.dicePool;
-  if (player.card.positiveSkill?.id === SKILL.DREAM_KING || player.card.negativeSkill?.id === SKILL.ELEPHANT_CONDEMN) {
-    if (player.lgpyForm || (player.inDreamState && player.dreamTargetChoice !== null && player.dreamTargetChoice !== player.realTargetIdx)) {
+  if (player.lgpyForm) {
+    pool = [7, 9, 9, 9, 11];
+  } else if (player.card.positiveSkill?.id === SKILL.DREAM_KING || player.card.negativeSkill?.id === SKILL.ELEPHANT_CONDEMN) {
+    if (player.inDreamState && player.dreamTargetChoice !== null && player.dreamTargetChoice !== player.realTargetIdx) {
       pool = [7, 9, 9, 9, 11];
     }
   }
@@ -475,6 +477,7 @@ export function confirmAttack(state, keepIndices) {
   if (atk.card.positiveSkill?.id === SKILL.DREAM_KING) {
     const sumChosen = keptRolls.reduce((s, v) => s + v, 0);
     if (sumChosen >= 15) {
+      if ((atk.dreamStacks || 0) < 3) atk.rerolls = (atk.rerolls || 0) + 1;
       atk.dreamStacks = Math.min(3, (atk.dreamStacks || 0) + 1);
       if (atk.dreamStacks >= 3 && !atk.inDreamState && !atk.pendingDreamState) {
         atk.pendingDreamState = true;
@@ -998,6 +1001,7 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
   if (def.card.positiveSkill?.id === SKILL.DREAM_KING) {
     const sumChosen = keptRolls.reduce((s, v) => s + v, 0);
     if (sumChosen >= 15) {
+      if ((def.dreamStacks || 0) < 3) def.rerolls = (def.rerolls || 0) + 1;
       def.dreamStacks = Math.min(3, (def.dreamStacks || 0) + 1);
       if (def.dreamStacks >= 3 && !def.inDreamState && !def.pendingDreamState) {
         def.pendingDreamState = true;
