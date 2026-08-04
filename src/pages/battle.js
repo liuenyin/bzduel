@@ -115,6 +115,7 @@ function buildArena(s) {
 
         <div class="dice-area" id="dice-area"></div>
         <div class="action-bar" id="action-bar">${actionButtons(s)}</div>
+        <div class="tactical-bar" id="tactical-bar">${tacticalBarHTML(s)}</div>
       </main>
 
       <aside class="sidebar sidebar-right" id="sidebar-reroll">
@@ -198,11 +199,13 @@ function refreshAll() {
   // Phase & actions
   setText('phase-text', phasePrompt(S));
   setText('action-bar', actionButtons(S));
+  setText('tactical-bar', tacticalBarHTML(S));
   rebindActionButtons();
   // Dice - render if available
   renderDice();
   // Check dream target modal
   checkDreamTargetModal(S);
+  checkDraftShopModal(S);
 }
 
 function checkDreamTargetModal(s) {
@@ -237,6 +240,154 @@ function checkDreamTargetModal(s) {
       gameSocket.chooseDreamTarget(idx);
       overlay.remove();
     };
+  } else {
+    if (existing) existing.remove();
+  }
+}
+
+// ── 战术卡 & 补给站 Modal ──
+function tacticalBarHTML(s) {
+  if (!s || !s.me) return '';
+  const me = s.me;
+  const tp = me.tp || 0;
+  const handCards = me.handCards || [];
+  const curSubj = s.schedule[s.currentClassIndex];
+  const canUseClass = me.card?.subjects?.includes(curSubj);
+
+  let cardsHtml = '';
+  if (handCards.length === 0) {
+    cardsHtml = `<div style="font-size:0.75rem; color:var(--text-secondary); padding:4px 0; text-align:center; width:100%;">暂无战术卡 (在第 2 / 4 / 6 节课后触发补给站)</div>`;
+  } else {
+    cardsHtml = handCards.map(c => {
+      if (c.hidden) return '';
+      const typeLabel = c.type === 'blessing' ? '祝福' : (c.type === 'buff' ? '增益' : (c.type === 'debuff' ? '减益' : '其他'));
+      const typeClass = c.type || 'buff';
+      const scopeLabel = c.subject === 'universal' ? '通用' : (SUBJECTS[c.subject]?.label || c.subject);
+      
+      const canAfford = tp >= c.tpCost;
+      const subjMatch = c.subject === 'universal' || c.subject === curSubj;
+      const canPlay = canAfford && canUseClass && subjMatch;
+
+      let disableReason = '';
+      if (!canUseClass) disableReason = '非自身选科';
+      else if (!subjMatch) disableReason = `限${scopeLabel}课`;
+      else if (!canAfford) disableReason = 'TP不足';
+
+      return `
+        <div class="tactical-card-item">
+          <div class="card-tag-row">
+            <span class="card-tag-type ${typeClass}">[${typeLabel}]</span>
+            <span style="color:var(--text-secondary); font-size:0.6rem;">${scopeLabel}</span>
+            <span class="card-tp-cost">⚡${c.tpCost}TP</span>
+          </div>
+          <div class="card-title-text">${c.name}</div>
+          <div class="card-desc-text" title="${c.desc}">${c.desc}</div>
+          <button class="btn-play-card" ${canPlay ? '' : 'disabled'} onclick="window._playTacticalCard('${c.id}')">
+            ${canPlay ? '打出' : disableReason}
+          </button>
+        </div>
+      `;
+    }).join('');
+  }
+
+  let blessingsHtml = '';
+  if (me.activeBlessings && me.activeBlessings.length > 0) {
+    blessingsHtml = `<div style="font-size:0.7rem; color:#a3e635; display:flex; gap:6px; flex-wrap:wrap; margin-top:2px;">
+      <span style="font-weight:700;">当天生效祝福:</span>
+      ${me.activeBlessings.map(b => `<span style="background:rgba(163,230,53,0.15); border:1px solid rgba(163,230,53,0.3); padding:0 6px; border-radius:4px;">✦ ${b.name}</span>`).join('')}
+    </div>`;
+  }
+
+  return `
+    <div class="tactical-header">
+      <span>🎒 战术手牌 (${handCards.length}/3)</span>
+      <span class="tp-badge">⚡ 战术点: ${tp} TP</span>
+    </div>
+    <div class="hand-cards-list">
+      ${cardsHtml}
+    </div>
+    ${blessingsHtml}
+  `;
+}
+
+function checkDraftShopModal(s) {
+  const existing = document.getElementById('draft-shop-modal');
+  if (s.draftShop && s.draftShop.active && s.me) {
+    const pDraft = s.draftShop.players?.[s.me.id];
+    if (!pDraft) return;
+
+    if (pDraft.ready) {
+      if (existing) {
+        existing.querySelector('.draft-shop-panel').innerHTML = `
+          <h2 style="color:var(--gold); font-size:1.2rem; margin-bottom:8px;">⚡ 战术补给站</h2>
+          <p style="color:var(--accent); font-size:1rem; animation:pulse 1s infinite;">已完成选牌，等待对方选择…</p>
+        `;
+      }
+      return;
+    }
+
+    if (existing) return;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'result-overlay';
+    overlay.id = 'draft-shop-modal';
+    overlay.style.zIndex = '9999';
+
+    const renderSlots = () => {
+      const curSubj = s.schedule[s.currentClassIndex];
+      return pDraft.slots.map((slot, idx) => {
+        const c = slot.card;
+        if (!c) return `<div class="draft-slot-card"><p>已领完</p></div>`;
+        const typeLabel = c.type === 'blessing' ? '祝福' : (c.type === 'buff' ? '增益' : (c.type === 'debuff' ? '减益' : '其他'));
+        const typeClass = c.type || 'buff';
+        const scopeLabel = c.subject === 'universal' ? '通用' : (SUBJECTS[c.subject]?.label || c.subject);
+        const isHandFull = (s.me.handCards || []).length >= 3;
+
+        return `
+          <div class="draft-slot-card">
+            <div class="card-tag-row">
+              <span class="card-tag-type ${typeClass}">[${typeLabel}]</span>
+              <span style="color:var(--text-secondary); font-size:0.7rem;">${scopeLabel}</span>
+              <span class="card-tp-cost">⚡ ${c.tpCost} TP</span>
+            </div>
+            <div style="font-size:0.95rem; font-weight:800; color:var(--text-main); margin-top:2px;">${c.name}</div>
+            <div style="font-size:0.75rem; color:var(--text-secondary); line-height:1.3; min-height:40px;">${c.desc}</div>
+            <div class="draft-btn-row">
+              <button class="btn-draft-action btn-draft-refresh" ${slot.refreshesLeft > 0 ? '' : 'disabled'} onclick="window._refreshDraftSlot(${idx})">
+                ↻ 刷新 (${slot.refreshesLeft})
+              </button>
+              <button class="btn-draft-action btn-draft-buy" ${isHandFull ? 'disabled' : ''} onclick="window._buyDraftCard(${idx})">
+                ${isHandFull ? '手牌已满' : '选择'}
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    };
+
+    overlay.innerHTML = `
+      <div class="draft-shop-panel">
+        <h2 style="color:var(--gold); font-size:1.25rem; margin-bottom:4px;">⚡ 战术补给站</h2>
+        <p style="font-size:0.82rem; color:var(--text-secondary); margin-bottom:12px;">
+          下节课即将开始！请选择 1~3 张战术卡加入手牌（当前持有: ${s.me.handCards?.length || 0}/3）
+        </p>
+        <div class="draft-slots-container" id="draft-slots-wrap">
+          ${renderSlots()}
+        </div>
+        <div style="text-align:center; margin-top:14px;">
+          <button class="btn btn-primary btn-lg" onclick="window._confirmDraftReady()" style="min-width:180px;">
+            完成选牌
+          </button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    window._refreshDraftSlot = (idx) => { gameSocket.refreshDraftSlot(idx); };
+    window._buyDraftCard = (idx) => { gameSocket.buyDraftCard(idx); };
+    window._confirmDraftReady = () => { gameSocket.confirmDraftReady(); };
+    window._playTacticalCard = (id) => { gameSocket.playTacticalCard(id); };
   } else {
     if (existing) existing.remove();
   }

@@ -37,6 +37,11 @@ class GameSocket {
   buyWater() { this.socket.emit('buy_water'); }
   chooseDreamTarget(idx) { this.socket.emit('choose_dream_target', { targetIndex: idx }); }
 
+  playTacticalCard(id) { this.socket.emit('play_tactical_card', { cardId: id }); }
+  refreshDraftSlot(idx) { this.socket.emit('refresh_draft_slot', { slotIndex: idx }); }
+  buyDraftCard(idx) { this.socket.emit('buy_draft_card', { slotIndex: idx }); }
+  confirmDraftReady() { this.socket.emit('draft_ready'); }
+
   sendChat(n, msg) { if (this.currentRoomId) this.socket.emit('chat_msg', { roomId: this.currentRoomId, sender: n, msg }); }
 
   on(e, cb) { this.socket.on(e, cb); }

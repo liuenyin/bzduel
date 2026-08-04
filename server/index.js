@@ -9,6 +9,7 @@ import { dirname, join } from 'path';
 import {
   createGame, selectCard, setReady, useReschedule,
   rollAttack, rerollDice, confirmAttack, confirmDefense, selectTarget, buyWater, chooseDreamTarget,
+  playTacticalCard, refreshDraftSlot, buyDraftCard, confirmDraftReady,
   getCurrentAttackerId, getCurrentDefenderId, getStateView, TURN,
 } from './game/engine.js';
 import { aiSelectCard } from './game/ai.js';
@@ -412,6 +413,47 @@ io.on('connection', (socket) => {
     if (room && room.game.players) {
       socket.emit('state_update', getStateView(room.game, socket.id));
     }
+  });
+
+  // ── 战术卡与商店 ──
+  socket.on('play_tactical_card', ({ cardId }) => {
+    const room = getRoom(socket.id);
+    if (!room || !room.game) return;
+    const res = playTacticalCard(room.game, socket.id, cardId);
+    if (!res.ok) {
+      socket.emit('error_msg', { message: res.error || '无法打出此战术卡' });
+      return;
+    }
+    emitStateToAll(room);
+  });
+
+  socket.on('refresh_draft_slot', ({ slotIndex }) => {
+    const room = getRoom(socket.id);
+    if (!room || !room.game) return;
+    const res = refreshDraftSlot(room.game, socket.id, slotIndex);
+    if (!res.ok) {
+      socket.emit('error_msg', { message: res.error || '无法刷新' });
+      return;
+    }
+    emitStateToAll(room);
+  });
+
+  socket.on('buy_draft_card', ({ slotIndex }) => {
+    const room = getRoom(socket.id);
+    if (!room || !room.game) return;
+    const res = buyDraftCard(room.game, socket.id, slotIndex);
+    if (!res.ok) {
+      socket.emit('error_msg', { message: res.error || '购买失败' });
+      return;
+    }
+    emitStateToAll(room);
+  });
+
+  socket.on('draft_ready', () => {
+    const room = getRoom(socket.id);
+    if (!room || !room.game) return;
+    confirmDraftReady(room.game, socket.id);
+    emitStateToAll(room);
   });
 
   // ── 断线 ──

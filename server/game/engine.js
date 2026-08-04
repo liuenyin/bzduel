@@ -6,6 +6,7 @@ import {
   GAME_CONFIG, PHASE, GAME_MODE, IDENTITY, getSkillMultiplier,
 } from '../../shared/rules.js';
 import { characterMap, SKILL } from '../../shared/characters.js';
+import { CARDS, cardMap, getRandomCard, CARD_TYPE } from '../../shared/cards.js';
 
 // ── 回合子阶段 ──
 export const TURN = {
@@ -65,6 +66,11 @@ function makePlayer(id, name) {
     chargeStacks: 0,
     firstBloodTriggered: false,
     hasTakenDamage: false,
+    // 战术卡与 TP 系统
+    tp: 0,
+    handCards: [],
+    activeBlessings: [],
+    playedTurnCard: null,
     // 新角色状态
     stickers: 0,            // 谢睿琦: 对方身上的贴画数
     selfStickers: 0,         // 谢睿琦: 自身贴画数
@@ -1385,6 +1391,11 @@ export function getStateView(state, playerId) {
       nineLivesUsed: !!p.nineLivesUsed,
       effectiveDicePool: (state.phase === PHASE.BATTLE || state.phase === PHASE.GAME_OVER) ? getRollingPool(p) : null,
       pendingDreamState: !!p.pendingDreamState,
+      // 战术卡与 TP
+      tp: p.tp || 0,
+      handCards: isMe ? (p.handCards || []) : Array((p.handCards || []).length).fill({ hidden: true }),
+      activeBlessings: p.activeBlessings || [],
+      playedTurnCard: p.playedTurnCard || null,
       // 付修然 (fxr) 状态
       dreamStacks: p.dreamStacks || 0,
       inDreamState: !!p.inDreamState,
@@ -1443,6 +1454,7 @@ export function getStateView(state, playerId) {
     extraTurnFaceBoost: state.turnData?.extraTurnFaceBoost || 0,
     hasAttackerRerolled: state.turnData?.hasAttackerRerolled || false,
     hasDefenderRerolled: state.turnData?.hasDefenderRerolled || false,
+    draftShop: state.draftShop || null,
     players: playersView,
     winner: state.winner,
     me: playersView[myIdx],
@@ -1535,6 +1547,10 @@ export function resolvePhaseEnd(state) {
         
         classChanged = true;
         state.players.forEach(p => {
+          // 每节课结束获得 1 TP
+          p.tp = Math.min(10, (p.tp || 0) + 1);
+          p.playedTurnCard = null; // 重置单轮战术卡效果
+
           // lgpyForm 计时器：可以出现在任何角色上（由对手的小象谴责触发）
           if (p.lgpyForm) {
             p.lgpyTurnsLeft--;
@@ -1555,6 +1571,25 @@ export function resolvePhaseEnd(state) {
             }
           }
         });
+
+        // 触发第 2/4/6 节课后的三选一战术卡商店
+        if (state.currentClassIndex === 2 || state.currentClassIndex === 4 || state.currentClassIndex === 6) {
+          const nextSubj = state.schedule[state.currentClassIndex] || 'chinese';
+          state.draftShop = {
+            active: true,
+            players: Object.fromEntries(state.players.map(p => [
+              p.id, {
+                ready: false,
+                slots: [
+                  { card: getRandomCard(nextSubj, p.card?.subjects || []), refreshesLeft: 2 },
+                  { card: getRandomCard(nextSubj, p.card?.subjects || []), refreshesLeft: 2 },
+                  { card: getRandomCard(nextSubj, p.card?.subjects || []), refreshesLeft: 2 },
+                ]
+              }
+            ]))
+          };
+        }
+
         if (state.currentClassIndex >= GAME_CONFIG.CLASSES_PER_GAME) {
           gameOver = true;
           state.phase = PHASE.GAME_OVER;
@@ -1610,6 +1645,132 @@ export function buyWater(state, playerId) {
   // Skip attack and advance turn
   const phaseEnd = resolvePhaseEnd(state);
   return { ok: true, chargeStacks: atk.chargeStacks, ...phaseEnd };
+}
+
+// ── 战术卡打出与操作 ──
+export function playTacticalCard(state, playerId, cardId) {
+  if (state.phase !== PHASE.BATTLE) return { ok: false, error: '非战斗阶段' };
+  const p = findPlayer(state, playerId);
+  if (!p || p.isDead) return { ok: false, error: '玩家不存在或已阵亡' };
+
+  const cIdx = (p.handCards || []).findIndex(c => c.id === cardId);
+  if (cIdx === -1) return { ok: false, error: '手牌中无此卡牌' };
+  const card = p.handCards[cIdx];
+
+  if ((p.tp || 0) < card.tpCost) return { ok: false, error: `TP不足 (需 ${card.tpCost} TP)` };
+
+  const curSubj = state.schedule[state.currentClassIndex];
+  // 校验选科（只能在自己的选科课程使用战术卡）
+  if (!p.card?.subjects?.includes(curSubj)) {
+    return { ok: false, error: '只能在自己的选科课程使用战术卡！' };
+  }
+
+  // 校验学科限制（学科卡只能在对应课程使用）
+  if (card.subject !== 'universal' && card.subject !== curSubj) {
+    return { ok: false, error: `【${card.name}】只能在 ${card.subject} 课使用！` };
+  }
+
+  p.tp -= card.tpCost;
+  p.handCards.splice(cIdx, 1);
+
+  if (card.type === CARD_TYPE.BLESSING) {
+    if (!p.activeBlessings) p.activeBlessings = [];
+    p.activeBlessings.push(card);
+    state.log.push({ text: `【祝福】${p.nickname} 激活了【${card.name}】！`, type: 'skill' });
+  } else {
+    p.playedTurnCard = card;
+    state.log.push({ text: `【战术】${p.nickname} 使用了【${card.name}】！`, type: 'skill' });
+    applyInstantCardEffect(state, p, card);
+  }
+
+  return { ok: true, card };
+}
+
+function applyInstantCardEffect(state, p, card) {
+  const oppIdx = state.players.findIndex(x => x.id !== p.id && !x.isDead);
+  const opp = oppIdx !== -1 ? state.players[oppIdx] : null;
+
+  switch (card.id) {
+    case 'card_eng_2':
+    case 'card_gen_03':
+      p.hp = Math.min(p.maxHp, p.hp + (card.id === 'card_eng_2' ? 5 : 4));
+      break;
+    case 'card_che_2':
+      p.buffs = []; p.redHeat = 0; p.stickers = 0;
+      break;
+    case 'card_che_3':
+      if (opp && (opp.redHeat || 0) > 0) {
+        const dmg = opp.redHeat;
+        opp.hp = Math.max(0, opp.hp - dmg);
+        opp.redHeat = 0;
+      }
+      break;
+    case 'card_it_2':
+    case 'card_gen_07':
+      if (opp && (opp.tp || 0) > 0) {
+        opp.tp -= 1;
+        if (card.id === 'card_it_2') p.tp = Math.min(10, p.tp + 1);
+      }
+      break;
+    case 'card_stu_3':
+    case 'card_gen_15':
+      if ((p.handCards || []).length < 3) {
+        const curSubj = state.schedule[state.currentClassIndex];
+        p.handCards.push(getRandomCard(curSubj, p.card?.subjects || []));
+      }
+      break;
+    case 'card_gen_10':
+      if (opp) opp.redHeat = (opp.redHeat || 0) + 2;
+      break;
+  }
+}
+
+// ── 三选一战术卡商店操作 ──
+export function refreshDraftSlot(state, playerId, slotIndex) {
+  if (!state.draftShop || !state.draftShop.active) return { ok: false, error: '商店未开启' };
+  const pDraft = state.draftShop.players[playerId];
+  if (!pDraft || !pDraft.slots[slotIndex]) return { ok: false, error: '槽位不存在' };
+  const slot = pDraft.slots[slotIndex];
+  if (slot.refreshesLeft <= 0) return { ok: false, error: '该栏刷新次数已用完' };
+
+  const p = findPlayer(state, playerId);
+  const curSubj = state.schedule[state.currentClassIndex] || 'chinese';
+  slot.refreshesLeft -= 1;
+  slot.card = getRandomCard(curSubj, p?.card?.subjects || []);
+  return { ok: true, slot };
+}
+
+export function buyDraftCard(state, playerId, slotIndex) {
+  if (!state.draftShop || !state.draftShop.active) return { ok: false, error: '商店未开启' };
+  const pDraft = state.draftShop.players[playerId];
+  if (!pDraft || !pDraft.slots[slotIndex]) return { ok: false, error: '槽位不存在' };
+  const slot = pDraft.slots[slotIndex];
+  if (!slot.card) return { ok: false, error: '空槽位' };
+
+  const p = findPlayer(state, playerId);
+  if (!p) return { ok: false };
+  if ((p.handCards || []).length >= 3) return { ok: false, error: '手牌已满 (最多持有 3 张)' };
+
+  p.handCards.push(slot.card);
+
+  // 自动补货
+  const curSubj = state.schedule[state.currentClassIndex] || 'chinese';
+  slot.card = getRandomCard(curSubj, p.card?.subjects || []);
+
+  return { ok: true, handCards: p.handCards };
+}
+
+export function confirmDraftReady(state, playerId) {
+  if (!state.draftShop || !state.draftShop.active) return { ok: false };
+  const pDraft = state.draftShop.players[playerId];
+  if (!pDraft) return { ok: false };
+  pDraft.ready = true;
+
+  const allReady = Object.values(state.draftShop.players).every(pd => pd.ready);
+  if (allReady) {
+    state.draftShop.active = false;
+  }
+  return { ok: true, allReady };
 }
 
 function findPlayer(state, id) { return state.players.find(p => p.id === id); }
