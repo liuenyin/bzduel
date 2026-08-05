@@ -841,12 +841,21 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
         p.buffs.push({ id: SKILL.SUGAR_CRASH, expireRound: state.totalRound + 2 });
       }
 
+      let pFirstBloodTriggered = false;
       if (damage > 0 && p.card.negativeSkill?.id === SKILL.FIRST_BLOOD && !p.hasTakenDamage) {
         p.hasTakenDamage = true;
         if (p.card.defSlots > 1) p.card.defSlots -= 1;
         firstBloodTriggeredGlobal = true;
+        pFirstBloodTriggered = true;
       }
 
+      let pNineLivesTriggered = false;
+      if (p.hp <= 0 && p.card.positiveSkill?.id === SKILL.NINE_LIVES && !p.nineLivesUsed) {
+        p.hp = 9;
+        p.nineLivesUsed = true;
+        p.dicePool = [8, 8, 8, 8, 8, 8];
+        pNineLivesTriggered = true;
+      }
       let pExtraTurnTriggered = false;
       if (damage >= 8 && p.card.positiveSkill?.id === SKILL.EXTRA_TURN && p.hp > 0) {
         pExtraTurnTriggered = true;
@@ -871,8 +880,8 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
         noobTriggered,
         detonateTriggered, detonateDamage,
         redHeatApplied,
-        firstBloodTriggered: damage > 0 && p.card.negativeSkill?.id === SKILL.FIRST_BLOOD && !p.hasTakenDamage,
-        nineLivesTriggered: p.hp <= 0 && p.card.positiveSkill?.id === SKILL.NINE_LIVES && !p.nineLivesUsed
+        firstBloodTriggered: damage > 0 && p.card.negativeSkill?.id === SKILL.FIRST_BLOOD && p.hasTakenDamage === true,
+        nineLivesTriggered: pNineLivesTriggered
       });
     });
 
@@ -1575,8 +1584,10 @@ export function resolvePhaseEnd(state) {
         state.currentClassIndex++;
         
         let nextFirst = (state.firstAttacker + 1) % state.players.length;
-        while (state.players[nextFirst].isDead && nextFirst !== state.firstAttacker) {
+        let attempts = 0;
+        while (state.players[nextFirst].isDead && nextFirst !== state.firstAttacker && attempts < state.players.length) {
           nextFirst = (nextFirst + 1) % state.players.length;
+          attempts++;
         }
         state.firstAttacker = nextFirst;
         
@@ -1647,9 +1658,14 @@ export function resolvePhaseEnd(state) {
         } else {
           let offset = state.currentSubRound;
           ni = state.firstAttacker;
-          while(offset > 0) {
-            ni = (ni + 1) % state.players.length;
-            if (!state.players[ni].isDead) offset--;
+          while(offset > 0 || state.players[ni].isDead) {
+            if (state.players[ni].isDead && offset == 0) {
+               // If we are at offset 0 but the player is dead, keep advancing without decrementing offset
+               ni = (ni + 1) % state.players.length;
+            } else {
+               ni = (ni + 1) % state.players.length;
+               if (!state.players[ni].isDead) offset--;
+            }
           }
         }
         
