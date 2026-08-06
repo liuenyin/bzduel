@@ -5,6 +5,7 @@ import { gameSocket } from '../net/socket.js';
 import { navigate } from '../main.js';
 import { SUBJECTS, CORE_SUBJECTS, ELECTIVE_SUBJECTS, MINOR_SUBJECTS, getSkillMultiplier, DICE_COLORS, IDENTITY } from '../../shared/rules.js';
 import { playDiceRoll, playHit } from '../utils/audio.js';
+import { vfxManager } from '../utils/vfx.js';
 
 let S; // module-level state ref
 let animLock = false; // prevent state_update during animations
@@ -26,7 +27,13 @@ export function renderBattle(container, data) {
   window._refreshDraftSlot = (idx) => { gameSocket.refreshDraftSlot(idx); };
   window._buyDraftCard = (idx) => { gameSocket.buyDraftCard(idx); };
   window._confirmDraftReady = () => { gameSocket.confirmDraftReady(); };
-  window._playTacticalCard = (id) => { gameSocket.playTacticalCard(id); };
+  window._playTacticalCard = (id, evt) => {
+    const cardEl = evt?.currentTarget || document.querySelector(`.hand-card-kards[onclick*="${id}"]`);
+    const targetCardEl = document.getElementById('card-op') || document.getElementById('card-me');
+    vfxManager.playTacticalCardVFX(cardEl, targetCardEl, () => {
+      gameSocket.playTacticalCard(id);
+    });
+  };
 
   container.innerHTML = buildArena(S);
   bindCoreEvents();
@@ -154,6 +161,8 @@ function bindCoreEvents() {
   if (rr) rr.onclick = () => {
     const sel = document.querySelectorAll('.die.selected');
     if (sel.length === 0) return;
+    rr.disabled = true;
+    rr.dataset.rerolling = 'true';
     playDiceRoll();
     gameSocket.rerollDice([...sel].map(d => parseInt(d.dataset.idx)));
     sel.forEach(d => d.classList.remove('selected'));
@@ -193,14 +202,15 @@ function refreshAll() {
     const grid = document.getElementById('ffa-grid-container');
     if (grid) grid.innerHTML = buildFfaGrid(S);
   }
-  // FXR dream domain background
-  const anyDreaming = S.players.some(p => p.inDreamState && !p.lgpyForm);
+  // FXR dream domain background & ultimate VFX trigger
+  const anyDreaming = (S.players || []).some(p => p.inDreamState && !p.lgpyForm);
   let dreamBg = document.getElementById('fxr-dream-bg');
   if (anyDreaming && !dreamBg) {
     dreamBg = document.createElement('div');
     dreamBg.id = 'fxr-dream-bg';
     dreamBg.className = 'fxr-dream-bg';
     document.body.appendChild(dreamBg);
+    vfxManager.triggerUltimateVFX('char_fxr', 'DREAM_KING', document.body);
   } else if (!anyDreaming && dreamBg) {
     dreamBg.remove();
   }
@@ -220,6 +230,8 @@ function refreshAll() {
   }
   // Reroll count
   setText('reroll-count', `剩余 <strong>${S.me.rerolls}</strong> 次`);
+  const rrEl = document.getElementById('btn-reroll');
+  if (rrEl) delete rrEl.dataset.rerolling;
   // Phase & actions
   setText('phase-text', phasePrompt(S));
   setText('action-bar', actionButtons(S));
@@ -243,8 +255,8 @@ function checkDreamTargetModal(s) {
     overlay.style.zIndex = '10000';
     overlay.innerHTML = `
       <div class="dream-target-modal-panel">
-        <h2 style="color:#fef08a; margin-bottom:6px; font-size:1.35rem;">梦境之王 - 盲选真身</h2>
-        <p style="font-size:0.88rem; color:#e9d5ff; margin-bottom:14px; line-height:1.4;">付修然展开了梦境领域！出现 1 个本体与 2 个分身，请盲选本节课的攻击目标：</p>
+        <h2 style="color:var(--accent); margin-bottom:6px; font-size:1.35rem; font-family:var(--font-display);">梦境之王 - 盲选真身</h2>
+        <p style="font-size:0.88rem; color:var(--text); margin-bottom:14px; line-height:1.4;">付修然展开了梦境领域！出现 1 个本体与 2 个分身，请盲选本节课的攻击目标：</p>
         <div class="dream-target-cards-container">
           <button class="dream-target-btn" onclick="window._pickDreamTarget(0)">
             目标 A
@@ -256,7 +268,7 @@ function checkDreamTargetModal(s) {
             目标 C
           </button>
         </div>
-        <p style="font-size:0.75rem; color:#c084fc;">* 选错分身：分身使用超强骰池 (D7+D9+D9+D9+D11) 且无法伤及本体！</p>
+        <p style="font-size:0.75rem; color:var(--text-secondary);">* 选错分身：分身使用超强骰池 (D7+D9+D9+D9+D11) 且无法伤及本体！</p>
       </div>
     `;
     document.body.appendChild(overlay);
@@ -315,7 +327,7 @@ function tacticalBarHTML(s) {
       const transY = Math.abs(i - mid) * 10;
 
       return `
-        <div class="hand-card-kards ${canPlay ? '' : 'disabled'}" style="transform: rotate(${rotateDeg}deg) translateY(${transY}px)" ${canPlay ? `onclick="window._toggleHand(); window._playTacticalCard('${c.id}')"` : ''} title="${disableReason}">
+        <div class="hand-card-kards ${canPlay ? '' : 'disabled'}" style="transform: rotate(${rotateDeg}deg) translateY(${transY}px)" ${canPlay ? `onclick="window._toggleHand(); window._playTacticalCard('${c.id}', event)"` : ''} title="${disableReason}">
           <div class="card-tag-row">
             <span class="card-tag-type ${typeClass}">${scopeLabel}</span>
             <span class="card-tp-cost">⚡${c.tpCost}</span>
@@ -449,7 +461,7 @@ function checkDraftShopModal(s) {
 // ── FFA UI ──
 function buildFfaGrid(s) {
   const me = s.me;
-  const others = s.players.filter(p => p.id !== me.id);
+  const others = (s.players || []).filter(p => p.id !== me?.id);
   const isTargeting = s.turnPhase === 'choose_target' && s.isMyAttackTurn;
   
   let html = `<div class="ffa-opponents-grid" style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:12px;">`;
@@ -497,8 +509,8 @@ function renderDice() {
     atkPlayer = isMeAtk ? S.me : S.opponent;
     defPlayer = isMeAtk ? S.opponent : S.me;
   } else {
-    atkPlayer = S.players[S.attackerIdx];
-    defPlayer = S.defenderIdx !== null ? S.players[S.defenderIdx] : null;
+    atkPlayer = (S.players && S.attackerIdx !== null && S.attackerIdx !== undefined) ? S.players[S.attackerIdx] : null;
+    defPlayer = (S.players && S.defenderIdx !== null && S.defenderIdx !== undefined) ? S.players[S.defenderIdx] : null;
   }
 
   // 使用 effectiveDicePool 以正确反映状态覆盖后的骰池
@@ -560,6 +572,11 @@ function renderDice() {
     html += `<span class="dice-sum" style="color:var(--blue)">${isConfirmed ? ' 已确认' : ''}</span></div>`;
   }
   area.innerHTML = html;
+  const diceEls = area.querySelectorAll('.die.rolling, .die.selectable');
+  if (diceEls.length > 0) {
+    const vals = Array.from(diceEls).map(d => parseInt(d.dataset.val || '0'));
+    vfxManager.rollDice(diceEls, vals);
+  }
   area.querySelectorAll('.die.selectable').forEach(d => {
     d.addEventListener('click', () => { d.classList.toggle('selected'); updateActionButtons(); });
   });
@@ -582,9 +599,9 @@ function updateActionButtons() {
   
   if (btnReroll) {
     btnReroll.style.display = count > 0 && S.me.rerolls > 0 ? 'block' : 'none';
-    if (S.me.buffs && S.me.buffs.find(b => b.id === 'sugar_crash')) {
+    if ((S.me.buffs && S.me.buffs.find(b => b.id === 'sugar_crash')) || btnReroll.dataset.rerolling === 'true') {
       btnReroll.disabled = true;
-      btnReroll.innerHTML = '🚫 犯糖';
+      if (S.me.buffs && S.me.buffs.find(b => b.id === 'sugar_crash')) btnReroll.innerHTML = '🚫 犯糖';
     } else {
       btnReroll.disabled = false;
       btnReroll.innerHTML = '重投';
@@ -690,7 +707,7 @@ function buildAlerts(data) {
   if (ar.posTriggered) alerts.push(`<div class="skill-alert positive">[${ar.posName}] 发动</div>`);
   if (ar.negTriggered) alerts.push(`<div class="skill-alert negative">[${ar.negName}] 发动</div>`);
 
-  const results = data.isAoE ? data.aoeResults : [data];
+  const results = data.isAoE ? (Array.isArray(data.aoeResults) ? data.aoeResults : []) : [data];
 
   results.forEach(res => {
     if (res.defPosTriggered) alerts.push(`<div class="skill-alert positive">[${res.defPosName}] 发动</div>`);
@@ -727,33 +744,46 @@ export function onTurnResolved(data) {
     if (defSumEl) defSumEl.innerHTML = `= ${finalDef}${penalty ? ` <small>(−${penalty})</small>` : ''}`;
   }
 
-  const isAoE = data.isAoE;
+  const isAoE = data.isAoE && Array.isArray(data.aoeResults);
   
   if (isAoE) {
     // FFA 群伤效果动画
     setTimeout(() => {
+      if (!S || typeof S.myIndex === 'undefined') return;
       const isMyAtk = S.myIndex === attackerIdx;
-      const atkId = S.players[attackerIdx].id;
-      const atkCard = atkId === S.me.id ? document.getElementById('card-me') : document.querySelector(`.ffa-micro-card[data-pid="${atkId}"]`);
+      const atkId = (S.players && S.players[attackerIdx]) ? S.players[attackerIdx].id : null;
+      const atkCard = (atkId && S.me && atkId === S.me.id) ? document.getElementById('card-me') : (atkId ? document.querySelector(`.ffa-micro-card[data-pid="${atkId}"]`) : null);
       if (atkCard) atkCard.classList.add('card-attacking');
       
+      // Trigger character ultimate VFX for AoE attacker
+      if (S && S.players && typeof attackerIdx === 'number' && S.players[attackerIdx]) {
+        const atkP = S.players[attackerIdx];
+        const cardId = atkP.cardId || atkP.card?.id;
+        if (atkP.lgpyForm) {
+          vfxManager.triggerUltimateVFX('lgpyForm', 'DREAM_KING_RAGE', document.body);
+        } else if (cardId === 'char_19' && (data.pierce || data.atkResult?.pierce)) {
+          vfxManager.triggerUltimateVFX('char_19', 'TIMELESS_GRACE', document.body);
+        } else if (cardId === 'char_4' && data.atkResult?.posTriggered) {
+          vfxManager.triggerUltimateVFX('char_4', 'STAR_SHOWOFF', document.body);
+        } else if (cardId === 'char_14' && (atkP.chargeStacks >= 2 || data.chargeConsumed >= 2)) {
+          vfxManager.triggerUltimateVFX('char_14', 'BUY_WATER', document.body);
+        }
+      }
+
       data.aoeResults.forEach(res => {
         const dId = res.playerId;
         const dCard = dId === S.me.id ? document.getElementById('card-me') : document.querySelector(`.ffa-micro-card[data-pid="${dId}"]`);
         if (dCard) setTimeout(() => dCard.classList.add('card-hit'), 300);
         
         setTimeout(() => {
-          const dmgEl = document.createElement('div');
-          dmgEl.className = `floating-damage ${res.damage === 0 ? 'miss' : ''}`;
-          dmgEl.textContent = res.damage > 0 ? `−${res.damage}` : 'MISS';
           if (dCard) {
-            dCard.appendChild(dmgEl);
-            if (res.nineLivesTriggered) {
-              dCard.classList.add('revival-halo');
-              setTimeout(() => dCard.classList.remove('revival-halo'), 1500);
-            }
+            vfxManager.playHitImpact(dCard, res.damage, {
+              isCrit: res.damage >= 8,
+              isHeavy: res.damage >= 15,
+              nineLivesTriggered: res.nineLivesTriggered,
+              isAoE: true
+            });
           }
-          setTimeout(() => dmgEl.remove(), 1200);
         }, 400);
       });
       
@@ -781,46 +811,51 @@ export function onTurnResolved(data) {
   } else {
     // 1v1 动画
     setTimeout(() => {
+      if (!S || typeof S.myIndex === 'undefined') return;
       const isMyAtk = S.myIndex === attackerIdx;
       let atkCard, defCard;
       if (S.gameMode === '1v1') {
         atkCard = document.getElementById(isMyAtk ? 'card-me' : 'card-op');
         defCard = document.getElementById(isMyAtk ? 'card-op' : 'card-me');
       } else {
-        const atkId = S.players[attackerIdx].id;
-        const defId = S.defenderIdx !== null ? S.players[S.defenderIdx].id : null;
-        atkCard = atkId === S.me.id ? document.getElementById('card-me') : document.querySelector(`.ffa-micro-card[data-pid="${atkId}"]`);
-        defCard = defId === S.me.id ? document.getElementById('card-me') : (defId ? document.querySelector(`.ffa-micro-card[data-pid="${defId}"]`) : null);
+        const atkId = (S.players && S.players[attackerIdx]) ? S.players[attackerIdx].id : null;
+        const defId = (S.defenderIdx !== null && S.defenderIdx !== undefined && S.players && S.players[S.defenderIdx]) ? S.players[S.defenderIdx].id : null;
+        atkCard = (atkId && S.me && atkId === S.me.id) ? document.getElementById('card-me') : (atkId ? document.querySelector(`.ffa-micro-card[data-pid="${atkId}"]`) : null);
+        defCard = (defId && S.me && defId === S.me.id) ? document.getElementById('card-me') : (defId ? document.querySelector(`.ffa-micro-card[data-pid="${defId}"]`) : null);
       }
 
       if (atkCard) atkCard.classList.add('card-attacking');
       if (defCard) setTimeout(() => defCard.classList.add('card-hit'), 300);
 
       setTimeout(() => {
-        const dmgEl = document.createElement('div');
-        dmgEl.className = `floating-damage ${damage === 0 ? 'miss' : ''}`;
-        dmgEl.textContent = damage > 0 ? `−${damage}` : 'MISS';
-        if (defCard) {
-          defCard.appendChild(dmgEl);
-          if (data.nineLivesTriggered) {
-            defCard.classList.add('revival-halo');
-            setTimeout(() => defCard.classList.remove('revival-halo'), 1500);
+        // Trigger character ultimate VFX if conditions are met
+        if (S && S.players && typeof attackerIdx === 'number' && S.players[attackerIdx]) {
+          const atkP = S.players[attackerIdx];
+          const cardId = atkP.cardId || atkP.card?.id;
+          if (atkP.lgpyForm) {
+            vfxManager.triggerUltimateVFX('lgpyForm', 'DREAM_KING_RAGE', document.body);
+          } else if (cardId === 'char_19' && (data.pierce || data.atkResult?.pierce)) {
+            vfxManager.triggerUltimateVFX('char_19', 'TIMELESS_GRACE', document.body);
+          } else if (cardId === 'char_4' && data.atkResult?.posTriggered) {
+            vfxManager.triggerUltimateVFX('char_4', 'STAR_SHOWOFF', document.body);
+          } else if (cardId === 'char_14' && (atkP.chargeStacks >= 2 || data.chargeConsumed >= 2)) {
+            vfxManager.triggerUltimateVFX('char_14', 'BUY_WATER', document.body);
           }
+        }
+
+        if (defCard) {
+          vfxManager.playHitImpact(defCard, damage, {
+            isCrit: damage >= 8,
+            isHeavy: damage >= 15,
+            nineLivesTriggered: data.nineLivesTriggered,
+            pierce: data.pierce
+          });
         }
         playHit(damage >= 8);
-        if (damage >= 8) {
-          document.body.classList.add('shake-screen');
-          setTimeout(() => document.body.classList.remove('shake-screen'), 300);
-          if (damage > 15 && defCard) {
-            defCard.classList.add('damage-flash');
-            setTimeout(() => defCard.classList.remove('damage-flash'), 500);
-          }
-        }
         setHP('hp-me', newState.me.hp, newState.me.maxHp, 'hp-me-t');
         if (newState.gameMode === '1v1') {
           setHP('hp-op', newState.opponent.hp, newState.opponent.maxHp, 'hp-op-t');
         }
-        setTimeout(() => dmgEl.remove(), 1200);
       }, 400);
 
       setTimeout(() => {
@@ -971,7 +1006,7 @@ function showGameOver(s) {
     `;
   } else {
     statsHtml = `<div style="display:flex; flex-wrap:wrap; justify-content:space-between; max-height:400px; overflow-y:auto; width:100%;">`;
-    s.players.forEach((p, idx) => {
+    (s.players || []).forEach((p, idx) => {
       statsHtml += renderPlayer(p, idx);
     });
     statsHtml += `</div>`;
@@ -1018,12 +1053,10 @@ function getAuraClass(p) {
   return '';
 }
 
-const AURA_CLASSES = ['aura-gpy-rage', 'aura-dream-domain', 'aura-zxs-water', 'aura-yzm-gold', 'aura-wyc-redheat', 'aura-whd-sugar'];
 function updateAura(el, p) {
   if (!el) return;
-  AURA_CLASSES.forEach(c => el.classList.remove(c));
   const newAura = getAuraClass(p);
-  if (newAura) el.classList.add(newAura);
+  vfxManager.triggerAuraEffect(el, newAura);
 }
 
 function multiTag(m) {
@@ -1041,7 +1074,7 @@ function phasePrompt(s) {
     if (s.isMyAttackTurn) {
       // 检查是否需要等待梦境盲选
       if (isDreamBlocking(s)) {
-        p = '<span style="color:#c084fc;">等待对手完成梦境盲选…</span>';
+        p = '<span style="color:var(--accent);">等待对手完成梦境盲选…</span>';
       } else {
         p = '你的攻击回合';
       }

@@ -25,7 +25,16 @@ import { AC_CHAR_MAP, AC } from '../shared/autochess-config.js';
 import { recordMatch, getStats } from './statsManager.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+process.on('uncaughtException', (err) => {
+  console.error('[UNCAUGHT EXCEPTION]', err);
+});
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[UNHANDLED REJECTION]', reason);
+});
+
 const app = express();
+app.get('/favicon.ico', (req, res) => res.status(204).end());
 app.get('/api/stats', (req, res) => res.json(getStats()));
 const httpServer = createServer(app);
 const io = new Server(httpServer, { cors: { origin: '*' }, pingTimeout: 30000, pingInterval: 10000 });
@@ -52,6 +61,10 @@ function newRoomId() { return String(++roomCounter); }
 // ── Socket.IO ──
 io.on('connection', (socket) => {
   console.log(`[连接] ${socket.id}`);
+
+  socket.on('error', (err) => {
+    console.error(`[Socket Error ${socket.id}]:`, err);
+  });
 
   // ── PVE ──
   socket.on('start_pve', ({ nickname }) => {
@@ -565,6 +578,7 @@ function triggerAiPhase(roomId) {
   // 1. 等待攻击阶段 (掷骰)
   if (g.turnPhase === TURN.WAITING_ATK && getCurrentAttackerId(g) === room.aiId) {
     setTimeout(() => {
+      if (!rooms.has(roomId)) return;
       if (g.phase !== 'battle' || g.turnPhase !== TURN.WAITING_ATK) return;
       const rollRes = rollAttack(g);
       if (!rollRes.ok) return;
@@ -589,6 +603,7 @@ function triggerAiPhase(roomId) {
   // 2. 已掷攻击骰阶段 (重投或确认)
   if (g.turnPhase === TURN.ATK_ROLLED && getCurrentAttackerId(g) === room.aiId) {
     setTimeout(() => {
+      if (!rooms.has(roomId)) return;
       if (g.phase !== 'battle' || g.turnPhase !== TURN.ATK_ROLLED) return;
       const atk = g.players[g.turnData.attackerIdx];
       const rolls = g.turnData.attackRolls;
@@ -622,6 +637,7 @@ function triggerAiPhase(roomId) {
   // 3. 已掷防御骰阶段 (重投或确认)
   if (g.turnPhase === TURN.DEF_ROLLED && getCurrentDefenderId(g) === room.aiId) {
     setTimeout(() => {
+      if (!rooms.has(roomId)) return;
       if (g.phase !== 'battle' || g.turnPhase !== TURN.DEF_ROLLED) return;
       const def = g.players[g.turnData.defenderIdx];
       const rolls = g.turnData.defenseRolls;

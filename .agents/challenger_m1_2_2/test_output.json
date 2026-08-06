@@ -1,0 +1,139 @@
+{
+  "testResults": {
+    "requirement1": {
+      "passed": true,
+      "details": [
+        {
+          "width": 375,
+          "status": "PASS",
+          "fabBottom": "58px",
+          "fabRight": "16px",
+          "fabZIndex": "9000",
+          "chatZIndex": "8500"
+        },
+        {
+          "width": 390,
+          "status": "PASS",
+          "fabBottom": "58px",
+          "fabRight": "16px",
+          "fabZIndex": "9000",
+          "chatZIndex": "8500"
+        },
+        {
+          "width": 480,
+          "status": "PASS",
+          "fabBottom": "58px",
+          "fabRight": "16px",
+          "fabZIndex": "9000",
+          "chatZIndex": "8500"
+        },
+        {
+          "width": 600,
+          "status": "PASS",
+          "fabBottom": "58px",
+          "fabRight": "16px",
+          "fabZIndex": "9000",
+          "chatZIndex": "8500"
+        },
+        {
+          "width": 679,
+          "status": "PASS",
+          "fabBottom": "58px",
+          "fabRight": "16px",
+          "fabZIndex": "9000",
+          "chatZIndex": "8500"
+        },
+        {
+          "width": 700,
+          "status": "PASS (Desktop baseline)",
+          "fabBottom": "20px",
+          "fabRight": "20px",
+          "fabZIndex": "1000"
+        },
+        {
+          "width": 1024,
+          "status": "PASS (Desktop baseline)",
+          "fabBottom": "20px",
+          "fabRight": "20px",
+          "fabZIndex": "1000"
+        }
+      ]
+    },
+    "requirement2": {
+      "passed": true,
+      "details": [
+        {
+          "width": 375,
+          "status": "PASS",
+          "bodyScrollWidth": 375,
+          "clientWidth": 375,
+          "flexElements": {
+            "arenaCenter": null,
+            "panel": {
+              "minWidth": "0px",
+              "maxWidth": "380px",
+              "scrollWidth": 351,
+              "clientWidth": 351
+            },
+            "statsModal": {
+              "minWidth": "0px",
+              "maxWidth": "100%",
+              "scrollWidth": 0,
+              "clientWidth": 0
+            },
+            "statsMatrixWrap": null
+          }
+        },
+        {
+          "width": 390,
+          "status": "PASS",
+          "bodyScrollWidth": 390,
+          "clientWidth": 390,
+          "flexElements": {
+            "arenaCenter": null,
+            "panel": {
+              "minWidth": "0px",
+              "maxWidth": "380px",
+              "scrollWidth": 366,
+              "clientWidth": 366
+            },
+            "statsModal": {
+              "minWidth": "0px",
+              "maxWidth": "100%",
+              "scrollWidth": 0,
+              "clientWidth": 0
+            },
+            "statsMatrixWrap": null
+          }
+        },
+        {
+          "width": 375,
+          "status": "PASS (With dynamic elements)",
+          "bodyScrollWidth": 375,
+          "clientWidth": 375
+        },
+        {
+          "width": 390,
+          "status": "PASS (With dynamic elements)",
+          "bodyScrollWidth": 390,
+          "clientWidth": 390
+        }
+      ]
+    },
+    "requirement3": {
+      "passed": true,
+      "details": [
+        {
+          "status": "PASS",
+          "computedColor": "rgb(59, 53, 50)",
+          "expectedColor": "rgb(59, 53, 50)"
+        }
+      ]
+    }
+  },
+  "pageErrors": [
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)",
+    "Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ]
+}

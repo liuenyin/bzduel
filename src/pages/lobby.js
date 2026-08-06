@@ -50,8 +50,8 @@ export function renderLobby(container) {
         </div>
       </div>
 
-      <div id="stats-modal" class="modal-overlay" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6); z-index:999; align-items:center; justify-content:center;">
-        <div class="modal-content" style="background:var(--bg-card); max-width:900px; width:95%; max-height:90vh; border-radius:12px; display:flex; flex-direction:column; box-shadow:0 10px 30px rgba(0,0,0,0.5);">
+      <div id="stats-modal" class="modal-overlay stats-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; z-index:999; align-items:center; justify-content:center;">
+        <div class="modal-content" style="background:var(--bg-card); max-width:900px; width:95%; max-height:90vh; border-radius:12px; display:flex; flex-direction:column; box-shadow:var(--shadow-lg);">
           <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; padding:16px; border-bottom:1px solid var(--bg-inset);">
             <h2 style="margin:0; font-family:var(--font-display);">📊 角色胜率矩阵</h2>
             <button id="btn-close-stats" class="btn" style="background:var(--bg-inset); color:var(--text); padding:4px 12px;">关闭</button>
@@ -205,7 +205,7 @@ export function renderLobby(container) {
     
     function drawTable(mode) {
       const stats = data[mode] || {};
-      let table = '<table class="stats-matrix"><thead><tr><th>胜率(场次)</th>';
+      let table = '<div class="stats-matrix-wrap"><table class="stats-matrix"><thead><tr><th>胜率(场次)</th>';
       chars.forEach(c => { table += `<th>${c.name}</th>`; });
       table += '</tr></thead><tbody>';
       
@@ -231,7 +231,7 @@ export function renderLobby(container) {
         });
         table += '</tr>';
       });
-      table += '</tbody></table>';
+      table += '</tbody></table></div>';
       table += `<p style="font-size:0.8rem; color:var(--text-muted); margin-top:10px;">* 行代表左侧角色(你)，列代表上方角色(对手)。单元格表示左侧角色战胜上方角色的胜率。</p>`;
       document.getElementById('stats-matrix-container').innerHTML = table;
     }

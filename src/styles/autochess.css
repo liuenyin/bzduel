@@ -619,3 +619,21 @@
 .ac-rs:last-child { border-bottom: none; padding-bottom: 0; }
 .ac-rs span:first-child { color: var(--text-secondary); }
 .ac-rs span:last-child { font-family: var(--font-display); font-weight: 700; color: var(--text); }
+
+/* ── Milestone 3 — Light Glassmorphic Domain Expansion & VFX Support ── */
+.ac-domain-overlay {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at 50% 40%, rgba(245, 235, 255, 0.88) 0%, rgba(230, 215, 250, 0.92) 70%, rgba(220, 200, 245, 0.95) 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  z-index: 9900;
+  pointer-events: none;
+  overflow: hidden;
+  animation: acDomainFade 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes acDomainFade {
+  from { opacity: 0; transform: scale(1.04); }
+  to { opacity: 1; transform: scale(1); }
+}
