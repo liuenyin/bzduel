@@ -20,7 +20,7 @@ export const vfxManager = {
    * @param {Function} [onComplete] - Optional callback upon completion
    */
   rollDice(diceElements, finalValues = [], onComplete = null) {
-    const validEls = Array.from(diceElements || []).filter(Boolean);
+    const validEls = Array.from(diceElements || []).filter(el => el && typeof el === 'object' && el.style);
     if (validEls.length === 0) {
       if (typeof onComplete === 'function') onComplete();
       return;
@@ -78,16 +78,17 @@ export const vfxManager = {
    */
   playHitImpact(targetCardElement, damageAmount, options = {}, onComplete = null) {
     const opts = options || {};
-    const isCrit = opts.isCrit || damageAmount >= 8;
-    const isHeavy = opts.isHeavy || damageAmount >= 15;
+    const safeDmg = Number.isFinite(damageAmount) ? damageAmount : 0;
+    const isCrit = opts.isCrit || safeDmg >= 8;
+    const isHeavy = opts.isHeavy || safeDmg >= 15;
 
     // 1. Camera Impulse
     const impulseScale = isHeavy ? 2.5 : (isCrit ? 1.8 : 1.0);
     this.triggerCameraImpulse(impulseScale);
 
     // 2. Floating Damage Text & Flash
-    if (targetCardElement) {
-      this.spawnFloatingDamage(targetCardElement, damageAmount, isCrit);
+    if (targetCardElement && document.body.contains(targetCardElement)) {
+      this.spawnFloatingDamage(targetCardElement, safeDmg, isCrit);
 
       // 3. Hit Flash on Target Card
       if (isHeavy) {
@@ -109,9 +110,9 @@ export const vfxManager = {
 
       // 5. Particle Burst
       const rect = targetCardElement.getBoundingClientRect();
-      const cx = rect.left + rect.width / 2;
-      const cy = rect.top + rect.height / 2;
-      const particleColor = damageAmount === 0 ? '#a0a0a0' : (isCrit ? '#c09a50' : '#c45c5c');
+      const cx = rect.width > 0 ? (rect.left + rect.width / 2) : (window.innerWidth / 2);
+      const cy = rect.height > 0 ? (rect.top + rect.height / 2) : (window.innerHeight / 2);
+      const particleColor = safeDmg === 0 ? '#a0a0a0' : (isCrit ? '#c09a50' : '#c45c5c');
       this.spawnParticles(cx, cy, isCrit ? 20 : 10, particleColor);
     }
 
@@ -126,8 +127,8 @@ export const vfxManager = {
    */
   triggerCameraImpulse(intensity = 1.0) {
     const target = document.querySelector('.arena') || document.querySelector('#app') || document.body;
-    const safeIntensity = (intensity === null || intensity === undefined) ? 1.0 : intensity;
-    const range = Math.min(14, 6 * safeIntensity);
+    const safeIntensity = Number.isFinite(intensity) ? intensity : 1.0;
+    const range = Math.min(14, Math.max(0, 6 * safeIntensity));
     const shakeTl = gsap.timeline();
 
     shakeTl.to(target, { x: `-=${range}`, y: `+=${range / 2}`, duration: 0.04, ease: 'power1.inOut' })
@@ -145,11 +146,12 @@ export const vfxManager = {
    * @param {boolean} [isCrit=false] - Critical hit flag
    */
   spawnFloatingDamage(targetElement, damageAmount, isCrit = false) {
-    if (!targetElement) return null;
+    if (!targetElement || !document.body.contains(targetElement)) return null;
 
+    const validDmg = Number.isFinite(damageAmount) ? damageAmount : 0;
     const dmgEl = document.createElement('div');
-    dmgEl.className = `floating-damage ${damageAmount === 0 ? 'miss' : ''} ${isCrit ? 'crit' : ''}`;
-    dmgEl.textContent = damageAmount > 0 ? `−${damageAmount}` : 'MISS';
+    dmgEl.className = `floating-damage ${validDmg === 0 ? 'miss' : ''} ${isCrit ? 'crit' : ''}`;
+    dmgEl.textContent = validDmg > 0 ? `−${validDmg}` : 'MISS';
     dmgEl.style.animation = 'none';
 
     targetElement.appendChild(dmgEl);
@@ -213,7 +215,7 @@ export const vfxManager = {
   triggerUltimateVFX(characterId, ultimateName, containerElement = document.body) {
     this.triggerCameraImpulse(2.2);
 
-    const targetContainer = containerElement || document.body;
+    const targetContainer = (containerElement && document.body.contains(containerElement)) ? containerElement : document.body;
 
     if (characterId === 'char_fxr' || ultimateName === 'DREAM_KING' || ultimateName === 'FXR_DOMAIN') {
       // 1. Fu Xiuran Domain Expansion ("梦境领域")
@@ -374,7 +376,7 @@ export const vfxManager = {
    * @param {HTMLElement} cardElement - .battle-card element
    */
   triggerRevivalHalo(cardElement) {
-    if (!cardElement) return;
+    if (!cardElement || !document.body.contains(cardElement)) return;
 
     const ring = document.createElement('div');
     ring.className = 'revival-halo-ring';
@@ -394,8 +396,8 @@ export const vfxManager = {
 
     // Spawn 18 golden particles radiating outwards
     const rect = cardElement.getBoundingClientRect();
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
+    const cx = rect.width > 0 ? (rect.left + rect.width / 2) : (window.innerWidth / 2);
+    const cy = rect.height > 0 ? (rect.top + rect.height / 2) : (window.innerHeight / 2);
     this.spawnParticles(cx, cy, 18, '#ffd700');
   },
 
@@ -406,7 +408,10 @@ export const vfxManager = {
    * @param {Function} [onComplete=null] - Optional callback
    */
   playTacticalCardVFX(sourceCardEl, targetCardEl, onComplete = null) {
-    if (sourceCardEl) {
+    const isSourceValid = sourceCardEl && document.body.contains(sourceCardEl);
+    const isTargetValid = targetCardEl && document.body.contains(targetCardEl);
+
+    if (isSourceValid) {
       // 1. Elevate source card
       gsap.fromTo(sourceCardEl,
         { y: 0, scale: 1 },
@@ -424,13 +429,13 @@ export const vfxManager = {
     }
 
     // 3. Traveling particles from source to target
-    const sRect = sourceCardEl ? sourceCardEl.getBoundingClientRect() : { left: window.innerWidth / 2, top: window.innerHeight - 100, width: 0, height: 0 };
-    const tRect = targetCardEl ? targetCardEl.getBoundingClientRect() : { left: window.innerWidth / 2, top: window.innerHeight / 2, width: 0, height: 0 };
+    const sRect = isSourceValid ? sourceCardEl.getBoundingClientRect() : { left: window.innerWidth / 2, top: window.innerHeight - 100, width: 0, height: 0 };
+    const tRect = isTargetValid ? targetCardEl.getBoundingClientRect() : { left: window.innerWidth / 2, top: window.innerHeight / 2, width: 0, height: 0 };
 
-    const startX = sRect.left + sRect.width / 2;
-    const startY = sRect.top + sRect.height / 2;
-    const endX = tRect.left + tRect.width / 2;
-    const endY = tRect.top + tRect.height / 2;
+    const startX = sRect.width > 0 ? (sRect.left + sRect.width / 2) : (window.innerWidth / 2);
+    const startY = sRect.height > 0 ? (sRect.top + sRect.height / 2) : (window.innerHeight - 100);
+    const endX = tRect.width > 0 ? (tRect.left + tRect.width / 2) : (window.innerWidth / 2);
+    const endY = tRect.height > 0 ? (tRect.top + tRect.height / 2) : (window.innerHeight / 2);
 
     const particleContainer = document.createElement('div');
     particleContainer.style.position = 'fixed';
@@ -442,7 +447,7 @@ export const vfxManager = {
     const tl = gsap.timeline({
       onComplete: () => {
         particleContainer.remove();
-        if (targetCardEl) {
+        if (isTargetValid) {
           // Target hit ripple
           gsap.fromTo(targetCardEl,
             { filter: 'brightness(1.5) saturate(1.8)', scale: 1.05 },
@@ -570,5 +575,9 @@ export const triggerRevivalHalo = vfxManager.triggerRevivalHalo.bind(vfxManager)
 export const playTacticalCardVFX = vfxManager.playTacticalCardVFX.bind(vfxManager);
 export const triggerAuraEffect = vfxManager.triggerAuraEffect.bind(vfxManager);
 export const spawnParticles = vfxManager.spawnParticles.bind(vfxManager);
+
+if (typeof window !== 'undefined') {
+  window.vfxManager = vfxManager;
+}
 
 export default vfxManager;

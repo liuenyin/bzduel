@@ -9,6 +9,7 @@ import { vfxManager } from '../utils/vfx.js';
 
 let S; // module-level state ref
 let animLock = false; // prevent state_update during animations
+let pendingState = null;
 
 const identityName = (id) => {
   switch(id) {
@@ -23,13 +24,24 @@ const identityName = (id) => {
 export function renderBattle(container, data) {
   S = data.state;
   animLock = false; // 重置动画锁
+  pendingState = null;
 
   window._refreshDraftSlot = (idx) => { gameSocket.refreshDraftSlot(idx); };
-  window._buyDraftCard = (idx) => { gameSocket.buyDraftCard(idx); };
+  window._buyDraftCard = (idx) => {
+    gameSocket.buyDraftCard(idx);
+    window._showToast("购买成功！");
+    setTimeout(refreshAll, 50);
+  };
   window._confirmDraftReady = () => { gameSocket.confirmDraftReady(); };
   window._playTacticalCard = (id, evt) => {
     const cardEl = evt?.currentTarget || document.querySelector(`.hand-card-kards[onclick*="${id}"]`);
-    const targetCardEl = document.getElementById('card-op') || document.getElementById('card-me');
+    let targetCardEl = document.getElementById('card-op');
+    if (!targetCardEl) {
+      targetCardEl = document.querySelector('.ffa-micro-card.active-target') ||
+                     document.querySelector('.ffa-micro-card:not(.dead)') ||
+                     document.querySelector('.ffa-micro-card') ||
+                     document.getElementById('card-me');
+    }
     vfxManager.playTacticalCardVFX(cardEl, targetCardEl, () => {
       gameSocket.playTacticalCard(id);
     });
@@ -38,7 +50,15 @@ export function renderBattle(container, data) {
   container.innerHTML = buildArena(S);
   bindCoreEvents();
 
-  gameSocket.on('state_update', (s) => { if (!animLock) { S = s; refreshAll(); } });
+  gameSocket.on('state_update', (s) => {
+    if (animLock) {
+      pendingState = s;
+    } else {
+      S = s;
+      pendingState = null;
+      refreshAll();
+    }
+  });
   gameSocket.on('atk_confirmed', (d) => { S = d.state; onAtkConfirmed(d); });
   gameSocket.on('turn_resolved', (d) => { S = d.state; onTurnResolved(d); });
   gameSocket.on('class_change', (d) => showClassChange(d));
@@ -309,15 +329,12 @@ function tacticalBarHTML(s) {
       const typeClass = c.type || 'buff';
       const scopeLabel = c.subject === 'universal' ? '通用' : (SUBJECTS[c.subject]?.label || c.subject);
       
-      const canAfford = tp >= c.tpCost;
       const subjMatch = c.subject === 'universal' || c.subject === curSubj;
-      const canPlay = canAfford && (c.subject === 'universal' || (subjMatch && canUseClass));
+      const canPlay = (c.subject === 'universal' || subjMatch) && (me.tp >= 0);
 
       let disableReason = '';
       if (!canPlay) {
-         if (!subjMatch && c.subject !== 'universal') disableReason = `限当节课`;
-         else if (!canUseClass && c.subject !== 'universal') disableReason = '非自身选科';
-         else if (!canAfford) disableReason = 'TP不足';
+         if (!subjMatch) disableReason = `限当节课`;
       }
 
       // 扇形展开的角度计算 (-15deg, 0deg, 15deg)
@@ -327,14 +344,14 @@ function tacticalBarHTML(s) {
       const transY = Math.abs(i - mid) * 10;
 
       return `
-        <div class="hand-card-kards ${canPlay ? '' : 'disabled'}" style="transform: rotate(${rotateDeg}deg) translateY(${transY}px)" ${canPlay ? `onclick="window._toggleHand(); window._playTacticalCard('${c.id}', event)"` : ''} title="${disableReason}">
+        <div class="hand-card-kards ${canPlay ? '' : 'disabled'}" style="--card-rotate: ${rotateDeg}deg; transform: rotate(${rotateDeg}deg) translateY(${transY}px)" ${canPlay ? `onclick="window._toggleHand(); window._playTacticalCard('${c.id}', event)"` : ''} title="${disableReason}">
           <div class="card-tag-row">
             <span class="card-tag-type ${typeClass}">${scopeLabel}</span>
             <span class="card-tp-cost">⚡${c.tpCost}</span>
           </div>
           <div class="card-title-text">${c.name}</div>
           <div class="card-desc-text">${c.desc}</div>
-          ${!canPlay ? `<div class="card-disable-overlay">${disableReason}</div>` : ''}
+          ${!canPlay ? `<div class="card-disable-overlay"><span class="card-disable-badge">${disableReason}</span></div>` : ''}
         </div>
       `;
     }).join('');
@@ -370,14 +387,6 @@ window._showToast = (msg) => {
   setTimeout(() => t.remove(), 2500);
 };
 
-// 重写原有的购买函数以提供反馈
-const originalBuy = window._buyDraftCard;
-window._buyDraftCard = (idx) => {
-  if (originalBuy) originalBuy(idx);
-  window._showToast("购买成功！");
-  setTimeout(refreshAll, 50); // 立即刷新UI
-};
-
 function checkDraftShopModal(s) {
   const existing = document.getElementById('draft-shop-modal');
   if (s.draftShop && s.draftShop.active && s.me) {
@@ -389,6 +398,7 @@ function checkDraftShopModal(s) {
         const c = slot.card;
         if (!c) return `<div class="draft-slot-card empty"><p>已购买</p></div>`;
         const typeClass = c.type || 'buff';
+        const scopeLabel = c.subject === 'universal' ? '通用' : (SUBJECTS[c.subject]?.label || c.subject);
         const isHandFull = (s.me.handCards || []).length >= 3;
         const isAfford = s.me.tp >= c.tpCost;
         const buyDisabled = isHandFull || !isAfford;
@@ -396,15 +406,18 @@ function checkDraftShopModal(s) {
         if (isHandFull) disableReason = '手牌已满';
         else if (!isAfford) disableReason = 'TP不足';
         
-        const stars = '★'.repeat(c.tpCost) + '☆'.repeat(3 - c.tpCost);
+        const stars = '★'.repeat(c.tpCost) + '☆'.repeat(Math.max(0, 3 - c.tpCost));
 
         return `
           <div class="draft-slot-card ${buyDisabled ? 'disabled' : 'clickable'}" ${buyDisabled ? '' : `onclick="window._buyDraftCard(${idx})"`}>
             <button class="btn-icon-refresh" ${slot.refreshesLeft > 0 ? '' : 'disabled'} onclick="event.stopPropagation(); window._refreshDraftSlot(${idx})" title="刷新 (${slot.refreshesLeft})">↻</button>
-            <div class="draft-card-star">${stars}</div>
-            <div style="font-size:0.95rem; font-weight:800; color:var(--text-main); margin-top:8px;">${c.name}</div>
-            <div style="font-size:0.75rem; color:var(--text-secondary); line-height:1.3; min-height:40px; margin-top:6px;">${c.desc}</div>
-            ${buyDisabled ? `<div class="card-disable-overlay">${disableReason}</div>` : ''}
+            <div class="draft-card-header">
+              <span class="card-tag-type ${typeClass}">${scopeLabel}</span>
+              <span class="draft-card-star">${stars}</span>
+            </div>
+            <div class="draft-card-title">${c.name}</div>
+            <div class="draft-card-desc">${c.desc}</div>
+            ${buyDisabled ? `<div class="card-disable-overlay"><span class="card-disable-badge">${disableReason}</span></div>` : ''}
           </div>
         `;
       }).join('');
@@ -752,8 +765,10 @@ export function onTurnResolved(data) {
       if (!S || typeof S.myIndex === 'undefined') return;
       const isMyAtk = S.myIndex === attackerIdx;
       const atkId = (S.players && S.players[attackerIdx]) ? S.players[attackerIdx].id : null;
-      const atkCard = (atkId && S.me && atkId === S.me.id) ? document.getElementById('card-me') : (atkId ? document.querySelector(`.ffa-micro-card[data-pid="${atkId}"]`) : null);
-      if (atkCard) atkCard.classList.add('card-attacking');
+      const getLiveAtkCard = () => (atkId && S.me && atkId === S.me.id) ? document.getElementById('card-me') : (atkId ? document.querySelector(`.ffa-micro-card[data-pid="${atkId}"]`) : null);
+      
+      const atkCard = getLiveAtkCard();
+      if (atkCard && document.body.contains(atkCard)) atkCard.classList.add('card-attacking');
       
       // Trigger character ultimate VFX for AoE attacker
       if (S && S.players && typeof attackerIdx === 'number' && S.players[attackerIdx]) {
@@ -772,12 +787,17 @@ export function onTurnResolved(data) {
 
       data.aoeResults.forEach(res => {
         const dId = res.playerId;
-        const dCard = dId === S.me.id ? document.getElementById('card-me') : document.querySelector(`.ffa-micro-card[data-pid="${dId}"]`);
-        if (dCard) setTimeout(() => dCard.classList.add('card-hit'), 300);
+        const getLiveDCard = () => dId === S.me.id ? document.getElementById('card-me') : document.querySelector(`.ffa-micro-card[data-pid="${dId}"]`);
         
         setTimeout(() => {
-          if (dCard) {
-            vfxManager.playHitImpact(dCard, res.damage, {
+          const liveDCard = getLiveDCard();
+          if (liveDCard && document.body.contains(liveDCard)) liveDCard.classList.add('card-hit');
+        }, 300);
+        
+        setTimeout(() => {
+          const liveDCard = getLiveDCard();
+          if (liveDCard && document.body.contains(liveDCard)) {
+            vfxManager.playHitImpact(liveDCard, res.damage, {
               isCrit: res.damage >= 8,
               isHeavy: res.damage >= 15,
               nineLivesTriggered: res.nineLivesTriggered,
@@ -792,15 +812,21 @@ export function onTurnResolved(data) {
       }, 400);
 
       setTimeout(() => {
-        if (atkCard) atkCard.classList.remove('card-attacking');
+        const liveAtkCard = getLiveAtkCard();
+        if (liveAtkCard && document.body.contains(liveAtkCard)) liveAtkCard.classList.remove('card-attacking');
         data.aoeResults.forEach(res => {
           const dId = res.playerId;
-          const dCard = dId === S.me.id ? document.getElementById('card-me') : document.querySelector(`.ffa-micro-card[data-pid="${dId}"]`);
-          if (dCard) dCard.classList.remove('card-hit');
+          const liveDCard = dId === S.me.id ? document.getElementById('card-me') : document.querySelector(`.ffa-micro-card[data-pid="${dId}"]`);
+          if (liveDCard && document.body.contains(liveDCard)) liveDCard.classList.remove('card-hit');
         });
         
         setTimeout(() => {
-          S = newState;
+          if (pendingState) {
+            S = pendingState;
+            pendingState = null;
+          } else {
+            S = newState;
+          }
           animLock = false;
           refreshAll();
           data.aoeResults.forEach(r => addLog(r));
@@ -813,19 +839,32 @@ export function onTurnResolved(data) {
     setTimeout(() => {
       if (!S || typeof S.myIndex === 'undefined') return;
       const isMyAtk = S.myIndex === attackerIdx;
-      let atkCard, defCard;
-      if (S.gameMode === '1v1') {
-        atkCard = document.getElementById(isMyAtk ? 'card-me' : 'card-op');
-        defCard = document.getElementById(isMyAtk ? 'card-op' : 'card-me');
-      } else {
-        const atkId = (S.players && S.players[attackerIdx]) ? S.players[attackerIdx].id : null;
-        const defId = (S.defenderIdx !== null && S.defenderIdx !== undefined && S.players && S.players[S.defenderIdx]) ? S.players[S.defenderIdx].id : null;
-        atkCard = (atkId && S.me && atkId === S.me.id) ? document.getElementById('card-me') : (atkId ? document.querySelector(`.ffa-micro-card[data-pid="${atkId}"]`) : null);
-        defCard = (defId && S.me && defId === S.me.id) ? document.getElementById('card-me') : (defId ? document.querySelector(`.ffa-micro-card[data-pid="${defId}"]`) : null);
-      }
 
-      if (atkCard) atkCard.classList.add('card-attacking');
-      if (defCard) setTimeout(() => defCard.classList.add('card-hit'), 300);
+      const getLiveAtkCard = () => {
+        if (S.gameMode === '1v1') {
+          return document.getElementById(isMyAtk ? 'card-me' : 'card-op');
+        } else {
+          const atkId = (S.players && S.players[attackerIdx]) ? S.players[attackerIdx].id : null;
+          return (atkId && S.me && atkId === S.me.id) ? document.getElementById('card-me') : (atkId ? document.querySelector(`.ffa-micro-card[data-pid="${atkId}"]`) : null);
+        }
+      };
+
+      const getLiveDefCard = () => {
+        if (S.gameMode === '1v1') {
+          return document.getElementById(isMyAtk ? 'card-op' : 'card-me');
+        } else {
+          const defId = (S.defenderIdx !== null && S.defenderIdx !== undefined && S.players && S.players[S.defenderIdx]) ? S.players[S.defenderIdx].id : null;
+          return (defId && S.me && defId === S.me.id) ? document.getElementById('card-me') : (defId ? document.querySelector(`.ffa-micro-card[data-pid="${defId}"]`) : null);
+        }
+      };
+
+      const atkCard = getLiveAtkCard();
+      if (atkCard && document.body.contains(atkCard)) atkCard.classList.add('card-attacking');
+
+      setTimeout(() => {
+        const liveDefCard = getLiveDefCard();
+        if (liveDefCard && document.body.contains(liveDefCard)) liveDefCard.classList.add('card-hit');
+      }, 300);
 
       setTimeout(() => {
         // Trigger character ultimate VFX if conditions are met
@@ -843,8 +882,9 @@ export function onTurnResolved(data) {
           }
         }
 
-        if (defCard) {
-          vfxManager.playHitImpact(defCard, damage, {
+        const liveDefCard = getLiveDefCard();
+        if (liveDefCard && document.body.contains(liveDefCard)) {
+          vfxManager.playHitImpact(liveDefCard, damage, {
             isCrit: damage >= 8,
             isHeavy: damage >= 15,
             nineLivesTriggered: data.nineLivesTriggered,
@@ -859,11 +899,18 @@ export function onTurnResolved(data) {
       }, 400);
 
       setTimeout(() => {
-        if (atkCard) atkCard.classList.remove('card-attacking');
-        if (defCard) defCard.classList.remove('card-hit');
+        const liveAtkCard = getLiveAtkCard();
+        const liveDefCard = getLiveDefCard();
+        if (liveAtkCard && document.body.contains(liveAtkCard)) liveAtkCard.classList.remove('card-attacking');
+        if (liveDefCard && document.body.contains(liveDefCard)) liveDefCard.classList.remove('card-hit');
         
         setTimeout(() => {
-          S = newState;
+          if (pendingState) {
+            S = pendingState;
+            pendingState = null;
+          } else {
+            S = newState;
+          }
           animLock = false;
           refreshAll();
           addLog(data);

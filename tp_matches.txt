@@ -1,0 +1,1293 @@
+E:/School+AI/school-dice-duel\download_assets.js:1: const https = require('https');
+E:/School+AI/school-dice-duel\download_assets.js:8: https.get(url, (response) => {
+E:/School+AI/school-dice-duel\download_assets.js:29: { name: 'march_7th.png', url: 'https://upload-bbs.mihoyo.com/game_record/hkrpg/character_icon/1001.png' },
+E:/School+AI/school-dice-duel\download_assets.js:30: { name: 'dan_heng.png', url: 'https://upload-bbs.mihoyo.com/game_record/hkrpg/character_icon/1002.png' }
+E:/School+AI/school-dice-duel\find_tp.py:5: with open("tp_matches.txt", "w", encoding="utf-8") as out:
+E:/School+AI/school-dice-duel\find_tp.py:16: if "tp" in line_lower or "draft" in line_lower or "card" in line_lower:
+E:/School+AI/school-dice-duel\find_tp.py:19: print("Done writing tp_matches.txt")
+E:/School+AI/school-dice-duel\fix_battle.py:17: window._refreshDraftSlot = (idx) => { gameSocket.refreshDraftSlot(idx); };
+E:/School+AI/school-dice-duel\fix_battle.py:18: window._buyDraftCard = (idx) => { gameSocket.buyDraftCard(idx); };
+E:/School+AI/school-dice-duel\fix_battle.py:19: window._confirmDraftReady = () => { gameSocket.confirmDraftReady(); };
+E:/School+AI/school-dice-duel\fix_battle.py:20: window._playTacticalCard = (id) => { gameSocket.playTacticalCard(id); };
+E:/School+AI/school-dice-duel\fix_battle.py:27: # 2. Update checkDraftShopModal to handle re-rendering existing modal
+E:/School+AI/school-dice-duel\fix_battle.py:28: old_check_draft = """function checkDraftShopModal(s) {
+E:/School+AI/school-dice-duel\fix_battle.py:29: const existing = document.getElementById('draft-shop-modal');
+E:/School+AI/school-dice-duel\fix_battle.py:30: if (s.draftShop && s.draftShop.active && s.me) {
+E:/School+AI/school-dice-duel\fix_battle.py:31: const pDraft = s.draftShop.players?.[s.me.id];
+E:/School+AI/school-dice-duel\fix_battle.py:32: if (!pDraft) return;
+E:/School+AI/school-dice-duel\fix_battle.py:34: if (pDraft.ready) {
+E:/School+AI/school-dice-duel\fix_battle.py:36: existing.querySelector('.draft-shop-panel').innerHTML = `
+E:/School+AI/school-dice-duel\fix_battle.py:46: new_check_draft = """function checkDraftShopModal(s) {
+E:/School+AI/school-dice-duel\fix_battle.py:47: const existing = document.getElementById('draft-shop-modal');
+E:/School+AI/school-dice-duel\fix_battle.py:48: if (s.draftShop && s.draftShop.active && s.me) {
+E:/School+AI/school-dice-duel\fix_battle.py:49: const pDraft = s.draftShop.players?.[s.me.id];
+E:/School+AI/school-dice-duel\fix_battle.py:50: if (!pDraft) return;
+E:/School+AI/school-dice-duel\fix_battle.py:54: return pDraft.slots.map((slot, idx) => {
+E:/School+AI/school-dice-duel\fix_battle.py:55: const c = slot.card;
+E:/School+AI/school-dice-duel\fix_battle.py:56: if (!c) return `<div class="draft-slot-card"><p style="color:var(--text-muted);">已领完</p></div>`;
+E:/School+AI/school-dice-duel\fix_battle.py:60: const isHandFull = (s.me.handCards || []).length >= 3;
+E:/School+AI/school-dice-duel\fix_battle.py:61: const isAfford = s.me.tp >= c.tpCost;
+E:/School+AI/school-dice-duel\fix_battle.py:63: const buyReason = isHandFull ? '手牌已满' : (!isAfford ? 'TP不足' : '选择');
+E:/School+AI/school-dice-duel\fix_battle.py:66: <div class="draft-slot-card">
+E:/School+AI/school-dice-duel\fix_battle.py:67: <div class="card-tag-row">
+E:/School+AI/school-dice-duel\fix_battle.py:68: <span class="card-tag-type ${typeClass}">[${typeLabel}]</span>
+E:/School+AI/school-dice-duel\fix_battle.py:70: <span class="card-tp-cost">⚡ ${c.tpCost} TP</span>
+E:/School+AI/school-dice-duel\fix_battle.py:74: <div class="draft-btn-row">
+E:/School+AI/school-dice-duel\fix_battle.py:75: <button class="btn-draft-action btn-draft-refresh" ${slot.refreshesLeft > 0 ? '' : 'disabled'} onclick="window._refreshDraftSlot(${idx})">
+E:/School+AI/school-dice-duel\fix_battle.py:78: <button class="btn-draft-action btn-draft-buy" ${buyDisabled ? 'disabled' : ''} onclick="window._buyDraftCard(${idx})">
+E:/School+AI/school-dice-duel\fix_battle.py:87: if (pDraft.ready) {
+E:/School+AI/school-dice-duel\fix_battle.py:89: existing.querySelector('.draft-shop-panel').innerHTML = `
+E:/School+AI/school-dice-duel\fix_battle.py:99: const slotsWrap = existing.querySelector('#draft-slots-wrap');
+E:/School+AI/school-dice-duel\fix_battle.py:101: const subTitle = existing.querySelector('.draft-shop-panel p');
+E:/School+AI/school-dice-duel\fix_battle.py:103: subTitle.innerHTML = `下节课即将开始！请选择 1~3 张战术卡加入手牌（当前持有: ${s.me.handCards?.length || 0}/3 | TP: ⚡${s.me.tp}）`;
+E:/School+AI/school-dice-duel\fix_battle.py:108: code = code.replace(old_check_draft, new_check_draft)
+E:/School+AI/school-dice-duel\fix_cards.py:9: 'CARD_TYPE.BLESSING': '祝福', 'CARD_TYPE.BUFF': '增益', 'CARD_TYPE.DEBUFF': '减益', 'CARD_TYPE.OTHER': '其他'
+E:/School+AI/school-dice-duel\fix_cards.py:12: with open('shared/cards.js', 'r', encoding='utf-8') as f:
+E:/School+AI/school-dice-duel\fix_cards.py:19: type_match = re.search(r"type:\s*(CARD_TYPE\.[A-Z]+)", full_match)
+E:/School+AI/school-dice-duel\fix_cards.py:32: new_content = re.sub(r"\{\s*id:\s*'card_[^\{]+\}", replace_name, content)
+E:/School+AI/school-dice-duel\fix_cards.py:34: with open('shared/cards.js', 'w', encoding='utf-8') as f:
+E:/School+AI/school-dice-duel\fix_cards.py:37: print('Cards updated successfully.')
+E:/School+AI/school-dice-duel\fix_css.py:81: .dream-target-cards-container {
+E:/School+AI/school-dice-duel\fix_css.py:109: .dream-target-cards-container {
+E:/School+AI/school-dice-duel\fix_css.py:158: animation: buffHeatPulse 2s infinite ease-in-out;
+E:/School+AI/school-dice-duel\fix_css.py:160: @keyframes buffHeatPulse {
+E:/School+AI/school-dice-duel\package-lock.json:25: "resolved": "https://registry.npmjs.org/@esbuild/aix-ppc64/-/aix-ppc64-0.25.12.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:41: "resolved": "https://registry.npmjs.org/@esbuild/android-arm/-/android-arm-0.25.12.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:57: "resolved": "https://registry.npmjs.org/@esbuild/android-arm64/-/android-arm64-0.25.12.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:73: "resolved": "https://registry.npmjs.org/@esbuild/android-x64/-/android-x64-0.25.12.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:89: "resolved": "https://registry.npmjs.org/@esbuild/darwin-arm64/-/darwin-arm64-0.25.12.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:105: "resolved": "https://registry.npmjs.org/@esbuild/darwin-x64/-/darwin-x64-0.25.12.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:121: "resolved": "https://registry.npmjs.org/@esbuild/freebsd-arm64/-/freebsd-arm64-0.25.12.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:137: "resolved": "https://registry.npmjs.org/@esbuild/freebsd-x64/-/freebsd-x64-0.25.12.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:153: "resolved": "https://registry.npmjs.org/@esbuild/linux-arm/-/linux-arm-0.25.12.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:169: "resolved": "https://registry.npmjs.org/@esbuild/linux-arm64/-/linux-arm64-0.25.12.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:185: "resolved": "https://registry.npmjs.org/@esbuild/linux-ia32/-/linux-ia32-0.25.12.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:201: "resolved": "https://registry.npmjs.org/@esbuild/linux-loong64/-/linux-loong64-0.25.12.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:217: "resolved": "https://registry.npmjs.org/@esbuild/linux-mips64el/-/linux-mips64el-0.25.12.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:233: "resolved": "https://registry.npmjs.org/@esbuild/linux-ppc64/-/linux-ppc64-0.25.12.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:249: "resolved": "https://registry.npmjs.org/@esbuild/linux-riscv64/-/linux-riscv64-0.25.12.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:265: "resolved": "https://registry.npmjs.org/@esbuild/linux-s390x/-/linux-s390x-0.25.12.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:281: "resolved": "https://registry.npmjs.org/@esbuild/linux-x64/-/linux-x64-0.25.12.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:297: "resolved": "https://registry.npmjs.org/@esbuild/netbsd-arm64/-/netbsd-arm64-0.25.12.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:313: "resolved": "https://registry.npmjs.org/@esbuild/netbsd-x64/-/netbsd-x64-0.25.12.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:329: "resolved": "https://registry.npmjs.org/@esbuild/openbsd-arm64/-/openbsd-arm64-0.25.12.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:345: "resolved": "https://registry.npmjs.org/@esbuild/openbsd-x64/-/openbsd-x64-0.25.12.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:361: "resolved": "https://registry.npmjs.org/@esbuild/openharmony-arm64/-/openharmony-arm64-0.25.12.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:377: "resolved": "https://registry.npmjs.org/@esbuild/sunos-x64/-/sunos-x64-0.25.12.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:393: "resolved": "https://registry.npmjs.org/@esbuild/win32-arm64/-/win32-arm64-0.25.12.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:409: "resolved": "https://registry.npmjs.org/@esbuild/win32-ia32/-/win32-ia32-0.25.12.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:425: "resolved": "https://registry.npmjs.org/@esbuild/win32-x64/-/win32-x64-0.25.12.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:441: "resolved": "https://registry.npmjs.org/@playwright/test/-/test-1.62.1.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:457: "resolved": "https://registry.npmjs.org/@rollup/rollup-android-arm-eabi/-/rollup-android-arm-eabi-4.60.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:470: "resolved": "https://registry.npmjs.org/@rollup/rollup-android-arm64/-/rollup-android-arm64-4.60.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:483: "resolved": "https://registry.npmjs.org/@rollup/rollup-darwin-arm64/-/rollup-darwin-arm64-4.60.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:496: "resolved": "https://registry.npmjs.org/@rollup/rollup-darwin-x64/-/rollup-darwin-x64-4.60.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:509: "resolved": "https://registry.npmjs.org/@rollup/rollup-freebsd-arm64/-/rollup-freebsd-arm64-4.60.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:522: "resolved": "https://registry.npmjs.org/@rollup/rollup-freebsd-x64/-/rollup-freebsd-x64-4.60.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:523: "integrity": "sha512-LU+TPda3mAE2QB0/Hp5VyeKJivpC6+tlOXd1VMoXV/YFMvk/MNk5iXeBfB4MQGRWyOYVJ01625vjkr0Az98OJQ==",
+E:/School+AI/school-dice-duel\package-lock.json:535: "resolved": "https://registry.npmjs.org/@rollup/rollup-linux-arm-gnueabihf/-/rollup-linux-arm-gnueabihf-4.60.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:536: "integrity": "sha512-2QxQrM+KQ7DAW4o22j+XZ6RKdxjLD7BOWTP0Bv0tmjdyhXSsr2Ul1oJDQqh9Zf5qOwTuTc7Ek83mOFaKnodPjg==",
+E:/School+AI/school-dice-duel\package-lock.json:548: "resolved": "https://registry.npmjs.org/@rollup/rollup-linux-arm-musleabihf/-/rollup-linux-arm-musleabihf-4.60.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:561: "resolved": "https://registry.npmjs.org/@rollup/rollup-linux-arm64-gnu/-/rollup-linux-arm64-gnu-4.60.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:574: "resolved": "https://registry.npmjs.org/@rollup/rollup-linux-arm64-musl/-/rollup-linux-arm64-musl-4.60.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:587: "resolved": "https://registry.npmjs.org/@rollup/rollup-linux-loong64-gnu/-/rollup-linux-loong64-gnu-4.60.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:600: "resolved": "https://registry.npmjs.org/@rollup/rollup-linux-loong64-musl/-/rollup-linux-loong64-musl-4.60.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:613: "resolved": "https://registry.npmjs.org/@rollup/rollup-linux-ppc64-gnu/-/rollup-linux-ppc64-gnu-4.60.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:614: "integrity": "sha512-11+aL5vKheYgczxtPVVRhdptAM2H7fcDR5Gw4/bTcteuZBlH4oP9f5s9zYO9aGZvoGeBpqXI/9TZZihZ609wKw==",
+E:/School+AI/school-dice-duel\package-lock.json:626: "resolved": "https://registry.npmjs.org/@rollup/rollup-linux-ppc64-musl/-/rollup-linux-ppc64-musl-4.60.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:639: "resolved": "https://registry.npmjs.org/@rollup/rollup-linux-riscv64-gnu/-/rollup-linux-riscv64-gnu-4.60.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:652: "resolved": "https://registry.npmjs.org/@rollup/rollup-linux-riscv64-musl/-/rollup-linux-riscv64-musl-4.60.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:665: "resolved": "https://registry.npmjs.org/@rollup/rollup-linux-s390x-gnu/-/rollup-linux-s390x-gnu-4.60.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:678: "resolved": "https://registry.npmjs.org/@rollup/rollup-linux-x64-gnu/-/rollup-linux-x64-gnu-4.60.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:691: "resolved": "https://registry.npmjs.org/@rollup/rollup-linux-x64-musl/-/rollup-linux-x64-musl-4.60.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:704: "resolved": "https://registry.npmjs.org/@rollup/rollup-openbsd-x64/-/rollup-openbsd-x64-4.60.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:717: "resolved": "https://registry.npmjs.org/@rollup/rollup-openharmony-arm64/-/rollup-openharmony-arm64-4.60.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:730: "resolved": "https://registry.npmjs.org/@rollup/rollup-win32-arm64-msvc/-/rollup-win32-arm64-msvc-4.60.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:731: "integrity": "sha512-NCYhOotpgWZ5kdxCZsv6Iudx0wX8980Q/oW4pNFNihpBKsDbEA1zpkfxJGC0yugsUuyDZ7gL37dbzwhR0VI7pQ==",
+E:/School+AI/school-dice-duel\package-lock.json:743: "resolved": "https://registry.npmjs.org/@rollup/rollup-win32-ia32-msvc/-/rollup-win32-ia32-msvc-4.60.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:756: "resolved": "https://registry.npmjs.org/@rollup/rollup-win32-x64-gnu/-/rollup-win32-x64-gnu-4.60.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:769: "resolved": "https://registry.npmjs.org/@rollup/rollup-win32-x64-msvc/-/rollup-win32-x64-msvc-4.60.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:782: "resolved": "https://registry.npmjs.org/@socket.io/component-emitter/-/component-emitter-3.1.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:788: "resolved": "https://registry.npmjs.org/@types/cors/-/cors-2.8.19.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:797: "resolved": "https://registry.npmjs.org/@types/estree/-/estree-1.0.8.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:803: "resolved": "https://registry.npmjs.org/@types/node/-/node-25.6.0.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:812: "resolved": "https://registry.npmjs.org/@types/ws/-/ws-8.18.1.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:821: "resolved": "https://registry.npmjs.org/accepts/-/accepts-1.3.8.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:834: "resolved": "https://registry.npmjs.org/ansi-regex/-/ansi-regex-5.0.1.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:844: "resolved": "https://registry.npmjs.org/ansi-styles/-/ansi-styles-4.3.0.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:855: "url": "https://github.com/chalk/ansi-styles?sponsor=1"
+E:/School+AI/school-dice-duel\package-lock.json:860: "resolved": "https://registry.npmjs.org/array-flatten/-/array-flatten-1.1.1.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:866: "resolved": "https://registry.npmjs.org/base64id/-/base64id-2.0.0.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:875: "resolved": "https://registry.npmjs.org/body-parser/-/body-parser-1.20.5.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:884: "http-errors": "~2.0.1",
+E:/School+AI/school-dice-duel\package-lock.json:899: "resolved": "https://registry.npmjs.org/qs/-/qs-6.15.1.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:909: "url": "https://github.com/sponsors/ljharb"
+E:/School+AI/school-dice-duel\package-lock.json:914: "resolved": "https://registry.npmjs.org/bytes/-/bytes-3.1.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:923: "resolved": "https://registry.npmjs.org/call-bind-apply-helpers/-/call-bind-apply-helpers-1.0.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:924: "integrity": "sha512-Sp1ablJ0ivDkSzjcaJdxEunN5/XvksFJ2sMBFfq6x0ryhQV/2b/KwFe21cMpmHtPOSij8K99/wSfoEuTObmuMQ==",
+E:/School+AI/school-dice-duel\package-lock.json:936: "resolved": "https://registry.npmjs.org/call-bound/-/call-bound-1.0.4.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:947: "url": "https://github.com/sponsors/ljharb"
+E:/School+AI/school-dice-duel\package-lock.json:952: "resolved": "https://registry.npmjs.org/chalk/-/chalk-4.1.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:964: "url": "https://github.com/chalk/chalk?sponsor=1"
+E:/School+AI/school-dice-duel\package-lock.json:969: "resolved": "https://registry.npmjs.org/supports-color/-/supports-color-7.2.0.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:982: "resolved": "https://registry.npmjs.org/cliui/-/cliui-8.0.1.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:997: "resolved": "https://registry.npmjs.org/color-convert/-/color-convert-2.0.1.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1010: "resolved": "https://registry.npmjs.org/color-name/-/color-name-1.1.4.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1017: "resolved": "https://registry.npmjs.org/concurrently/-/concurrently-9.2.1.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1037: "url": "https://github.com/open-cli-tools/concurrently?sponsor=1"
+E:/School+AI/school-dice-duel\package-lock.json:1042: "resolved": "https://registry.npmjs.org/content-disposition/-/content-disposition-0.5.4.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1054: "resolved": "https://registry.npmjs.org/content-type/-/content-type-1.0.5.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1063: "resolved": "https://registry.npmjs.org/cookie/-/cookie-0.7.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1072: "resolved": "https://registry.npmjs.org/cookie-signature/-/cookie-signature-1.0.7.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1078: "resolved": "https://registry.npmjs.org/cors/-/cors-2.8.6.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1090: "url": "https://opencollective.com/express"
+E:/School+AI/school-dice-duel\package-lock.json:1095: "resolved": "https://registry.npmjs.org/debug/-/debug-2.6.9.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1104: "resolved": "https://registry.npmjs.org/depd/-/depd-2.0.0.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1113: "resolved": "https://registry.npmjs.org/destroy/-/destroy-1.2.0.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1123: "resolved": "https://registry.npmjs.org/dunder-proto/-/dunder-proto-1.0.1.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1137: "resolved": "https://registry.npmjs.org/ee-first/-/ee-first-1.1.1.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1143: "resolved": "https://registry.npmjs.org/emoji-regex/-/emoji-regex-8.0.0.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1150: "resolved": "https://registry.npmjs.org/encodeurl/-/encodeurl-2.0.0.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1159: "resolved": "https://registry.npmjs.org/engine.io/-/engine.io-6.6.7.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1180: "resolved": "https://registry.npmjs.org/engine.io-client/-/engine.io-client-6.6.4.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1188: "xmlhttprequest-ssl": "~2.1.1"
+E:/School+AI/school-dice-duel\package-lock.json:1193: "resolved": "https://registry.npmjs.org/debug/-/debug-4.4.3.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1210: "resolved": "https://registry.npmjs.org/ms/-/ms-2.1.3.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1216: "resolved": "https://registry.npmjs.org/engine.io-parser/-/engine.io-parser-5.2.3.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1225: "resolved": "https://registry.npmjs.org/debug/-/debug-4.4.3.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1242: "resolved": "https://registry.npmjs.org/ms/-/ms-2.1.3.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1248: "resolved": "https://registry.npmjs.org/es-define-property/-/es-define-property-1.0.1.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1257: "resolved": "https://registry.npmjs.org/es-errors/-/es-errors-1.3.0.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1266: "resolved": "https://registry.npmjs.org/es-object-atoms/-/es-object-atoms-1.1.1.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1267: "integrity": "sha512-FGgH2h8zKNim9ljj7dankFPcICIK9Cp5bm+c2gQSYePhpaG5+esrLODihIorn+Pe6FGJzWhXQotPv73jTaldXA==",
+E:/School+AI/school-dice-duel\package-lock.json:1278: "resolved": "https://registry.npmjs.org/esbuild/-/esbuild-0.25.12.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1319: "resolved": "https://registry.npmjs.org/escalade/-/escalade-3.2.0.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1329: "resolved": "https://registry.npmjs.org/escape-html/-/escape-html-1.0.3.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1335: "resolved": "https://registry.npmjs.org/etag/-/etag-1.8.1.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1344: "resolved": "https://registry.npmjs.org/express/-/express-4.22.1.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1362: "http-errors": "~2.0.0",
+E:/School+AI/school-dice-duel\package-lock.json:1374: "setprototypeof": "1.2.0",
+E:/School+AI/school-dice-duel\package-lock.json:1385: "url": "https://opencollective.com/express"
+E:/School+AI/school-dice-duel\package-lock.json:1390: "resolved": "https://registry.npmjs.org/fdir/-/fdir-6.5.0.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1407: "resolved": "https://registry.npmjs.org/finalhandler/-/finalhandler-1.3.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1425: "resolved": "https://registry.npmjs.org/forwarded/-/forwarded-0.2.0.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1434: "resolved": "https://registry.npmjs.org/fresh/-/fresh-0.5.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1435: "integrity": "sha512-zJ2mQYM18rEFOudeV4GShTGIQ7RbzA7ozbU9I/XBpm7kqgMywgmylMwXHxZJmkVoYkna9d2pVXVXPdYTP9ej8Q==",
+E:/School+AI/school-dice-duel\package-lock.json:1443: "resolved": "https://registry.npmjs.org/fsevents/-/fsevents-2.3.3.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1457: "resolved": "https://registry.npmjs.org/function-bind/-/function-bind-1.1.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1461: "url": "https://github.com/sponsors/ljharb"
+E:/School+AI/school-dice-duel\package-lock.json:1466: "resolved": "https://registry.npmjs.org/get-caller-file/-/get-caller-file-2.0.5.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1476: "resolved": "https://registry.npmjs.org/get-intrinsic/-/get-intrinsic-1.3.0.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1495: "url": "https://github.com/sponsors/ljharb"
+E:/School+AI/school-dice-duel\package-lock.json:1500: "resolved": "https://registry.npmjs.org/get-proto/-/get-proto-1.0.1.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1513: "resolved": "https://registry.npmjs.org/gopd/-/gopd-1.2.0.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1520: "url": "https://github.com/sponsors/ljharb"
+E:/School+AI/school-dice-duel\package-lock.json:1525: "resolved": "https://registry.npmjs.org/gsap/-/gsap-3.15.0.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1527: "license": "Standard 'no charge' license: https://gsap.com/standard-license."
+E:/School+AI/school-dice-duel\package-lock.json:1531: "resolved": "https://registry.npmjs.org/has-flag/-/has-flag-4.0.0.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1532: "integrity": "sha512-EykJT/Q1KjTWctppgIAgfSO0tKVuZUjhgMr17kqTumMl6Afv3EISleU7qZUzoXDFTAHTDC4NOoG/ZxU3EvlMPQ==",
+E:/School+AI/school-dice-duel\package-lock.json:1541: "resolved": "https://registry.npmjs.org/has-symbols/-/has-symbols-1.1.0.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1548: "url": "https://github.com/sponsors/ljharb"
+E:/School+AI/school-dice-duel\package-lock.json:1553: "resolved": "https://registry.npmjs.org/hasown/-/hasown-2.0.3.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1563: "node_modules/http-errors": {
+E:/School+AI/school-dice-duel\package-lock.json:1565: "resolved": "https://registry.npmjs.org/http-errors/-/http-errors-2.0.1.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1566: "integrity": "sha512-4FbRdAX+bSdmo4AUFuS0WNiPz8NgFt+r8ThgNWmlrjQjt1Q7ZR9+zTlce2859x4KSXrwIsaeTqDoKQmtP8pLmQ==",
+E:/School+AI/school-dice-duel\package-lock.json:1571: "setprototypeof": "~1.2.0",
+E:/School+AI/school-dice-duel\package-lock.json:1580: "url": "https://opencollective.com/express"
+E:/School+AI/school-dice-duel\package-lock.json:1585: "resolved": "https://registry.npmjs.org/iconv-lite/-/iconv-lite-0.4.24.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1597: "resolved": "https://registry.npmjs.org/inherits/-/inherits-2.0.4.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1603: "resolved": "https://registry.npmjs.org/ipaddr.js/-/ipaddr.js-1.9.1.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1612: "resolved": "https://registry.npmjs.org/is-fullwidth-code-point/-/is-fullwidth-code-point-3.0.0.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1622: "resolved": "https://registry.npmjs.org/math-intrinsics/-/math-intrinsics-1.1.0.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1623: "integrity": "sha512-/IXtbwEk5HTPyEwyKX6hGkYXxM9nbj64B+ilVJnC/R6B0pH5G4V3b0pVbL7DBj4tkhBAppbQUlf6F6Xl9LHu1g==",
+E:/School+AI/school-dice-duel\package-lock.json:1631: "resolved": "https://registry.npmjs.org/media-typer/-/media-typer-0.3.0.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1640: "resolved": "https://registry.npmjs.org/merge-descriptors/-/merge-descriptors-1.0.3.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1644: "url": "https://github.com/sponsors/sindresorhus"
+E:/School+AI/school-dice-duel\package-lock.json:1649: "resolved": "https://registry.npmjs.org/methods/-/methods-1.1.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1658: "resolved": "https://registry.npmjs.org/mime/-/mime-1.6.0.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1670: "resolved": "https://registry.npmjs.org/mime-db/-/mime-db-1.52.0.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1679: "resolved": "https://registry.npmjs.org/mime-types/-/mime-types-2.1.35.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1691: "resolved": "https://registry.npmjs.org/ms/-/ms-2.0.0.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1692: "integrity": "sha512-Tpp60P6IUJDTuOq/5Z8cdskzJujfwqfOTkrwIwj7IRISpnkJnT6SyJ4PCPnGMoFjC9ddhal5KVIYtAt97ix05A==",
+E:/School+AI/school-dice-duel\package-lock.json:1697: "resolved": "https://registry.npmjs.org/nanoid/-/nanoid-3.3.11.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1702: "url": "https://github.com/sponsors/ai"
+E:/School+AI/school-dice-duel\package-lock.json:1715: "resolved": "https://registry.npmjs.org/negotiator/-/negotiator-0.6.3.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1724: "resolved": "https://registry.npmjs.org/object-assign/-/object-assign-4.1.1.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1733: "resolved": "https://registry.npmjs.org/object-inspect/-/object-inspect-1.13.4.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1740: "url": "https://github.com/sponsors/ljharb"
+E:/School+AI/school-dice-duel\package-lock.json:1745: "resolved": "https://registry.npmjs.org/on-finished/-/on-finished-2.4.1.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1757: "resolved": "https://registry.npmjs.org/parseurl/-/parseurl-1.3.3.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1766: "resolved": "https://registry.npmjs.org/path-to-regexp/-/path-to-regexp-0.1.13.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1772: "resolved": "https://registry.npmjs.org/picocolors/-/picocolors-1.1.1.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1773: "integrity": "sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==",
+E:/School+AI/school-dice-duel\package-lock.json:1778: "resolved": "https://registry.npmjs.org/picomatch/-/picomatch-4.0.4.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1785: "url": "https://github.com/sponsors/jonschlinkert"
+E:/School+AI/school-dice-duel\package-lock.json:1790: "resolved": "https://registry.npmjs.org/playwright/-/playwright-1.62.1.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1809: "resolved": "https://registry.npmjs.org/playwright-core/-/playwright-core-1.62.1.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1822: "resolved": "https://registry.npmjs.org/fsevents/-/fsevents-2.3.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1823: "integrity": "sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==",
+E:/School+AI/school-dice-duel\package-lock.json:1837: "resolved": "https://registry.npmjs.org/postcss/-/postcss-8.5.12.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1842: "url": "https://opencollective.com/postcss/"
+E:/School+AI/school-dice-duel\package-lock.json:1846: "url": "https://tidelift.com/funding/github/npm/postcss"
+E:/School+AI/school-dice-duel\package-lock.json:1850: "url": "https://github.com/sponsors/ai"
+E:/School+AI/school-dice-duel\package-lock.json:1865: "resolved": "https://registry.npmjs.org/proxy-addr/-/proxy-addr-2.0.7.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1878: "resolved": "https://registry.npmjs.org/qs/-/qs-6.14.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1888: "url": "https://github.com/sponsors/ljharb"
+E:/School+AI/school-dice-duel\package-lock.json:1893: "resolved": "https://registry.npmjs.org/range-parser/-/range-parser-1.2.1.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1902: "resolved": "https://registry.npmjs.org/raw-body/-/raw-body-2.5.3.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1907: "http-errors": "~2.0.1",
+E:/School+AI/school-dice-duel\package-lock.json:1917: "resolved": "https://registry.npmjs.org/require-directory/-/require-directory-2.1.1.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1927: "resolved": "https://registry.npmjs.org/rollup/-/rollup-4.60.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1971: "resolved": "https://registry.npmjs.org/rxjs/-/rxjs-7.8.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1981: "resolved": "https://registry.npmjs.org/safe-buffer/-/safe-buffer-5.2.1.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:1986: "url": "https://github.com/sponsors/feross"
+E:/School+AI/school-dice-duel\package-lock.json:1990: "url": "https://www.patreon.com/feross"
+E:/School+AI/school-dice-duel\package-lock.json:1994: "url": "https://feross.org/support"
+E:/School+AI/school-dice-duel\package-lock.json:2001: "resolved": "https://registry.npmjs.org/safer-buffer/-/safer-buffer-2.1.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:2002: "integrity": "sha512-YZo3K82SD7Riyi0E1EQPojLz7kpepnSQI9IyPbHHg1XXXevb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg==",
+E:/School+AI/school-dice-duel\package-lock.json:2007: "resolved": "https://registry.npmjs.org/send/-/send-0.19.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:2008: "integrity": "sha512-VMbMxbDeehAxpOtWJXlcUS5E8iXh6QmN+BkRX1GARS3wRaXEEgzCcB10gTQazO42tpNIya8xIyNx8fll1OFPrg==",
+E:/School+AI/school-dice-duel\package-lock.json:2018: "http-errors": "~2.0.1",
+E:/School+AI/school-dice-duel\package-lock.json:2031: "resolved": "https://registry.npmjs.org/ms/-/ms-2.1.3.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:2037: "resolved": "https://registry.npmjs.org/serve-static/-/serve-static-1.16.3.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:2050: "node_modules/setprototypeof": {
+E:/School+AI/school-dice-duel\package-lock.json:2052: "resolved": "https://registry.npmjs.org/setprototypeof/-/setprototypeof-1.2.0.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:2058: "resolved": "https://registry.npmjs.org/shell-quote/-/shell-quote-1.8.3.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:2066: "url": "https://github.com/sponsors/ljharb"
+E:/School+AI/school-dice-duel\package-lock.json:2071: "resolved": "https://registry.npmjs.org/side-channel/-/side-channel-1.1.0.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:2085: "url": "https://github.com/sponsors/ljharb"
+E:/School+AI/school-dice-duel\package-lock.json:2090: "resolved": "https://registry.npmjs.org/side-channel-list/-/side-channel-list-1.0.1.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:2101: "url": "https://github.com/sponsors/ljharb"
+E:/School+AI/school-dice-duel\package-lock.json:2106: "resolved": "https://registry.npmjs.org/side-channel-map/-/side-channel-map-1.0.1.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:2119: "url": "https://github.com/sponsors/ljharb"
+E:/School+AI/school-dice-duel\package-lock.json:2124: "resolved": "https://registry.npmjs.org/side-channel-weakmap/-/side-channel-weakmap-1.0.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:2138: "url": "https://github.com/sponsors/ljharb"
+E:/School+AI/school-dice-duel\package-lock.json:2143: "resolved": "https://registry.npmjs.org/socket.io/-/socket.io-4.8.3.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:2161: "resolved": "https://registry.npmjs.org/socket.io-adapter/-/socket.io-adapter-2.5.6.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:2171: "resolved": "https://registry.npmjs.org/debug/-/debug-4.4.3.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:2188: "resolved": "https://registry.npmjs.org/ms/-/ms-2.1.3.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:2194: "resolved": "https://registry.npmjs.org/socket.io-client/-/socket.io-client-4.8.3.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:2209: "resolved": "https://registry.npmjs.org/debug/-/debug-4.4.3.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:2226: "resolved": "https://registry.npmjs.org/ms/-/ms-2.1.3.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:2232: "resolved": "https://registry.npmjs.org/socket.io-parser/-/socket.io-parser-4.2.6.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:2245: "resolved": "https://registry.npmjs.org/debug/-/debug-4.4.3.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:2262: "resolved": "https://registry.npmjs.org/ms/-/ms-2.1.3.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:2268: "resolved": "https://registry.npmjs.org/debug/-/debug-4.4.3.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:2285: "resolved": "https://registry.npmjs.org/ms/-/ms-2.1.3.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:2291: "resolved": "https://registry.npmjs.org/source-map-js/-/source-map-js-1.2.1.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:2300: "resolved": "https://registry.npmjs.org/statuses/-/statuses-2.0.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:2309: "resolved": "https://registry.npmjs.org/string-width/-/string-width-4.2.3.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:2324: "resolved": "https://registry.npmjs.org/strip-ansi/-/strip-ansi-6.0.1.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:2337: "resolved": "https://registry.npmjs.org/supports-color/-/supports-color-8.1.1.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:2348: "url": "https://github.com/chalk/supports-color?sponsor=1"
+E:/School+AI/school-dice-duel\package-lock.json:2353: "resolved": "https://registry.npmjs.org/tinyglobby/-/tinyglobby-0.2.16.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:2364: "url": "https://github.com/sponsors/SuperchupuDev"
+E:/School+AI/school-dice-duel\package-lock.json:2369: "resolved": "https://registry.npmjs.org/toidentifier/-/toidentifier-1.0.1.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:2378: "resolved": "https://registry.npmjs.org/tree-kill/-/tree-kill-1.2.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:2388: "resolved": "https://registry.npmjs.org/tslib/-/tslib-2.8.1.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:2395: "resolved": "https://registry.npmjs.org/type-is/-/type-is-1.6.18.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:2408: "resolved": "https://registry.npmjs.org/undici-types/-/undici-types-7.19.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:2414: "resolved": "https://registry.npmjs.org/unpipe/-/unpipe-1.0.0.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:2423: "resolved": "https://registry.npmjs.org/utils-merge/-/utils-merge-1.0.1.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:2432: "resolved": "https://registry.npmjs.org/vary/-/vary-1.1.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:2441: "resolved": "https://registry.npmjs.org/vite/-/vite-6.4.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:2459: "url": "https://github.com/vitejs/vite?sponsor=1"
+E:/School+AI/school-dice-duel\package-lock.json:2515: "resolved": "https://registry.npmjs.org/wrap-ansi/-/wrap-ansi-7.0.0.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:2528: "url": "https://github.com/chalk/wrap-ansi?sponsor=1"
+E:/School+AI/school-dice-duel\package-lock.json:2533: "resolved": "https://registry.npmjs.org/ws/-/ws-8.18.3.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:2552: "node_modules/xmlhttprequest-ssl": {
+E:/School+AI/school-dice-duel\package-lock.json:2554: "resolved": "https://registry.npmjs.org/xmlhttprequest-ssl/-/xmlhttprequest-ssl-2.1.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:2562: "resolved": "https://registry.npmjs.org/y18n/-/y18n-5.0.8.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:2572: "resolved": "https://registry.npmjs.org/yargs/-/yargs-17.7.2.tgz",
+E:/School+AI/school-dice-duel\package-lock.json:2591: "resolved": "https://registry.npmjs.org/yargs-parser/-/yargs-parser-21.1.1.tgz",
+E:/School+AI/school-dice-duel\patch_1v1_dmg.py:8: damage += tac.flatPierce;
+E:/School+AI/school-dice-duel\patch_1v1_dmg2.py:8: damage += tac.flatPierce;
+E:/School+AI/school-dice-duel\patch_battle.py:13: if (!p || !p.card) return;
+E:/School+AI/school-dice-duel\patch_battle.py:19: "background:var(--bg-card); border-radius:10px; font-size:10px; padding:0 4px; border:1px solid var(--bg-inset);"
+E:/School+AI/school-dice-duel\patch_battle.py:37: const tp = me.tp || 0;
+E:/School+AI/school-dice-duel\patch_battle.py:38: const handCards = me.handCards || [];
+E:/School+AI/school-dice-duel\patch_battle.py:40: const canUseClass = me.card?.subjects?.includes(curSubj);
+E:/School+AI/school-dice-duel\patch_battle.py:42: let cardsHtml = '';
+E:/School+AI/school-dice-duel\patch_battle.py:43: if (handCards.length === 0) {
+E:/School+AI/school-dice-duel\patch_battle.py:44: cardsHtml = `<div style="font-size:0.75rem; color:var(--text-secondary); padding:4px 0; text-align:center; width:100%;">暂无战术卡 (在第 2 / 4 / 6 节课后触发补给站)</div>`;
+E:/School+AI/school-dice-duel\patch_battle.py:46: cardsHtml = handCards.map(c => {
+E:/School+AI/school-dice-duel\patch_battle.py:52: const canAfford = tp >= c.tpCost;
+E:/School+AI/school-dice-duel\patch_battle.py:59: else if (!canAfford) disableReason = 'TP不足';
+E:/School+AI/school-dice-duel\patch_battle.py:62: <div class="tactical-card-item">
+E:/School+AI/school-dice-duel\patch_battle.py:63: <div class="card-tag-row">
+E:/School+AI/school-dice-duel\patch_battle.py:64: <span class="card-tag-type ${typeClass}">[${typeLabel}]</span>
+E:/School+AI/school-dice-duel\patch_battle.py:66: <span class="card-tp-cost">⚡${c.tpCost}TP</span>
+E:/School+AI/school-dice-duel\patch_battle.py:68: <div class="card-title-text">${c.name}</div>
+E:/School+AI/school-dice-duel\patch_battle.py:69: <div class="card-desc-text" title="${c.desc}">${c.desc}</div>
+E:/School+AI/school-dice-duel\patch_battle.py:70: <button class="btn-play-card" ${canPlay ? '' : 'disabled'} onclick="window._playTacticalCard('${c.id}')">
+E:/School+AI/school-dice-duel\patch_battle.py:88: <span>战术手牌 (${handCards.length}/3)</span>
+E:/School+AI/school-dice-duel\patch_battle.py:89: <span class="tp-badge">战术点: ${tp} TP</span>
+E:/School+AI/school-dice-duel\patch_battle.py:91: <div class="hand-cards-list">
+E:/School+AI/school-dice-duel\patch_battle.py:92: ${cardsHtml}
+E:/School+AI/school-dice-duel\patch_battle.py:114: const tp = me.tp || 0;
+E:/School+AI/school-dice-duel\patch_battle.py:115: const handCards = me.handCards || [];
+E:/School+AI/school-dice-duel\patch_battle.py:117: const canUseClass = me.card?.subjects?.includes(curSubj);
+E:/School+AI/school-dice-duel\patch_battle.py:119: let cardsHtml = '';
+E:/School+AI/school-dice-duel\patch_battle.py:120: if (handCards.length === 0) {
+E:/School+AI/school-dice-duel\patch_battle.py:121: cardsHtml = `<div style="color:var(--text-secondary); text-align:center; margin-top:40px;">暂无战术卡</div>`;
+E:/School+AI/school-dice-duel\patch_battle.py:123: cardsHtml = handCards.map((c, i) => {
+E:/School+AI/school-dice-duel\patch_battle.py:128: const canAfford = tp >= c.tpCost;
+E:/School+AI/school-dice-duel\patch_battle.py:136: else if (!canAfford) disableReason = 'TP不足';
+E:/School+AI/school-dice-duel\patch_battle.py:140: const total = handCards.length;
+E:/School+AI/school-dice-duel\patch_battle.py:146: <div class="hand-card-kards ${canPlay ? '' : 'disabled'}" style="transform: rotate(${rotateDeg}deg) translateY(${transY}px)" ${canPlay ? `onclick="window._toggleHand(); window._playTacticalCard('${c.id}')"` : ''} title="${disableReason}">
+E:/School+AI/school-dice-duel\patch_battle.py:147: <div class="card-tag-row">
+E:/School+AI/school-dice-duel\patch_battle.py:148: <span class="card-tag-type ${typeClass}">${scopeLabel}</span>
+E:/School+AI/school-dice-duel\patch_battle.py:149: <span class="card-tp-cost">⚡${c.tpCost}</span>
+E:/School+AI/school-dice-duel\patch_battle.py:151: <div class="card-title-text">${c.name}</div>
+E:/School+AI/school-dice-duel\patch_battle.py:152: <div class="card-desc-text">${c.desc}</div>
+E:/School+AI/school-dice-duel\patch_battle.py:153: ${!canPlay ? `<div class="card-disable-overlay">${disableReason}</div>` : ''}
+E:/School+AI/school-dice-duel\patch_battle.py:171: <span class="fab-count">${handCards.length}/3</span>
+E:/School+AI/school-dice-duel\patch_battle.py:172: <span class="fab-tp">⚡${tp}</span>
+E:/School+AI/school-dice-duel\patch_battle.py:175: ${cardsHtml}
+E:/School+AI/school-dice-duel\patch_battle.py:184: # 5. checkDraftShopModal
+E:/School+AI/school-dice-duel\patch_battle.py:185: old_draft = """
+E:/School+AI/school-dice-duel\patch_battle.py:186: function checkDraftShopModal(s) {
+E:/School+AI/school-dice-duel\patch_battle.py:187: const existing = document.getElementById('draft-shop-modal');
+E:/School+AI/school-dice-duel\patch_battle.py:188: if (s.draftShop && s.draftShop.active && s.me) {
+E:/School+AI/school-dice-duel\patch_battle.py:189: const pDraft = s.draftShop.players?.[s.me.id];
+E:/School+AI/school-dice-duel\patch_battle.py:190: if (!pDraft) return;
+E:/School+AI/school-dice-duel\patch_battle.py:194: return pDraft.slots.map((slot, idx) => {
+E:/School+AI/school-dice-duel\patch_battle.py:195: const c = slot.card;
+E:/School+AI/school-dice-duel\patch_battle.py:196: if (!c) return `<div class="draft-slot-card"><p style="color:var(--text-muted); text-align:center;">已领完</p></div>`;
+E:/School+AI/school-dice-duel\patch_battle.py:200: const isHandFull = (s.me.handCards || []).length >= 3;
+E:/School+AI/school-dice-duel\patch_battle.py:201: const isAfford = s.me.tp >= c.tpCost;
+E:/School+AI/school-dice-duel\patch_battle.py:203: const buyReason = isHandFull ? '手牌已满' : (!isAfford ? 'TP不足' : '选择');
+E:/School+AI/school-dice-duel\patch_battle.py:206: <div class="draft-slot-card">
+E:/School+AI/school-dice-duel\patch_battle.py:207: <div class="card-tag-row">
+E:/School+AI/school-dice-duel\patch_battle.py:208: <span class="card-tag-type ${typeClass}">[${typeLabel}]</span>
+E:/School+AI/school-dice-duel\patch_battle.py:210: <span class="card-tp-cost">⚡ ${c.tpCost} TP</span>
+E:/School+AI/school-dice-duel\patch_battle.py:214: <div class="draft-btn-row">
+E:/School+AI/school-dice-duel\patch_battle.py:215: <button class="btn-draft-action btn-draft-refresh" ${slot.refreshesLeft > 0 ? '' : 'disabled'} onclick="window._refreshDraftSlot(${idx})">
+E:/School+AI/school-dice-duel\patch_battle.py:218: <button class="btn-draft-action btn-draft-buy" ${buyDisabled ? 'disabled' : ''} onclick="window._buyDraftCard(${idx})">
+E:/School+AI/school-dice-duel\patch_battle.py:227: if (pDraft.ready) {
+E:/School+AI/school-dice-duel\patch_battle.py:229: existing.querySelector('.draft-shop-panel').innerHTML = `
+E:/School+AI/school-dice-duel\patch_battle.py:238: const slotsWrap = existing.querySelector('#draft-slots-wrap');
+E:/School+AI/school-dice-duel\patch_battle.py:240: const subTitle = existing.querySelector('.draft-shop-panel p');
+E:/School+AI/school-dice-duel\patch_battle.py:242: subTitle.innerHTML = `下节课即将开始！请选择 1~3 张战术卡加入手牌（当前持有: ${s.me.handCards?.length || 0}/3 | 持有TP: ⚡${s.me.tp}）`;
+E:/School+AI/school-dice-duel\patch_battle.py:249: overlay.id = 'draft-shop-modal';
+E:/School+AI/school-dice-duel\patch_battle.py:253: <div class="draft-shop-panel">
+E:/School+AI/school-dice-duel\patch_battle.py:256: 下节课即将开始！请选择 1~3 张战术卡加入手牌（当前持有: ${s.me.handCards?.length || 0}/3 | 持有TP: ⚡${s.me.tp}）
+E:/School+AI/school-dice-duel\patch_battle.py:258: <div class="draft-slots-container" id="draft-slots-wrap">
+E:/School+AI/school-dice-duel\patch_battle.py:262: <button class="btn btn-primary btn-lg" onclick="window._confirmDraftReady()" style="min-width:180px;">
+E:/School+AI/school-dice-duel\patch_battle.py:275: old_draft = old_draft.strip()
+E:/School+AI/school-dice-duel\patch_battle.py:277: new_draft = """
+E:/School+AI/school-dice-duel\patch_battle.py:287: const originalBuy = window._buyDraftCard;
+E:/School+AI/school-dice-duel\patch_battle.py:288: window._buyDraftCard = (idx) => {
+E:/School+AI/school-dice-duel\patch_battle.py:294: function checkDraftShopModal(s) {
+E:/School+AI/school-dice-duel\patch_battle.py:295: const existing = document.getElementById('draft-shop-modal');
+E:/School+AI/school-dice-duel\patch_battle.py:296: if (s.draftShop && s.draftShop.active && s.me) {
+E:/School+AI/school-dice-duel\patch_battle.py:297: const pDraft = s.draftShop.players?.[s.me.id];
+E:/School+AI/school-dice-duel\patch_battle.py:298: if (!pDraft) return;
+E:/School+AI/school-dice-duel\patch_battle.py:301: return pDraft.slots.map((slot, idx) => {
+E:/School+AI/school-dice-duel\patch_battle.py:302: const c = slot.card;
+E:/School+AI/school-dice-duel\patch_battle.py:303: if (!c) return `<div class="draft-slot-card empty"><p>已购买</p></div>`;
+E:/School+AI/school-dice-duel\patch_battle.py:305: const isHandFull = (s.me.handCards || []).length >= 3;
+E:/School+AI/school-dice-duel\patch_battle.py:306: const isAfford = s.me.tp >= c.tpCost;
+E:/School+AI/school-dice-duel\patch_battle.py:310: else if (!isAfford) disableReason = 'TP不足';
+E:/School+AI/school-dice-duel\patch_battle.py:312: const stars = '★'.repeat(c.tpCost) + '☆'.repeat(3 - c.tpCost);
+E:/School+AI/school-dice-duel\patch_battle.py:315: <div class="draft-slot-card ${buyDisabled ? 'disabled' : 'clickable'}" ${buyDisabled ? '' : `onclick="window._buyDraftCard(${idx})"`}>
+E:/School+AI/school-dice-duel\patch_battle.py:316: <button class="btn-icon-refresh" ${slot.refreshesLeft > 0 ? '' : 'disabled'} onclick="event.stopPropagation(); window._refreshDraftSlot(${idx})" title="刷新 (${slot.refreshesLeft})">↻</button>
+E:/School+AI/school-dice-duel\patch_battle.py:317: <div class="draft-card-star">${stars}</div>
+E:/School+AI/school-dice-duel\patch_battle.py:320: ${buyDisabled ? `<div class="card-disable-overlay">${disableReason}</div>` : ''}
+E:/School+AI/school-dice-duel\patch_battle.py:326: if (pDraft.ready) {
+E:/School+AI/school-dice-duel\patch_battle.py:328: existing.querySelector('.draft-shop-panel').innerHTML = `
+E:/School+AI/school-dice-duel\patch_battle.py:337: const slotsWrap = existing.querySelector('#draft-slots-wrap');
+E:/School+AI/school-dice-duel\patch_battle.py:339: const subTitle = existing.querySelector('.draft-shop-panel p');
+E:/School+AI/school-dice-duel\patch_battle.py:341: subTitle.innerHTML = `下节课即将开始！点击卡面直接购买（当前持有: ${s.me.handCards?.length || 0}/3 | 战术点: ⚡${s.me.tp}）`;
+E:/School+AI/school-dice-duel\patch_battle.py:348: overlay.id = 'draft-shop-modal';
+E:/School+AI/school-dice-duel\patch_battle.py:352: <div class="draft-shop-panel">
+E:/School+AI/school-dice-duel\patch_battle.py:355: 下节课即将开始！点击卡面直接购买（当前持有: ${s.me.handCards?.length || 0}/3 | 战术点: ⚡${s.me.tp}）
+E:/School+AI/school-dice-duel\patch_battle.py:357: <div class="draft-slots-container" id="draft-slots-wrap">
+E:/School+AI/school-dice-duel\patch_battle.py:361: <button class="btn btn-primary btn-lg" onclick="window._confirmDraftReady()" style="min-width:180px;">
+E:/School+AI/school-dice-duel\patch_battle.py:375: content = content.replace(old_draft, new_draft.strip())
+E:/School+AI/school-dice-duel\patch_css.py:20: # Fix 2: new draft shop UI styles
+E:/School+AI/school-dice-duel\patch_css.py:21: if ".draft-card-star" not in content:
+E:/School+AI/school-dice-duel\patch_css.py:23: .draft-slots-container {
+E:/School+AI/school-dice-duel\patch_css.py:26: .draft-slot-card {
+E:/School+AI/school-dice-duel\patch_css.py:27: width: 150px; background: var(--bg-card);
+E:/School+AI/school-dice-duel\patch_css.py:32: .draft-slot-card.clickable:hover {
+E:/School+AI/school-dice-duel\patch_css.py:37: .draft-slot-card.disabled {
+E:/School+AI/school-dice-duel\patch_css.py:40: .draft-slot-card.empty {
+E:/School+AI/school-dice-duel\patch_css.py:56: .draft-card-star {
+E:/School+AI/school-dice-duel\patch_css.py:85: .fab-tp { font-size: 0.7rem; color: var(--gold); font-weight: 900; background: rgba(0,0,0,0.5); padding: 1px 4px; border-radius: 4px; margin-top: -2px; }
+E:/School+AI/school-dice-duel\patch_css.py:98: .hand-card-kards {
+E:/School+AI/school-dice-duel\patch_css.py:102: background: var(--bg-card); border-radius: 8px;
+E:/School+AI/school-dice-duel\patch_css.py:109: .hand-card-kards:hover:not(.disabled) {
+E:/School+AI/school-dice-duel\patch_css.py:114: .hand-card-kards.disabled { opacity: 0.5; filter: grayscale(1); cursor: not-allowed; }
+E:/School+AI/school-dice-duel\patch_css.py:115: .hand-card-kards:hover:not(.disabled) {
+E:/School+AI/school-dice-duel\patch_css.py:124: background: var(--bg-card); color: #a3e635;
+E:/School+AI/school-dice-duel\patch_engine.py:9: "firstBloodTriggered: damage > 0 && p.card.negativeSkill?.id === SKILL.FIRST_BLOOD && !p.hasTakenDamage",
+E:/School+AI/school-dice-duel\patch_engine.py:10: "firstBloodTriggered: damage > 0 && p.card.negativeSkill?.id === SKILL.FIRST_BLOOD && p.hasTakenDamage === true" # because we set it to true a few lines above.
+E:/School+AI/school-dice-duel\patch_engine.py:15: if (damage > 0 && p.card.negativeSkill?.id === SKILL.FIRST_BLOOD && !p.hasTakenDamage) {
+E:/School+AI/school-dice-duel\patch_engine.py:17: if (p.card.defSlots > 1) p.card.defSlots -= 1;
+E:/School+AI/school-dice-duel\patch_engine.py:23: if (damage > 0 && p.card.negativeSkill?.id === SKILL.FIRST_BLOOD && !p.hasTakenDamage) {
+E:/School+AI/school-dice-duel\patch_engine.py:25: if (p.card.defSlots > 1) p.card.defSlots -= 1;
+E:/School+AI/school-dice-duel\patch_engine.py:32: "firstBloodTriggered: damage > 0 && p.card.negativeSkill?.id === SKILL.FIRST_BLOOD && !p.hasTakenDamage,",
+E:/School+AI/school-dice-duel\patch_engine.py:43: if (p.hp <= 0 && p.card.positiveSkill?.id === SKILL.NINE_LIVES && !p.nineLivesUsed) {
+E:/School+AI/school-dice-duel\patch_engine.py:53: "nineLivesTriggered: p.hp <= 0 && p.card.positiveSkill?.id === SKILL.NINE_LIVES && !p.nineLivesUsed",
+E:/School+AI/school-dice-duel\patch_tac.py:7: # Define the new calcTacticalCardEffects function
+E:/School+AI/school-dice-duel\patch_tac.py:8: new_func = """function calcTacticalCardEffects(state, atk, def, keptRolls) {
+E:/School+AI/school-dice-duel\patch_tac.py:11: let flatPierce = 0;
+E:/School+AI/school-dice-duel\patch_tac.py:17: if (!atk || !def) return { atkBonus, defBonus, flatPierce, isNoFixedBonus, maxDmgCap, damageMultiplier };
+E:/School+AI/school-dice-duel\patch_tac.py:19: // 1. 检查攻击者的祝福与单轮卡 (Attacker's cards)
+E:/School+AI/school-dice-duel\patch_tac.py:20: const atkCards = [...(atk.activeBlessings || []), ...(atk.playedTurnCard ? [atk.playedTurnCard] : [])];
+E:/School+AI/school-dice-duel\patch_tac.py:21: atkCards.forEach(c => {
+E:/School+AI/school-dice-duel\patch_tac.py:23: case 'card_chi_1': if (curSubj === 'chinese') atkBonus += 2; break;
+E:/School+AI/school-dice-duel\patch_tac.py:24: case 'card_mat_2': atkBonus += 3; break;
+E:/School+AI/school-dice-duel\patch_tac.py:25: case 'card_pe_2': atkBonus += 4; break;
+E:/School+AI/school-dice-duel\patch_tac.py:28: case 'card_gen_02': atkBonus += 2; break; // 本回合基础攻击/防御总和+2
+E:/School+AI/school-dice-duel\patch_tac.py:29: case 'card_gen_04': flatPierce += 2; break; // 附加 2 点穿透伤害
+E:/School+AI/school-dice-duel\patch_tac.py:32: case 'card_gen_06': atkBonus -= 2; break; // 压制对方点数 (减弱攻击)
+E:/School+AI/school-dice-duel\patch_tac.py:34: case 'card_phy_1':
+E:/School+AI/school-dice-duel\patch_tac.py:40: case 'card_phy_2': flatPierce += 3; break;
+E:/School+AI/school-dice-duel\patch_tac.py:41: case 'card_pol_1': if (curSubj === 'politics') isNoFixedBonus = true; break;
+E:/School+AI/school-dice-duel\patch_tac.py:42: case 'card_mus_1':
+E:/School+AI/school-dice-duel\patch_tac.py:48: case 'card_mus_2':
+E:/School+AI/school-dice-duel\patch_tac.py:51: case 'card_geo_1':
+E:/School+AI/school-dice-duel\patch_tac.py:54: case 'card_geo_2':
+E:/School+AI/school-dice-duel\patch_tac.py:63: // 2. 检查防御者的祝福与单轮卡 (Defender's cards)
+E:/School+AI/school-dice-duel\patch_tac.py:64: const defCards = [...(def.activeBlessings || []), ...(def.playedTurnCard ? [def.playedTurnCard] : [])];
+E:/School+AI/school-dice-duel\patch_tac.py:65: defCards.forEach(c => {
+E:/School+AI/school-dice-duel\patch_tac.py:67: case 'card_pol_1': if (curSubj === 'politics') isNoFixedBonus = true; break;
+E:/School+AI/school-dice-duel\patch_tac.py:68: case 'card_pol_2': defBonus += 3; break;
+E:/School+AI/school-dice-duel\patch_tac.py:71: case 'card_gen_02': defBonus += 2; break; // 本回合基础攻击/防御总和+2
+E:/School+AI/school-dice-duel\patch_tac.py:72: case 'card_gen_05': defBonus += 3; break; // 本回合防御固定减免 3
+E:/School+AI/school-dice-duel\patch_tac.py:75: case 'card_gen_06': defBonus -= 2; break; // 压制对方点数 (减弱防御)
+E:/School+AI/school-dice-duel\patch_tac.py:76: case 'card_gen_08': defBonus -= 2; break; // 创伤加深 (防御结算额外受2伤害)
+E:/School+AI/school-dice-duel\patch_tac.py:78: case 'card_tec_1': if (curSubj === 'tech') defBonus += 2; break;
+E:/School+AI/school-dice-duel\patch_tac.py:79: case 'card_pol_3': maxDmgCap = Math.min(maxDmgCap, 8); break;
+E:/School+AI/school-dice-duel\patch_tac.py:80: case 'card_bio_1': if (curSubj === 'biology') defBonus += 3; break;
+E:/School+AI/school-dice-duel\patch_tac.py:81: case 'card_his_1': if (curSubj === 'history') damageMultiplier *= 0.5; break;
+E:/School+AI/school-dice-duel\patch_tac.py:85: return { atkBonus, defBonus, flatPierce, isNoFixedBonus, maxDmgCap, damageMultiplier };
+E:/School+AI/school-dice-duel\patch_tac.py:89: pattern = re.compile(r'function calcTacticalCardEffects\(state, atk, def, keptRolls\) \{.*?\n\}', re.DOTALL)
+E:/School+AI/school-dice-duel\playwright.config.js:7: baseURL: 'http://localhost:3000',
+E:/School+AI/school-dice-duel\playwright.config.js:13: url: 'http://localhost:3000',
+E:/School+AI/school-dice-duel\test-matchmaking.js:3: const url = 'http://localhost:3000';
+E:/School+AI/school-dice-duel\update_client.cjs:5: // Fix checkDraftShopModal render logic
+E:/School+AI/school-dice-duel\update_client.cjs:9: return pDraft.slots.map((slot, idx) => {
+E:/School+AI/school-dice-duel\update_client.cjs:10: const c = slot.card;
+E:/School+AI/school-dice-duel\update_client.cjs:11: if (!c) return '<div class="draft-slot-card"><p>已领取</p></div>';
+E:/School+AI/school-dice-duel\update_client.cjs:15: const isHandFull = (s.me.handCards || []).length >= 3;
+E:/School+AI/school-dice-duel\update_client.cjs:16: const isAfford = s.me.tp >= c.tpCost;
+E:/School+AI/school-dice-duel\update_client.cjs:18: const buyReason = isHandFull ? '手牌已满' : (!isAfford ? 'TP不足' : '选择');
+E:/School+AI/school-dice-duel\update_client.cjs:20: <div class="draft-slot-card">
+E:/School+AI/school-dice-duel\update_client.cjs:21: <div class="card-tag-row">
+E:/School+AI/school-dice-duel\update_client.cjs:22: <span class="card-tag-type \${typeClass}">[\${typeLabel}]</span>
+E:/School+AI/school-dice-duel\update_client.cjs:24: <span class="card-tp-cost">⚡\${c.tpCost} TP</span>
+E:/School+AI/school-dice-duel\update_client.cjs:28: <div class="draft-btn-row">
+E:/School+AI/school-dice-duel\update_client.cjs:29: <button class="btn-draft-action btn-draft-refresh" \${slot.refreshesLeft > 0 ? '' : 'disabled'} onclick="window._refreshDraftSlot(\${idx})">
+E:/School+AI/school-dice-duel\update_client.cjs:32: <button class="btn-draft-action btn-draft-buy" \${buyDisabled ? 'disabled' : ''} onclick="window._buyDraftCard(\${idx})">
+E:/School+AI/school-dice-duel\update_client.cjs:42: const container = existing.querySelector('.draft-slots-container');
+E:/School+AI/school-dice-duel\update_engine.cjs:5: // 1. Add instant card effects
+E:/School+AI/school-dice-duel\update_engine.cjs:6: code = code.replace(/case 'card_gen_10':/g,
+E:/School+AI/school-dice-duel\update_engine.cjs:7: `case 'card_gen_11':
+E:/School+AI/school-dice-duel\update_engine.cjs:8: if (p.handCards && p.handCards.length > 0) {
+E:/School+AI/school-dice-duel\update_engine.cjs:9: p.handCards.splice(Math.floor(Math.random() * p.handCards.length), 1);
+E:/School+AI/school-dice-duel\update_engine.cjs:11: p.handCards.push(getRandomCard(state.schedule[state.currentClassIndex] || 'chinese', p.card?.subjects || []));
+E:/School+AI/school-dice-duel\update_engine.cjs:13: case 'card_gen_12':
+E:/School+AI/school-dice-duel\update_engine.cjs:16: case 'card_gen_14':
+E:/School+AI/school-dice-duel\update_engine.cjs:20: case 'card_gen_10':`);
+E:/School+AI/school-dice-duel\update_engine.cjs:22: // 2. Add reroll block for card_gen_09
+E:/School+AI/school-dice-duel\update_engine.cjs:28: if (opp && opp.playedTurnCard?.id === 'card_gen_09') return { ok: false, error: '对方使用了【重投锁死】，无法重投！' };`);
+E:/School+AI/school-dice-duel\update_engine.cjs:30: // 3. Add tactical effects to calcTacticalCardEffects
+E:/School+AI/school-dice-duel\update_engine.cjs:31: code = code.replace(/case 'card_gen_02': atkBonus \+= 2; break;/g,
+E:/School+AI/school-dice-duel\update_engine.cjs:32: `case 'card_gen_01': atkBonus += 8; break; // 必定最大值，给个高额攻击加成
+E:/School+AI/school-dice-duel\update_engine.cjs:33: case 'card_gen_02': atkBonus += 2; break;
+E:/School+AI/school-dice-duel\update_engine.cjs:34: case 'card_gen_06': defBonus -= 2; break; // 压制对方点数
+E:/School+AI/school-dice-duel\update_engine.cjs:35: case 'card_gen_08': defBonus -= 2; break; // 创伤加深`);
+E:/School+AI/school-dice-duel\update_engine.cjs:37: code = code.replace(/case 'card_gen_05': defBonus \+= 3; break;/g,
+E:/School+AI/school-dice-duel\update_engine.cjs:38: `case 'card_gen_01': defBonus -= 99; break; // 无法防御
+E:/School+AI/school-dice-duel\update_engine.cjs:39: case 'card_gen_05': defBonus += 3; break;
+E:/School+AI/school-dice-duel\update_engine.cjs:40: case 'card_gen_06': atkBonus -= 2; break;
+E:/School+AI/school-dice-duel\update_engine.cjs:41: case 'card_gen_08': atkBonus += 2; break; // 防御结算额外受2伤害
+E:/School+AI/school-dice-duel\update_engine.cjs:42: case 'card_gen_13': defBonus += Math.floor((atk.keptRolls ? atk.keptRolls.reduce((a,b)=>a+b,0) : 10) * 0.5); break;`);
+E:/School+AI/school-dice-duel\update_stealth.cjs:3: code = code.replace(/const isYzx = p\.cardId === 'char_10' && \!isMe;/g, "const isYzx = (p.cardId === 'char_10' || p.stealth) && !isMe;");
+E:/School+AI/school-dice-duel\vite.config.js:10: target: 'http://localhost:3000',
+E:/School+AI/school-dice-duel\server\index.js:5: import { createServer } from 'http';
+E:/School+AI/school-dice-duel\server\index.js:10: createGame, selectCard, setReady, useReschedule,
+E:/School+AI/school-dice-duel\server\index.js:12: playTacticalCard, refreshDraftSlot, buyDraftCard, confirmDraftReady,
+E:/School+AI/school-dice-duel\server\index.js:15: import { aiSelectCard } from './game/ai.js';
+E:/School+AI/school-dice-duel\server\index.js:39: const httpServer = createServer(app);
+E:/School+AI/school-dice-duel\server\index.js:40: const io = new Server(httpServer, { cors: { origin: '*' }, pingTimeout: 30000, pingInterval: 10000 });
+E:/School+AI/school-dice-duel\server\index.js:89: const aiCardId = aiSelectCard(room.game.schedule);
+E:/School+AI/school-dice-duel\server\index.js:90: selectCard(room.game, room.aiId, aiCardId);
+E:/School+AI/school-dice-duel\server\index.js:91: console.log(`[PVE] AI ${aiId} 已自动选卡: ${aiCardId}`);
+E:/School+AI/school-dice-duel\server\index.js:240: socket.on('select_card', ({ cardId }) => {
+E:/School+AI/school-dice-duel\server\index.js:242: if (selectCard(room.game, socket.id, cardId).ok) {
+E:/School+AI/school-dice-duel\server\index.js:254: const aiCardId = room.game.players[1].cardId || aiSelectCard(room.game.schedule);
+E:/School+AI/school-dice-duel\server\index.js:255: if (!room.game.players[1].cardId) selectCard(room.game, room.aiId, aiCardId);
+E:/School+AI/school-dice-duel\server\index.js:346: const isDefYZX = defIdx !== null && g.players[defIdx]?.cardId === 'char_10';
+E:/School+AI/school-dice-duel\server\index.js:364: const preDefCardId = preDefIdx !== null ? g.players[preDefIdx]?.cardId : null;
+E:/School+AI/school-dice-duel\server\index.js:369: const preAtkCardId = g.players[preAtkIdx]?.cardId;
+E:/School+AI/school-dice-duel\server\index.js:390: if (preDefCardId === 'char_10' && pid !== preDefId && !res.gameOver) {
+E:/School+AI/school-dice-duel\server\index.js:397: if (preAtkCardId === 'char_10' && pid !== preAtkId && !res.gameOver) {
+E:/School+AI/school-dice-duel\server\index.js:405: const winnerCardId = g.players[g.winner].cardId;
+E:/School+AI/school-dice-duel\server\index.js:407: const loserCardId = g.players[loserIdx].cardId;
+E:/School+AI/school-dice-duel\server\index.js:409: recordMatch(winnerCardId, loserCardId, isPvE);
+E:/School+AI/school-dice-duel\server\index.js:432: socket.on('play_tactical_card', ({ cardId }) => {
+E:/School+AI/school-dice-duel\server\index.js:435: const res = playTacticalCard(room.game, socket.id, cardId);
+E:/School+AI/school-dice-duel\server\index.js:440: io.to(room.id).emit('tactical_card_played', { playerId: socket.id, card: res.card });
+E:/School+AI/school-dice-duel\server\index.js:444: socket.on('refresh_draft_slot', ({ slotIndex }) => {
+E:/School+AI/school-dice-duel\server\index.js:447: const res = refreshDraftSlot(room.game, socket.id, slotIndex);
+E:/School+AI/school-dice-duel\server\index.js:455: socket.on('buy_draft_card', ({ slotIndex }) => {
+E:/School+AI/school-dice-duel\server\index.js:458: const res = buyDraftCard(room.game, socket.id, slotIndex);
+E:/School+AI/school-dice-duel\server\index.js:466: socket.on('draft_ready', () => {
+E:/School+AI/school-dice-duel\server\index.js:469: confirmDraftReady(room.game, socket.id);
+E:/School+AI/school-dice-duel\server\index.js:509: const res = confirmDefense(room.game, socket.id, defState.rolls.map((_, i) => i).slice(0, player.card.defSlots));
+E:/School+AI/school-dice-duel\server\index.js:533: const fxr = g.players.find(p => p.card?.positiveSkill?.id === SKILL.DREAM_KING);
+E:/School+AI/school-dice-duel\server\index.js:545: if (g.draftShop && g.draftShop.active) {
+E:/School+AI/school-dice-duel\server\index.js:546: const aiDraft = g.draftShop.players?.[room.aiId];
+E:/School+AI/school-dice-duel\server\index.js:547: if (aiDraft && !aiDraft.ready) {
+E:/School+AI/school-dice-duel\server\index.js:550: for (let i = 0; i < aiDraft.slots.length; i++) {
+E:/School+AI/school-dice-duel\server\index.js:551: if ((aiPlayer.handCards || []).length < 3 && aiDraft.slots[i].card) {
+E:/School+AI/school-dice-duel\server\index.js:552: buyDraftCard(g, room.aiId, i);
+E:/School+AI/school-dice-duel\server\index.js:556: confirmDraftReady(g, room.aiId);
+E:/School+AI/school-dice-duel\server\index.js:563: if (aiPlayer && !aiPlayer.isDead && aiPlayer.handCards && aiPlayer.handCards.length > 0) {
+E:/School+AI/school-dice-duel\server\index.js:565: if (aiPlayer.card?.subjects?.includes(curSubj)) {
+E:/School+AI/school-dice-duel\server\index.js:566: const playableCard = aiPlayer.handCards.find(c => {
+E:/School+AI/school-dice-duel\server\index.js:567: const canAfford = (aiPlayer.tp || 0) >= c.tpCost;
+E:/School+AI/school-dice-duel\server\index.js:571: if (playableCard) {
+E:/School+AI/school-dice-duel\server\index.js:572: playTacticalCard(g, room.aiId, playableCard.id);
+E:/School+AI/school-dice-duel\server\index.js:613: const badIndices = rolls.map((v, i) => v <= (atk.card.dicePool[i] / 2) ? i : -1).filter(i => i !== -1);
+E:/School+AI/school-dice-duel\server\index.js:625: const slots = atk.card.atkSlots === -1 ? rolls.length : atk.card.atkSlots;
+E:/School+AI/school-dice-duel\server\index.js:628: if (!res.ok) { console.error("AI confirmAttack failed", res, indices, atk.card); return; }
+E:/School+AI/school-dice-duel\server\index.js:647: const badIndices = rolls.map((v, i) => v <= (def.card.dicePool[i] / 2) ? i : -1).filter(i => i !== -1);
+E:/School+AI/school-dice-duel\server\index.js:659: let candidates = rolls.map((v, i) => ({ v, i, face: def.card.dicePool[i] })).sort((a, b) => b.v - a.v);
+E:/School+AI/school-dice-duel\server\index.js:662: if (def.card.negativeSkill?.id === SKILL.D10_LIMIT) {
+E:/School+AI/school-dice-duel\server\index.js:671: if (chosenIndices.length === def.card.defSlots) break;
+E:/School+AI/school-dice-duel\server\index.js:675: indices = candidates.slice(0, def.card.defSlots).map(x => x.i);
+E:/School+AI/school-dice-duel\server\index.js:679: if (def.card.id === 'char_8' && def.hp < def.maxHp * 0.5) {
+E:/School+AI/school-dice-duel\server\index.js:689: if (!res.ok) { console.error("AI confirmDefense failed", res, indices, def.card); return; }
+E:/School+AI/school-dice-duel\server\index.js:694: const winnerCardId = g.players[g.winner].cardId;
+E:/School+AI/school-dice-duel\server\index.js:696: const loserCardId = g.players[loserIdx].cardId;
+E:/School+AI/school-dice-duel\server\index.js:698: recordMatch(winnerCardId, loserCardId, isPvE);
+E:/School+AI/school-dice-duel\server\index.js:987: httpServer.listen(PORT, "0.0.0.0", () => console.log(`🎲 校园战力党 → http://localhost:${PORT}`));
+E:/School+AI/school-dice-duel\server\game\ai.js:10: export function aiSelectCard(schedule) {
+E:/School+AI/school-dice-duel\server\game\auto-combat.js:147: if (attacker === p1 && buffs.redHeatPerHit > 0) {
+E:/School+AI/school-dice-duel\server\game\auto-combat.js:149: p2.redHeat = (p2.redHeat || 0) + buffs.redHeatPerHit;
+E:/School+AI/school-dice-duel\server\game\auto-combat.js:150: entry.redHeatApplied = buffs.redHeatPerHit;
+E:/School+AI/school-dice-duel\server\game\autobattler.js:56: currentPlane: 0, currentNode: 0,
+E:/School+AI/school-dice-duel\server\game\autobattler.js:150: const env = run.planeEnvironments[run.currentPlane];
+E:/School+AI/school-dice-duel\server\game\autobattler.js:157: redHeatPerHit: 0,
+E:/School+AI/school-dice-duel\server\game\autobattler.js:192: buffs.redHeatPerHit += val;
+E:/School+AI/school-dice-duel\server\game\autobattler.js:295: commanderDamage = AC.LOSS_DMG_BASE + AC.LOSS_DMG_PER_PLANE * (run.currentPlane + 1);
+E:/School+AI/school-dice-duel\server\game\autobattler.js:313: const planeNodes = run.nodeTypes[run.currentPlane];
+E:/School+AI/school-dice-duel\server\game\autobattler.js:319: run.currentPlane++;
+E:/School+AI/school-dice-duel\server\game\autobattler.js:333: const gameOver = run.commanderHP <= 0 || run.currentPlane >= AC.PLANES_COUNT;
+E:/School+AI/school-dice-duel\server\game\autobattler.js:334: const victory = run.currentPlane >= AC.PLANES_COUNT && run.commanderHP > 0;
+E:/School+AI/school-dice-duel\server\game\autobattler.js:353: if (run.currentPlane >= AC.PLANES_COUNT) return null;
+E:/School+AI/school-dice-duel\server\game\autobattler.js:354: return run.nodeTypes[run.currentPlane]?.[run.currentNode] || NODE.NORMAL;
+E:/School+AI/school-dice-duel\server\game\autobattler.js:405: const plane = run.currentPlane;
+E:/School+AI/school-dice-duel\server\game\autobattler.js:485: currentPlane: run.currentPlane, currentNode: run.currentNode,
+E:/School+AI/school-dice-duel\server\game\engine.js:9: import { CARDS, cardMap, getRandomCard, CARD_TYPE } from '../../shared/cards.js';
+E:/School+AI/school-dice-duel\server\game\engine.js:60: id, nickname: name, cardId: null, card: null,
+E:/School+AI/school-dice-duel\server\game\engine.js:69: // 战术卡与 TP 系统
+E:/School+AI/school-dice-duel\server\game\engine.js:70: tp: 0,
+E:/School+AI/school-dice-duel\server\game\engine.js:71: handCards: [],
+E:/School+AI/school-dice-duel\server\game\engine.js:73: playedTurnCard: null,
+E:/School+AI/school-dice-duel\server\game\engine.js:92: export function selectCard(state, playerId, cardId) {
+E:/School+AI/school-dice-duel\server\game\engine.js:95: const def = characterMap[cardId];
+E:/School+AI/school-dice-duel\server\game\engine.js:97: p.cardId = cardId;
+E:/School+AI/school-dice-duel\server\game\engine.js:98: p.card = JSON.parse(JSON.stringify(def));
+E:/School+AI/school-dice-duel\server\game\engine.js:106: if (!p || !p.cardId) return { ok: false };
+E:/School+AI/school-dice-duel\server\game\engine.js:159: let pool = player.card.dicePool;
+E:/School+AI/school-dice-duel\server\game\engine.js:162: } else if (player.card.positiveSkill?.id === SKILL.DREAM_KING || player.card.negativeSkill?.id === SKILL.ELEPHANT_CONDEMN) {
+E:/School+AI/school-dice-duel\server\game\engine.js:174: const fxrP = state.players.find(p => p.card?.positiveSkill?.id === SKILL.DREAM_KING && p.inDreamState && !p.lgpyForm);
+E:/School+AI/school-dice-duel\server\game\engine.js:180: let multi = getSkillMultiplier(atk.card.subjects, subj);
+E:/School+AI/school-dice-duel\server\game\engine.js:200: if (atk.card.negativeSkill?.id === SKILL.UNSUSTAINABLE) {
+E:/School+AI/school-dice-duel\server\game\engine.js:207: if (atk.card.positiveSkill?.id === 'nine_lives' && !atk.nineLivesUsed) {
+E:/School+AI/school-dice-duel\server\game\engine.js:210: atk.card.dicePool = atk.card.dicePool.map(() => 10);
+E:/School+AI/school-dice-duel\server\game\engine.js:219: if (atk.card.positiveSkill?.id === SKILL.NO_REROLL_BONUS) {
+E:/School+AI/school-dice-duel\server\game\engine.js:224: if (atk.card.positiveSkill?.id === SKILL.INVERT_DIE) {
+E:/School+AI/school-dice-duel\server\game\engine.js:232: if (atk.card.negativeSkill?.id === 'hjc_neg' && Math.random() < 0.1) {
+E:/School+AI/school-dice-duel\server\game\engine.js:237: if (atk.card.positiveSkill?.id === SKILL.STAR_SHOWOFF) {
+E:/School+AI/school-dice-duel\server\game\engine.js:242: if (atk.chargeStacks > 0 && atk.card.positiveSkill?.id === SKILL.BUY_WATER && !state.turnData.isExtraTurn) {
+E:/School+AI/school-dice-duel\server\game\engine.js:249: if (state.turnData.isExtraTurn && atk.card.positiveSkill?.id === SKILL.EXTRA_TURN) {
+E:/School+AI/school-dice-duel\server\game\engine.js:258: if (atk.card.negativeSkill?.id === SKILL.ROYAL_ETIQUETTE) {
+E:/School+AI/school-dice-duel\server\game\engine.js:273: if (defPlayer?.card.positiveSkill?.id === SKILL.INVERT_DIE) {
+E:/School+AI/school-dice-duel\server\game\engine.js:281: if (atk.card.positiveSkill?.id === SKILL.INVERT_DIE) {
+E:/School+AI/school-dice-duel\server\game\engine.js:296: if (atk.card.negativeSkill?.id === SKILL.SLEEPY && state.totalRound <= 1) {
+E:/School+AI/school-dice-duel\server\game\engine.js:313: if (opp && opp.playedTurnCard?.id === 'card_gen_09') return { ok: false, error: '对方使用了【重投锁死】，无法重投！' };
+E:/School+AI/school-dice-duel\server\game\engine.js:342: if (p.card.rerollAll) {
+E:/School+AI/school-dice-duel\server\game\engine.js:345: if (state.turnData.isExtraTurn && p.card.positiveSkill?.id === SKILL.EXTRA_TURN && state.turnData.extraTurnFaceBoost) {
+E:/School+AI/school-dice-duel\server\game\engine.js:354: if (state.turnData.isExtraTurn && p.card.positiveSkill?.id === SKILL.EXTRA_TURN && state.turnData.extraTurnFaceBoost) {
+E:/School+AI/school-dice-duel\server\game\engine.js:362: if (p.card.positiveSkill?.id === SKILL.INVERT_DIE) {
+E:/School+AI/school-dice-duel\server\game\engine.js:369: if (state.turnData.isExtraTurn && p.card.positiveSkill?.id === SKILL.EXTRA_TURN && state.turnData.extraTurnFaceBoost) {
+E:/School+AI/school-dice-duel\server\game\engine.js:374: if (p.card.negativeSkill?.id === SKILL.DEEP_THOUGHT && state.turnPhase === TURN.ATK_ROLLED) {
+E:/School+AI/school-dice-duel\server\game\engine.js:391: if (opp?.card.positiveSkill?.id === SKILL.INVERT_DIE) {
+E:/School+AI/school-dice-duel\server\game\engine.js:394: if (state.turnData.isExtraTurn && p.card.positiveSkill?.id === SKILL.EXTRA_TURN && state.turnData.extraTurnFaceBoost) {
+E:/School+AI/school-dice-duel\server\game\engine.js:403: if (p.card.negativeSkill?.id === SKILL.ROYAL_ETIQUETTE) {
+E:/School+AI/school-dice-duel\server\game\engine.js:436: if (atk.card.atkSlots !== -1 && keepIndices.length !== atk.card.atkSlots) return { ok: false, error: 'invalid_slots' };
+E:/School+AI/school-dice-duel\server\game\engine.js:440: const multi = getSkillMultiplier(atk.card.subjects, subj);
+E:/School+AI/school-dice-duel\server\game\engine.js:446: if (atk.card.positiveSkill?.id === SKILL.LIBERAL_ARTS) {
+E:/School+AI/school-dice-duel\server\game\engine.js:452: const pos = resolvePositiveSkill(atk.card.positiveSkill, multi, keptRolls, state.totalRound, state.turnData);
+E:/School+AI/school-dice-duel\server\game\engine.js:453: const neg = resolveNegativeSkill(atk.card.negativeSkill, multi, keptRolls, state.totalRound);
+E:/School+AI/school-dice-duel\server\game\engine.js:474: let pool = atk.card.dicePool;
+E:/School+AI/school-dice-duel\server\game\engine.js:483: if (atk.card.positiveSkill?.id === SKILL.DREAM_KING) {
+E:/School+AI/school-dice-duel\server\game\engine.js:499: posTriggered: pos.triggered, posName: pos.triggered ? atk.card.positiveSkill.name : null,
+E:/School+AI/school-dice-duel\server\game\engine.js:501: negName: state.turnData.allergyTriggered ? "过敏" : (neg.triggered ? atk.card.negativeSkill.name : null),
+E:/School+AI/school-dice-duel\server\game\engine.js:508: const tac = calcTacticalCardEffects(state, atk, def, keptRolls);
+E:/School+AI/school-dice-duel\server\game\engine.js:516: if (atk.card.positiveSkill?.id === SKILL.STEALTH_STRIKE) {
+E:/School+AI/school-dice-duel\server\game\engine.js:536: if (state.gameMode === GAME_MODE.MODE_FFA && atk.card.positiveSkill?.id === SKILL.RAPPER) {
+E:/School+AI/school-dice-duel\server\game\engine.js:545: if (p.card.negativeSkill?.id === SKILL.ROYAL_ETIQUETTE) {
+E:/School+AI/school-dice-duel\server\game\engine.js:570: if (def.card.negativeSkill?.id === SKILL.ROYAL_ETIQUETTE) {
+E:/School+AI/school-dice-duel\server\game\engine.js:584: if (atk.card.positiveSkill?.id === SKILL.INVERT_DIE) {
+E:/School+AI/school-dice-duel\server\game\engine.js:586: if (defRolls[i] >= def.card.dicePool[i]) defRolls[i] = def.card.dicePool[i] - 1;
+E:/School+AI/school-dice-duel\server\game\engine.js:591: if (def.card.positiveSkill?.id === SKILL.INVERT_DIE) {
+E:/School+AI/school-dice-duel\server\game\engine.js:597: const face = def.card.dicePool[minIdx];
+E:/School+AI/school-dice-duel\server\game\engine.js:603: if (def.card.positiveSkill?.id === SKILL.MAMA_HEAL) {
+E:/School+AI/school-dice-duel\server\game\engine.js:619: let atkMulti = getSkillMultiplier(atk.card.subjects, subj);
+E:/School+AI/school-dice-duel\server\game\engine.js:629: if (!keepIndices || keepIndices.length !== def.card.defSlots) return { ok: false, error: 'invalid_slots' };
+E:/School+AI/school-dice-duel\server\game\engine.js:659: if (p.card.positiveSkill?.id === SKILL.EAT_IT) {
+E:/School+AI/school-dice-duel\server\game\engine.js:681: if (atk.card.positiveSkill?.id === SKILL.TIMELESS_GRACE) {
+E:/School+AI/school-dice-duel\server\game\engine.js:707: let pMulti = getSkillMultiplier(p.card.subjects, subj);
+E:/School+AI/school-dice-duel\server\game\engine.js:712: const pAdjustedRolls = p.card.positiveSkill?.id === SKILL.LIBERAL_ARTS ? pKeptRolls.map(v => Math.floor(v * pMulti)) : pKeptRolls;
+E:/School+AI/school-dice-duel\server\game\engine.js:716: const defNeg = resolveDefenderNegativeSkill(p.card.negativeSkill, pMulti, state.totalRound, turnDataSimulated);
+E:/School+AI/school-dice-duel\server\game\engine.js:717: if (defNeg.addPermanentPenalty) p.permanentDefPenalty = (p.permanentDefPenalty || 0) + defNeg.addPermanentPenalty;
+E:/School+AI/school-dice-duel\server\game\engine.js:719: const tac = calcTacticalCardEffects(state, atk, p, ar.keptIndices.map(i => state.turnData.attackRolls[i]));
+E:/School+AI/school-dice-duel\server\game\engine.js:731: if (p.card.positiveSkill?.id === SKILL.GAL_PLAYER && ds.options.sacrificeIndex !== undefined) {
+E:/School+AI/school-dice-duel\server\game\engine.js:745: const pFinalAdjusted = p.card.positiveSkill?.id === SKILL.LIBERAL_ARTS ? pFinalKeptRolls.map(v => Math.floor(v * pMulti)) : pFinalKeptRolls;
+E:/School+AI/school-dice-duel\server\game\engine.js:762: damage += tac.flatPierce;
+E:/School+AI/school-dice-duel\server\game\engine.js:767: if (damage > 0 && p.card.neutralSkill?.id === SKILL.VULNERABLE) {
+E:/School+AI/school-dice-duel\server\game\engine.js:773: if (damage > 0 && p.card.positiveSkill?.id === SKILL.TALENTED) {
+E:/School+AI/school-dice-duel\server\game\engine.js:782: if (damage > 0 && p.card.negativeSkill?.id === SKILL.CAUGHT && p.chargeStacks > 0) {
+E:/School+AI/school-dice-duel\server\game\engine.js:789: if (p.card.positiveSkill?.id === SKILL.GAL_PLAYER && pFinalFinalDef > targetFinalBaseAtk && !ar.pierce) {
+E:/School+AI/school-dice-duel\server\game\engine.js:797: if (!ds.hasRerolled && p.card.positiveSkill?.id === SKILL.COMMANDER_RECRUIT && !ar.pierce) {
+E:/School+AI/school-dice-duel\server\game\engine.js:799: p.card.dicePool.push(newFace);
+E:/School+AI/school-dice-duel\server\game\engine.js:805: if (targetFinalBaseAtk < pFinalFinalDef && atk.card.negativeSkill?.id === 'hjc_neg') {
+E:/School+AI/school-dice-duel\server\game\engine.js:813: if (targetFinalBaseAtk <= pFinalFinalDef && atk.card.negativeSkill?.id === SKILL.RED_HEAT_DETONATE) {
+E:/School+AI/school-dice-duel\server\game\engine.js:818: if (p.card.positiveSkill?.id === SKILL.TALENTED) {
+E:/School+AI/school-dice-duel\server\game\engine.js:833: if (damage > 0 && atk.card.positiveSkill?.id === SKILL.RED_HEAT_APPLY) {
+E:/School+AI/school-dice-duel\server\game\engine.js:839: if (damage >= 8 && p.card.negativeSkill?.id === SKILL.SUGAR_CRASH) {
+E:/School+AI/school-dice-duel\server\game\engine.js:845: if (damage > 0 && p.card.negativeSkill?.id === SKILL.FIRST_BLOOD && !p.hasTakenDamage) {
+E:/School+AI/school-dice-duel\server\game\engine.js:847: if (p.card.defSlots > 1) p.card.defSlots -= 1;
+E:/School+AI/school-dice-duel\server\game\engine.js:853: if (p.hp <= 0 && p.card.positiveSkill?.id === SKILL.NINE_LIVES && !p.nineLivesUsed) {
+E:/School+AI/school-dice-duel\server\game\engine.js:860: if (damage >= 8 && p.card.positiveSkill?.id === SKILL.EXTRA_TURN && p.hp > 0) {
+E:/School+AI/school-dice-duel\server\game\engine.js:864: if (p.card.negativeSkill?.id === SKILL.BACK_PAIN && p.card.defSlots > 1) p.card.defSlots -= 1;
+E:/School+AI/school-dice-duel\server\game\engine.js:873: defNegName: defNeg.triggered ? p.card.negativeSkill.name : null,
+E:/School+AI/school-dice-duel\server\game\engine.js:883: firstBloodTriggered: damage > 0 && p.card.negativeSkill?.id === SKILL.FIRST_BLOOD && p.hasTakenDamage === true,
+E:/School+AI/school-dice-duel\server\game\engine.js:890: if (atk.card.negativeSkill?.id === SKILL.FORGET_LYRICS && state.turnData.hasAttackerRerolled && noDamageCount > 0) {
+E:/School+AI/school-dice-duel\server\game\engine.js:924: if (!keepIndices || keepIndices.length !== def.card.defSlots) return { ok: false, error: 'invalid_slots' };
+E:/School+AI/school-dice-duel\server\game\engine.js:927: if (def.card.neutralSkill?.id === SKILL.D10_LIMIT) {
+E:/School+AI/school-dice-duel\server\game\engine.js:928: const d10Count = keepIndices.filter(idx => def.card.dicePool[idx] === 10).length;
+E:/School+AI/school-dice-duel\server\game\engine.js:932: let defMulti = getSkillMultiplier(def.card.subjects, subj);
+E:/School+AI/school-dice-duel\server\game\engine.js:937: const adjustedDefRolls = def.card.positiveSkill?.id === SKILL.LIBERAL_ARTS ? keptRolls.map(v => Math.floor(v * defMulti)) : keptRolls;
+E:/School+AI/school-dice-duel\server\game\engine.js:939: const defNeg = resolveDefenderNegativeSkill(def.card.negativeSkill, defMulti, state.totalRound, state.turnData);
+E:/School+AI/school-dice-duel\server\game\engine.js:941: if (defNeg.addPermanentPenalty) {
+E:/School+AI/school-dice-duel\server\game\engine.js:942: def.permanentDefPenalty = (def.permanentDefPenalty || 0) + defNeg.addPermanentPenalty;
+E:/School+AI/school-dice-duel\server\game\engine.js:945: const tac = calcTacticalCardEffects(state, atk, def, ar.keptIndices.map(i => state.turnData.attackRolls[i]));
+E:/School+AI/school-dice-duel\server\game\engine.js:957: if (def.card.positiveSkill?.id === SKILL.EAT_IT) {
+E:/School+AI/school-dice-duel\server\game\engine.js:973: if (atk.card.positiveSkill?.id === SKILL.TIMELESS_GRACE) {
+E:/School+AI/school-dice-duel\server\game\engine.js:994: if (def.card.positiveSkill?.id === SKILL.GAL_PLAYER && options.sacrificeIndex !== undefined) {
+E:/School+AI/school-dice-duel\server\game\engine.js:1009: const finalAdjusted = def.card.positiveSkill?.id === SKILL.LIBERAL_ARTS ? finalKeptRolls.map(v => Math.floor(v * defMulti)) : finalKeptRolls;
+E:/School+AI/school-dice-duel\server\game\engine.js:1019: damage += tac.flatPierce;
+E:/School+AI/school-dice-duel\server\game\engine.js:1031: if (damage > 0 && def.card.neutralSkill?.id === SKILL.VULNERABLE) {
+E:/School+AI/school-dice-duel\server\game\engine.js:1037: if (damage > 0 && def.card.positiveSkill?.id === SKILL.TALENTED) {
+E:/School+AI/school-dice-duel\server\game\engine.js:1046: if (damage > 0 && def.card.negativeSkill?.id === SKILL.CAUGHT && def.chargeStacks > 0) {
+E:/School+AI/school-dice-duel\server\game\engine.js:1051: if (def.card.positiveSkill?.id === SKILL.DREAM_KING) {
+E:/School+AI/school-dice-duel\server\game\engine.js:1063: if (def.card.positiveSkill?.id === SKILL.DREAM_KING && def.inDreamState && !def.lgpyForm) {
+E:/School+AI/school-dice-duel\server\game\engine.js:1078: if (def.card.positiveSkill?.id === SKILL.GAL_PLAYER && finalFinalDef > finalBaseAtk && !ar.pierce) {
+E:/School+AI/school-dice-duel\server\game\engine.js:1086: if (finalBaseAtk < finalFinalDef && atk.card.negativeSkill?.id === 'hjc_neg') {
+E:/School+AI/school-dice-duel\server\game\engine.js:1093: if (!state.turnData.hasDefenderRerolled && def.card.positiveSkill?.id === SKILL.COMMANDER_RECRUIT && !ar.pierce) {
+E:/School+AI/school-dice-duel\server\game\engine.js:1095: def.card.dicePool.push(newFace);
+E:/School+AI/school-dice-duel\server\game\engine.js:1105: if (p.card.negativeSkill?.id === SKILL.ELEPHANT_CONDEMN && !p.lgpyTriggered) {
+E:/School+AI/school-dice-duel\server\game\engine.js:1127: if (def.card.positiveSkill?.id === SKILL.MAMA_HEAL && finalFinalDef > finalBaseAtk && !ar.pierce) {
+E:/School+AI/school-dice-duel\server\game\engine.js:1137: if (damage > 1 && atk.card.negativeSkill?.id === SKILL.MAMA_MERCY) {
+E:/School+AI/school-dice-duel\server\game\engine.js:1148: if (damage > 0 && atk.card.positiveSkill?.id === SKILL.STICKER_BOMB) {
+E:/School+AI/school-dice-duel\server\game\engine.js:1162: if (damage >= 8 && def.card.negativeSkill?.id === SKILL.STICKER_SELF) {
+E:/School+AI/school-dice-duel\server\game\engine.js:1176: if (damage > 0 && def.card.negativeSkill?.id === SKILL.FIRST_BLOOD && !def.hasTakenDamage) {
+E:/School+AI/school-dice-duel\server\game\engine.js:1179: if (def.card.defSlots > 1) def.card.defSlots -= 1;
+E:/School+AI/school-dice-duel\server\game\engine.js:1184: if (damage > 0 && atk.card.positiveSkill?.id === SKILL.RED_HEAT_APPLY) {
+E:/School+AI/school-dice-duel\server\game\engine.js:1192: if (finalBaseAtk <= finalFinalDef && atk.card.negativeSkill?.id === SKILL.RED_HEAT_DETONATE) {
+E:/School+AI/school-dice-duel\server\game\engine.js:1197: if (def.card.positiveSkill?.id === SKILL.TALENTED) {
+E:/School+AI/school-dice-duel\server\game\engine.js:1208: if (damage >= 8 && def.card.negativeSkill?.id === SKILL.SUGAR_CRASH) {
+E:/School+AI/school-dice-duel\server\game\engine.js:1215: if (def.hp <= 0 && def.card.positiveSkill?.id === SKILL.NINE_LIVES && !def.nineLivesUsed) {
+E:/School+AI/school-dice-duel\server\game\engine.js:1218: def.card.dicePool = def.card.dicePool.map(() => 10); // 全部升级为D10
+E:/School+AI/school-dice-duel\server\game\engine.js:1221: if (atk.hp <= 0 && atk.card.positiveSkill?.id === SKILL.NINE_LIVES && !atk.nineLivesUsed) {
+E:/School+AI/school-dice-duel\server\game\engine.js:1224: atk.card.dicePool = atk.card.dicePool.map(() => 10);
+E:/School+AI/school-dice-duel\server\game\engine.js:1245: atk.card.positiveSkill = null; // 主公误杀忠臣，失去正面技能
+E:/School+AI/school-dice-duel\server\game\engine.js:1288: if (damage >= 8 && def.card.positiveSkill?.id === SKILL.EXTRA_TURN && !gameOver && def.hp > 0) {
+E:/School+AI/school-dice-duel\server\game\engine.js:1293: if (def.card.negativeSkill?.id === SKILL.BACK_PAIN && def.card.defSlots > 1) {
+E:/School+AI/school-dice-duel\server\game\engine.js:1294: def.card.defSlots -= 1;
+E:/School+AI/school-dice-duel\server\game\engine.js:1308: defNegName: defNeg.triggered ? def.card.negativeSkill.name : null,
+E:/School+AI/school-dice-duel\server\game\engine.js:1361: if (turnData && turnData.hasDefenderRerolled) return { triggered: true, addPermanentPenalty: skill.baseValue };
+E:/School+AI/school-dice-duel\server\game\engine.js:1382: const fxr = state.players.find(p => p.card?.positiveSkill?.id === SKILL.DREAM_KING);
+E:/School+AI/school-dice-duel\server\game\engine.js:1412: const isYZX = p.cardId === 'char_10';
+E:/School+AI/school-dice-duel\server\game\engine.js:1421: cardId: (state.phase === PHASE.BATTLE || state.phase === PHASE.GAME_OVER) ? p.cardId : null,
+E:/School+AI/school-dice-duel\server\game\engine.js:1422: card: (state.phase === PHASE.BATTLE || state.phase === PHASE.GAME_OVER) ? p.card : null,
+E:/School+AI/school-dice-duel\server\game\engine.js:1438: // 战术卡与 TP
+E:/School+AI/school-dice-duel\server\game\engine.js:1439: tp: p.tp || 0,
+E:/School+AI/school-dice-duel\server\game\engine.js:1440: handCards: isMe ? (p.handCards || []) : Array((p.handCards || []).length).fill({ hidden: true }),
+E:/School+AI/school-dice-duel\server\game\engine.js:1442: playedTurnCard: p.playedTurnCard || null,
+E:/School+AI/school-dice-duel\server\game\engine.js:1468: (state.players[state.turnData.attackerIdx].cardId === 'char_10' && state.turnData.attackerIdx !== myIdx && state.phase !== PHASE.GAME_OVER)
+E:/School+AI/school-dice-duel\server\game\engine.js:1473: (state.players[state.turnData.defenderIdx]?.cardId === 'char_10' && state.turnData.defenderIdx !== myIdx && state.phase !== PHASE.GAME_OVER)
+E:/School+AI/school-dice-duel\server\game\engine.js:1480: const isTargetYZX = state.players[pIdx].cardId === 'char_10';
+E:/School+AI/school-dice-duel\server\game\engine.js:1492: (state.players[state.turnData.attackerIdx].cardId === 'char_10' && state.turnData.attackerIdx !== myIdx && state.phase !== PHASE.GAME_OVER)
+E:/School+AI/school-dice-duel\server\game\engine.js:1501: draftShop: state.draftShop || null,
+E:/School+AI/school-dice-duel\server\game\engine.js:1520: state.players[state.turnData.attackerIdx].card.positiveSkill = null;
+E:/School+AI/school-dice-duel\server\game\engine.js:1596: // 每节课结束获得 1 TP
+E:/School+AI/school-dice-duel\server\game\engine.js:1597: p.tp = Math.min(10, (p.tp || 0) + 1);
+E:/School+AI/school-dice-duel\server\game\engine.js:1598: p.playedTurnCard = null; // 重置单轮战术卡效果
+E:/School+AI/school-dice-duel\server\game\engine.js:1607: if (p.card?.positiveSkill?.id === SKILL.DREAM_KING) {
+E:/School+AI/school-dice-duel\server\game\engine.js:1624: state.draftShop = {
+E:/School+AI/school-dice-duel\server\game\engine.js:1630: { card: getRandomCard(nextSubj, p.card?.subjects || []), refreshesLeft: 2 },
+E:/School+AI/school-dice-duel\server\game\engine.js:1631: { card: getRandomCard(nextSubj, p.card?.subjects || []), refreshesLeft: 2 },
+E:/School+AI/school-dice-duel\server\game\engine.js:1632: { card: getRandomCard(nextSubj, p.card?.subjects || []), refreshesLeft: 2 },
+E:/School+AI/school-dice-duel\server\game\engine.js:1690: if (atk.card.positiveSkill?.id !== SKILL.BUY_WATER) return { ok: false };
+E:/School+AI/school-dice-duel\server\game\engine.js:1702: function calcTacticalCardEffects(state, atk, def, keptRolls) {
+E:/School+AI/school-dice-duel\server\game\engine.js:1705: let flatPierce = 0;
+E:/School+AI/school-dice-duel\server\game\engine.js:1711: if (!atk || !def) return { atkBonus, defBonus, flatPierce, isNoFixedBonus, maxDmgCap, damageMultiplier };
+E:/School+AI/school-dice-duel\server\game\engine.js:1713: // 1. 检查攻击者的祝福与单轮卡 (Attacker's cards)
+E:/School+AI/school-dice-duel\server\game\engine.js:1714: const atkCards = [...(atk.activeBlessings || []), ...(atk.playedTurnCard ? [atk.playedTurnCard] : [])];
+E:/School+AI/school-dice-duel\server\game\engine.js:1715: atkCards.forEach(c => {
+E:/School+AI/school-dice-duel\server\game\engine.js:1717: case 'card_chi_1': if (curSubj === 'chinese') atkBonus += 2; break;
+E:/School+AI/school-dice-duel\server\game\engine.js:1718: case 'card_mat_2': atkBonus += 3; break;
+E:/School+AI/school-dice-duel\server\game\engine.js:1719: case 'card_pe_2': atkBonus += 4; break;
+E:/School+AI/school-dice-duel\server\game\engine.js:1722: case 'card_gen_02': atkBonus += 2; break; // 本回合基础攻击/防御总和+2
+E:/School+AI/school-dice-duel\server\game\engine.js:1723: case 'card_gen_04': flatPierce += 2; break; // 附加 2 点穿透伤害
+E:/School+AI/school-dice-duel\server\game\engine.js:1726: case 'card_gen_06': atkBonus -= 2; break; // 压制对方点数 (减弱攻击)
+E:/School+AI/school-dice-duel\server\game\engine.js:1728: case 'card_phy_1':
+E:/School+AI/school-dice-duel\server\game\engine.js:1734: case 'card_phy_2': flatPierce += 3; break;
+E:/School+AI/school-dice-duel\server\game\engine.js:1735: case 'card_pol_1': if (curSubj === 'politics') isNoFixedBonus = true; break;
+E:/School+AI/school-dice-duel\server\game\engine.js:1736: case 'card_mus_1':
+E:/School+AI/school-dice-duel\server\game\engine.js:1742: case 'card_mus_2':
+E:/School+AI/school-dice-duel\server\game\engine.js:1745: case 'card_geo_1':
+E:/School+AI/school-dice-duel\server\game\engine.js:1748: case 'card_geo_2':
+E:/School+AI/school-dice-duel\server\game\engine.js:1757: // 2. 检查防御者的祝福与单轮卡 (Defender's cards)
+E:/School+AI/school-dice-duel\server\game\engine.js:1758: const defCards = [...(def.activeBlessings || []), ...(def.playedTurnCard ? [def.playedTurnCard] : [])];
+E:/School+AI/school-dice-duel\server\game\engine.js:1759: defCards.forEach(c => {
+E:/School+AI/school-dice-duel\server\game\engine.js:1761: case 'card_pol_1': if (curSubj === 'politics') isNoFixedBonus = true; break;
+E:/School+AI/school-dice-duel\server\game\engine.js:1762: case 'card_pol_2': defBonus += 3; break;
+E:/School+AI/school-dice-duel\server\game\engine.js:1765: case 'card_gen_02': defBonus += 2; break; // 本回合基础攻击/防御总和+2
+E:/School+AI/school-dice-duel\server\game\engine.js:1766: case 'card_gen_05': defBonus += 3; break; // 本回合防御固定减免 3
+E:/School+AI/school-dice-duel\server\game\engine.js:1769: case 'card_gen_06': defBonus -= 2; break; // 压制对方点数 (减弱防御)
+E:/School+AI/school-dice-duel\server\game\engine.js:1770: case 'card_gen_08': defBonus -= 2; break; // 创伤加深 (防御结算额外受2伤害)
+E:/School+AI/school-dice-duel\server\game\engine.js:1772: case 'card_tec_1': if (curSubj === 'tech') defBonus += 2; break;
+E:/School+AI/school-dice-duel\server\game\engine.js:1773: case 'card_pol_3': maxDmgCap = Math.min(maxDmgCap, 8); break;
+E:/School+AI/school-dice-duel\server\game\engine.js:1774: case 'card_bio_1': if (curSubj === 'biology') defBonus += 3; break;
+E:/School+AI/school-dice-duel\server\game\engine.js:1775: case 'card_his_1': if (curSubj === 'history') damageMultiplier *= 0.5; break;
+E:/School+AI/school-dice-duel\server\game\engine.js:1779: return { atkBonus, defBonus, flatPierce, isNoFixedBonus, maxDmgCap, damageMultiplier };
+E:/School+AI/school-dice-duel\server\game\engine.js:1783: export function playTacticalCard(state, playerId, cardId) {
+E:/School+AI/school-dice-duel\server\game\engine.js:1788: const cIdx = (p.handCards || []).findIndex(c => c.id === cardId);
+E:/School+AI/school-dice-duel\server\game\engine.js:1790: const card = p.handCards[cIdx];
+E:/School+AI/school-dice-duel\server\game\engine.js:1795: if (card.subject !== 'universal' && card.subject !== curSubj) {
+E:/School+AI/school-dice-duel\server\game\engine.js:1796: return { ok: false, error: `【${card.name}】只能在 ${card.subject} 课使用！` };
+E:/School+AI/school-dice-duel\server\game\engine.js:1799: p.handCards.splice(cIdx, 1);
+E:/School+AI/school-dice-duel\server\game\engine.js:1801: if (card.type === CARD_TYPE.BLESSING) {
+E:/School+AI/school-dice-duel\server\game\engine.js:1803: p.activeBlessings.push(card);
+E:/School+AI/school-dice-duel\server\game\engine.js:1804: state.log.push({ text: `【祝福】${p.nickname} 激活了【${card.name}】！`, type: 'skill' });
+E:/School+AI/school-dice-duel\server\game\engine.js:1806: p.playedTurnCard = card;
+E:/School+AI/school-dice-duel\server\game\engine.js:1807: state.log.push({ text: `【战术】${p.nickname} 使用了【${card.name}】！`, type: 'skill' });
+E:/School+AI/school-dice-duel\server\game\engine.js:1808: applyInstantCardEffect(state, p, card);
+E:/School+AI/school-dice-duel\server\game\engine.js:1811: return { ok: true, card };
+E:/School+AI/school-dice-duel\server\game\engine.js:1814: function applyInstantCardEffect(state, p, card) {
+E:/School+AI/school-dice-duel\server\game\engine.js:1818: switch (card.id) {
+E:/School+AI/school-dice-duel\server\game\engine.js:1819: case 'card_eng_2':
+E:/School+AI/school-dice-duel\server\game\engine.js:1820: case 'card_gen_03':
+E:/School+AI/school-dice-duel\server\game\engine.js:1821: p.hp = Math.min(p.maxHp, p.hp + (card.id === 'card_eng_2' ? 5 : 4));
+E:/School+AI/school-dice-duel\server\game\engine.js:1823: case 'card_che_2':
+E:/School+AI/school-dice-duel\server\game\engine.js:1826: case 'card_che_3':
+E:/School+AI/school-dice-duel\server\game\engine.js:1833: case 'card_it_2':
+E:/School+AI/school-dice-duel\server\game\engine.js:1834: case 'card_gen_07':
+E:/School+AI/school-dice-duel\server\game\engine.js:1835: if (opp && (opp.tp || 0) > 0) {
+E:/School+AI/school-dice-duel\server\game\engine.js:1836: opp.tp -= 1;
+E:/School+AI/school-dice-duel\server\game\engine.js:1837: if (card.id === 'card_it_2') p.tp = Math.min(10, p.tp + 1);
+E:/School+AI/school-dice-duel\server\game\engine.js:1840: case 'card_stu_3':
+E:/School+AI/school-dice-duel\server\game\engine.js:1841: case 'card_gen_15':
+E:/School+AI/school-dice-duel\server\game\engine.js:1842: if ((p.handCards || []).length < 3) {
+E:/School+AI/school-dice-duel\server\game\engine.js:1844: p.handCards.push(getRandomCard(curSubj, p.card?.subjects || []));
+E:/School+AI/school-dice-duel\server\game\engine.js:1847: case 'card_gen_11':
+E:/School+AI/school-dice-duel\server\game\engine.js:1848: if (p.handCards && p.handCards.length > 0) {
+E:/School+AI/school-dice-duel\server\game\engine.js:1849: p.handCards.splice(Math.floor(Math.random() * p.handCards.length), 1);
+E:/School+AI/school-dice-duel\server\game\engine.js:1851: p.handCards.push(getRandomCard(state.schedule[state.currentClassIndex] || 'chinese', p.card?.subjects || []));
+E:/School+AI/school-dice-duel\server\game\engine.js:1853: case 'card_gen_12':
+E:/School+AI/school-dice-duel\server\game\engine.js:1856: case 'card_gen_14':
+E:/School+AI/school-dice-duel\server\game\engine.js:1860: case 'card_bio_3': {
+E:/School+AI/school-dice-duel\server\game\engine.js:1864: card.metadata = { realDmg };
+E:/School+AI/school-dice-duel\server\game\engine.js:1867: case 'card_gen_10':
+E:/School+AI/school-dice-duel\server\game\engine.js:1874: export function refreshDraftSlot(state, playerId, slotIndex) {
+E:/School+AI/school-dice-duel\server\game\engine.js:1875: if (!state.draftShop || !state.draftShop.active) return { ok: false, error: '商店未开启' };
+E:/School+AI/school-dice-duel\server\game\engine.js:1876: const pDraft = state.draftShop.players[playerId];
+E:/School+AI/school-dice-duel\server\game\engine.js:1877: if (!pDraft || !pDraft.slots[slotIndex]) return { ok: false, error: '槽位不存在' };
+E:/School+AI/school-dice-duel\server\game\engine.js:1878: const slot = pDraft.slots[slotIndex];
+E:/School+AI/school-dice-duel\server\game\engine.js:1884: slot.card = getRandomCard(curSubj, p?.card?.subjects || []);
+E:/School+AI/school-dice-duel\server\game\engine.js:1888: export function buyDraftCard(state, playerId, slotIndex) {
+E:/School+AI/school-dice-duel\server\game\engine.js:1889: if (!state.draftShop || !state.draftShop.active) return { ok: false, error: '商店未开启' };
+E:/School+AI/school-dice-duel\server\game\engine.js:1890: const pDraft = state.draftShop.players[playerId];
+E:/School+AI/school-dice-duel\server\game\engine.js:1891: if (!pDraft || !pDraft.slots[slotIndex]) return { ok: false, error: '槽位不存在' };
+E:/School+AI/school-dice-duel\server\game\engine.js:1892: const slot = pDraft.slots[slotIndex];
+E:/School+AI/school-dice-duel\server\game\engine.js:1893: if (!slot.card) return { ok: false, error: '空槽位' };
+E:/School+AI/school-dice-duel\server\game\engine.js:1897: if ((p.handCards || []).length >= 3) return { ok: false, error: '手牌已满 (最多持有 3 张)' };
+E:/School+AI/school-dice-duel\server\game\engine.js:1899: if ((p.tp || 0) < slot.card.tpCost) return { ok: false, error: 'TP 不足' };
+E:/School+AI/school-dice-duel\server\game\engine.js:1900: p.tp -= slot.card.tpCost;
+E:/School+AI/school-dice-duel\server\game\engine.js:1902: p.handCards.push(slot.card);
+E:/School+AI/school-dice-duel\server\game\engine.js:1906: slot.card = getRandomCard(curSubj, p.card?.subjects || []);
+E:/School+AI/school-dice-duel\server\game\engine.js:1908: return { ok: true, handCards: p.handCards };
+E:/School+AI/school-dice-duel\server\game\engine.js:1911: export function confirmDraftReady(state, playerId) {
+E:/School+AI/school-dice-duel\server\game\engine.js:1912: if (!state.draftShop || !state.draftShop.active) return { ok: false };
+E:/School+AI/school-dice-duel\server\game\engine.js:1913: const pDraft = state.draftShop.players[playerId];
+E:/School+AI/school-dice-duel\server\game\engine.js:1914: if (!pDraft) return { ok: false };
+E:/School+AI/school-dice-duel\server\game\engine.js:1915: pDraft.ready = true;
+E:/School+AI/school-dice-duel\server\game\engine.js:1917: const allReady = Object.values(state.draftShop.players).every(pd => pd.ready);
+E:/School+AI/school-dice-duel\server\game\engine.js:1919: state.draftShop.active = false;
+E:/School+AI/school-dice-duel\shared\cards.js:6: export const CARD_TYPE = {
+E:/School+AI/school-dice-duel\shared\cards.js:13: export const CARD_TYPE_LABELS = {
+E:/School+AI/school-dice-duel\shared\cards.js:23: export const CARDS = [
+E:/School+AI/school-dice-duel\shared\cards.js:25: { id: 'card_chi_1', name: '语文-祝福', subject: 'chinese', type: CARD_TYPE.BLESSING, tpCost: 2, desc: '当天语文课：掷骰点数和+2，选中的奇数骰减伤+1' },
+E:/School+AI/school-dice-duel\shared\cards.js:26: { id: 'card_chi_2', name: '语文-增益', subject: 'chinese', type: CARD_TYPE.BUFF, tpCost: 1, desc: '本回合：选中的点数最小骰子自动变为最大面值' },
+E:/School+AI/school-dice-duel\shared\cards.js:27: { id: 'card_chi_3', name: '语文-减益', subject: 'chinese', type: CARD_TYPE.DEBUFF, tpCost: 2, desc: '本回合：对方投出点数最大的骰子强制变为 2 点' },
+E:/School+AI/school-dice-duel\shared\cards.js:30: { id: 'card_mat_1', name: '数学-祝福', subject: 'math', type: CARD_TYPE.BLESSING, tpCost: 3, desc: '当天数学课：若选中的数字全为质数，跳过对方下一个攻击回合(每节课限1次)' },
+E:/School+AI/school-dice-duel\shared\cards.js:31: { id: 'card_mat_2', name: '数学-增益', subject: 'math', type: CARD_TYPE.BUFF, tpCost: 1, desc: '本回合：攻击/防御选中的骰子点数总和额外+3' },
+E:/School+AI/school-dice-duel\shared\cards.js:32: { id: 'card_mat_3', name: '数学-减益', subject: 'math', type: CARD_TYPE.DEBUFF, tpCost: 2, desc: '本回合：对方无法重投，我方攻击无视对方减伤' },
+E:/School+AI/school-dice-duel\shared\cards.js:35: { id: 'card_eng_1', name: '英语-祝福', subject: 'english', type: CARD_TYPE.BLESSING, tpCost: 2, desc: '当天英语课：重投次数上限+2，且重投不触发负面效果' },
+E:/School+AI/school-dice-duel\shared\cards.js:36: { id: 'card_eng_2', name: '英语-增益', subject: 'english', type: CARD_TYPE.BUFF, tpCost: 1, desc: '本回合：回复自身 5 点生命值' },
+E:/School+AI/school-dice-duel\shared\cards.js:37: { id: 'card_eng_3', name: '英语-其他', subject: 'english', type: CARD_TYPE.OTHER, tpCost: 1, desc: '本回合：重置当前投出我方与对方的所有骰子' },
+E:/School+AI/school-dice-duel\shared\cards.js:40: { id: 'card_phy_1', name: '物理-祝福', subject: 'physics', type: CARD_TYPE.BLESSING, tpCost: 2, desc: '当天物理课：选中的偶数骰子点数+2' },
+E:/School+AI/school-dice-duel\shared\cards.js:41: { id: 'card_phy_2', name: '物理-增益', subject: 'physics', type: CARD_TYPE.BUFF, tpCost: 2, desc: '本回合：造成的伤害附加 3 点固定真实伤害(无视防守)' },
+E:/School+AI/school-dice-duel\shared\cards.js:42: { id: 'card_phy_3', name: '物理-减益', subject: 'physics', type: CARD_TYPE.DEBUFF, tpCost: 1, desc: '本回合：使对方防御力临时削减 30%' },
+E:/School+AI/school-dice-duel\shared\cards.js:45: { id: 'card_che_1', name: '化学-祝福', subject: 'chemistry', type: CARD_TYPE.BLESSING, tpCost: 2, desc: '当天化学课：给对方造成伤害时，额外叠加 3 层红温' },
+E:/School+AI/school-dice-duel\shared\cards.js:46: { id: 'card_che_2', name: '化学-增益', subject: 'chemistry', type: CARD_TYPE.BUFF, tpCost: 1, desc: '本回合：清空我方所有负面效果' },
+E:/School+AI/school-dice-duel\shared\cards.js:47: { id: 'card_che_3', name: '化学-减益', subject: 'chemistry', type: CARD_TYPE.DEBUFF, tpCost: 2, desc: '本回合：引爆对方身上的红温层数' },
+E:/School+AI/school-dice-duel\shared\cards.js:50: { id: 'card_bio_1', name: '生物-祝福', subject: 'biology', type: CARD_TYPE.BLESSING, tpCost: 2, desc: '当天生物课：受到的伤害减少 3 点(最低为 0)' },
+E:/School+AI/school-dice-duel\shared\cards.js:51: { id: 'card_bio_2', name: '生物-增益', subject: 'biology', type: CARD_TYPE.BUFF, tpCost: 1, desc: '本回合：防守溢出数值×1.5转化为生命回复' },
+E:/School+AI/school-dice-duel\shared\cards.js:52: { id: 'card_bio_3', name: '生物-其他', subject: 'biology', type: CARD_TYPE.OTHER, tpCost: 3, desc: '本回合：消耗当前30%生命，造成等量真实伤害(最高10)' },
+E:/School+AI/school-dice-duel\shared\cards.js:55: { id: 'card_pol_1', name: '政治-祝福', subject: 'politics', type: CARD_TYPE.BLESSING, tpCost: 2, desc: '当天政治课：双方固定加成强制归零，仅结算纯骰点' },
+E:/School+AI/school-dice-duel\shared\cards.js:56: { id: 'card_pol_2', name: '政治-增益', subject: 'politics', type: CARD_TYPE.BUFF, tpCost: 1, desc: '本回合：防御结算+3' },
+E:/School+AI/school-dice-duel\shared\cards.js:57: { id: 'card_pol_3', name: '政治-减益', subject: 'politics', type: CARD_TYPE.DEBUFF, tpCost: 2, desc: '本回合：锁定对方本轮输出上限不超过 8 点' },
+E:/School+AI/school-dice-duel\shared\cards.js:60: { id: 'card_his_1', name: '历史-祝福', subject: 'history', type: CARD_TYPE.BLESSING, tpCost: 2, desc: '当天历史课：第一次受到的伤害减半' },
+E:/School+AI/school-dice-duel\shared\cards.js:61: { id: 'card_his_2', name: '历史-增益', subject: 'history', type: CARD_TYPE.BUFF, tpCost: 1, desc: '本回合：继承上一轮未使用的骰点作为附加输出' },
+E:/School+AI/school-dice-duel\shared\cards.js:62: { id: 'card_his_3', name: '历史-其他', subject: 'history', type: CARD_TYPE.OTHER, tpCost: 3, desc: '本回合：恢复生命差值至上一轮状态(最高10点)' },
+E:/School+AI/school-dice-duel\shared\cards.js:65: { id: 'card_geo_1', name: '地理-祝福', subject: 'geography', type: CARD_TYPE.BLESSING, tpCost: 3, desc: '当天地理课：主场倍率提升至×3(附加伤害最高+12)' },
+E:/School+AI/school-dice-duel\shared\cards.js:66: { id: 'card_geo_2', name: '地理-增益', subject: 'geography', type: CARD_TYPE.BUFF, tpCost: 1, desc: '本回合：所有骰子面数临时+2' },
+E:/School+AI/school-dice-duel\shared\cards.js:67: { id: 'card_geo_3', name: '地理-减益', subject: 'geography', type: CARD_TYPE.DEBUFF, tpCost: 1, desc: '本回合：对方所有骰子面数临时-2(最低减少至4)' },
+E:/School+AI/school-dice-duel\shared\cards.js:70: { id: 'card_mus_1', name: '音乐-祝福', subject: 'music', type: CARD_TYPE.BLESSING, tpCost: 1, desc: '当天音乐课：若攻击选中骰极差≤2，伤害提高 30%' },
+E:/School+AI/school-dice-duel\shared\cards.js:71: { id: 'card_mus_2', name: '音乐-增益', subject: 'music', type: CARD_TYPE.BUFF, tpCost: 1, desc: '本回合：掷出对子(2个相同)时，总输出+4' },
+E:/School+AI/school-dice-duel\shared\cards.js:72: { id: 'card_mus_3', name: '音乐-其他', subject: 'music', type: CARD_TYPE.OTHER, tpCost: 1, desc: '本回合：将随机一颗骰子强制替换为 D8' },
+E:/School+AI/school-dice-duel\shared\cards.js:75: { id: 'card_art_1', name: '美术-祝福', subject: 'art', type: CARD_TYPE.BLESSING, tpCost: 1, desc: '当天美术课：选骰槽位+1' },
+E:/School+AI/school-dice-duel\shared\cards.js:76: { id: 'card_art_2', name: '美术-增益', subject: 'art', type: CARD_TYPE.BUFF, tpCost: 1, desc: '本回合：复制对方上一轮投出的最大骰点' },
+E:/School+AI/school-dice-duel\shared\cards.js:77: { id: 'card_art_3', name: '美术-减益', subject: 'art', type: CARD_TYPE.DEBUFF, tpCost: 1, desc: '本回合：隐藏自身投掷的点数 1 轮' },
+E:/School+AI/school-dice-duel\shared\cards.js:80: { id: 'card_it_1', name: '信息-祝福', subject: 'it', type: CARD_TYPE.BLESSING, tpCost: 2, desc: '当天信息课：选择复制对方的正面技能 1 节课' },
+E:/School+AI/school-dice-duel\shared\cards.js:81: { id: 'card_it_2', name: '信息-增益', subject: 'it', type: CARD_TYPE.BUFF, tpCost: 1, desc: '本回合：偷取对方 1 点 TP' },
+E:/School+AI/school-dice-duel\shared\cards.js:82: { id: 'card_it_3', name: '信息-其他', subject: 'it', type: CARD_TYPE.OTHER, tpCost: 1, desc: '本回合：攻击造成伤害-5，无视对方防御' },
+E:/School+AI/school-dice-duel\shared\cards.js:85: { id: 'card_tec_1', name: '通技-祝福', subject: 'tech', type: CARD_TYPE.BLESSING, tpCost: 1, desc: '当天通技课：固定护甲+2' },
+E:/School+AI/school-dice-duel\shared\cards.js:86: { id: 'card_tec_2', name: '通技-增益', subject: 'tech', type: CARD_TYPE.BUFF, tpCost: 1, desc: '本回合：最小面数骰子+2' },
+E:/School+AI/school-dice-duel\shared\cards.js:87: { id: 'card_tec_3', name: '通技-其他', subject: 'tech', type: CARD_TYPE.OTHER, tpCost: 1, desc: '本回合：获得 1 层蓄势' },
+E:/School+AI/school-dice-duel\shared\cards.js:90: { id: 'card_pe_1', name: '体育-祝福', subject: 'pe', type: CARD_TYPE.BLESSING, tpCost: 3, desc: '当天体育课：选中至少三个奇数时得额外攻击回合(限1次)' },
+E:/School+AI/school-dice-duel\shared\cards.js:91: { id: 'card_pe_2', name: '体育-增益', subject: 'pe', type: CARD_TYPE.BUFF, tpCost: 1, desc: '本回合：攻击力额外+4' },
+E:/School+AI/school-dice-duel\shared\cards.js:92: { id: 'card_pe_3', name: '体育-减益', subject: 'pe', type: CARD_TYPE.DEBUFF, tpCost: 1, desc: '本回合：对方永久防御力-2' },
+E:/School+AI/school-dice-duel\shared\cards.js:95: { id: 'card_stu_1', name: '自习-祝福', subject: 'study', type: CARD_TYPE.BLESSING, tpCost: 1, desc: '当天自习课：攻击回合结束后随机获得 1 张战术卡' },
+E:/School+AI/school-dice-duel\shared\cards.js:96: { id: 'card_stu_2', name: '自习-增益', subject: 'study', type: CARD_TYPE.BUFF, tpCost: 1, desc: '本回合：无视自己的负面技能' },
+E:/School+AI/school-dice-duel\shared\cards.js:97: { id: 'card_stu_3', name: '自习-其他', subject: 'study', type: CARD_TYPE.OTHER, tpCost: 1, desc: '本回合：随机获得 1 张战术卡' },
+E:/School+AI/school-dice-duel\shared\cards.js:100: { id: 'card_gen_01', name: '通用-增益', subject: 'universal', type: CARD_TYPE.BUFF, tpCost: 1, desc: '强行重投指定 1 颗骰子(可指定敌我)' },
+E:/School+AI/school-dice-duel\shared\cards.js:101: { id: 'card_gen_02', name: '通用-增益', subject: 'universal', type: CARD_TYPE.BUFF, tpCost: 1, desc: '本回合基础攻击/防御总和+2' },
+E:/School+AI/school-dice-duel\shared\cards.js:102: { id: 'card_gen_03', name: '通用-增益', subject: 'universal', type: CARD_TYPE.BUFF, tpCost: 2, desc: '立刻回复自身 4 点生命值' },
+E:/School+AI/school-dice-duel\shared\cards.js:103: { id: 'card_gen_04', name: '通用-增益', subject: 'universal', type: CARD_TYPE.BUFF, tpCost: 2, desc: '本回合攻击附带 2 点穿透伤害' },
+E:/School+AI/school-dice-duel\shared\cards.js:104: { id: 'card_gen_05', name: '通用-增益', subject: 'universal', type: CARD_TYPE.BUFF, tpCost: 2, desc: '本回合防御固定减伤+3' },
+E:/School+AI/school-dice-duel\shared\cards.js:105: { id: 'card_gen_06', name: '通用-减益', subject: 'universal', type: CARD_TYPE.DEBUFF, tpCost: 1, desc: '使对方本轮最大骰子点数-2' },
+E:/School+AI/school-dice-duel\shared\cards.js:106: { id: 'card_gen_07', name: '通用-减益', subject: 'universal', type: CARD_TYPE.DEBUFF, tpCost: 2, desc: '扣除对方 1 点 TP' },
+E:/School+AI/school-dice-duel\shared\cards.js:107: { id: 'card_gen_08', name: '通用-减益', subject: 'universal', type: CARD_TYPE.DEBUFF, tpCost: 2, desc: '使对方本轮防御结算额外受到 2 点伤害' },
+E:/School+AI/school-dice-duel\shared\cards.js:108: { id: 'card_gen_09', name: '通用-减益', subject: 'universal', type: CARD_TYPE.DEBUFF, tpCost: 1, desc: '使对方本轮无法使用重投' },
+E:/School+AI/school-dice-duel\shared\cards.js:109: { id: 'card_gen_10', name: '通用-减益', subject: 'universal', type: CARD_TYPE.DEBUFF, tpCost: 2, desc: '给对方施加 2 层红温' },
+E:/School+AI/school-dice-duel\shared\cards.js:110: { id: 'card_gen_11', name: '通用-其他', subject: 'universal', type: CARD_TYPE.OTHER, tpCost: 1, desc: '弃置手牌中 1 张卡牌，并随机补 1 张卡' },
+E:/School+AI/school-dice-duel\shared\cards.js:111: { id: 'card_gen_12', name: '通用-其他', subject: 'universal', type: CARD_TYPE.OTHER, tpCost: 1, desc: '获得 1 轮隐蔽(对方看自己的骰子为?)' },
+E:/School+AI/school-dice-duel\shared\cards.js:112: { id: 'card_gen_13', name: '通用-其他', subject: 'universal', type: CARD_TYPE.OTHER, tpCost: 2, desc: '将本节课选骰槽位临时+1' },
+E:/School+AI/school-dice-duel\shared\cards.js:113: { id: 'card_gen_14', name: '通用-其他', subject: 'universal', type: CARD_TYPE.OTHER, tpCost: 1, desc: '本轮如果防守无伤，获得 2 TP' },
+E:/School+AI/school-dice-duel\shared\cards.js:114: { id: 'card_gen_15', name: '通用-其他', subject: 'universal', type: CARD_TYPE.OTHER, tpCost: 2, desc: '本轮如果攻击造成伤害，抽 1 张学科战术卡' },
+E:/School+AI/school-dice-duel\shared\cards.js:118: export const cardMap = Object.fromEntries(CARDS.map(c => [c.id, c]));
+E:/School+AI/school-dice-duel\shared\cards.js:121: export function getRandomCard(currentSubject, playerSubjects = []) {
+E:/School+AI/school-dice-duel\shared\cards.js:123: const pool = CARDS.filter(c => {
+E:/School+AI/school-dice-duel\shared\cards.js:128: if (pool.length === 0) return CARDS.find(c => c.subject === 'universal');
+E:/School+AI/school-dice-duel\src\net\socket.js:19: startPVE(n) { this.socket.emit('start_pve', { nickname: n }); }
+E:/School+AI/school-dice-duel\src\net\socket.js:30: selectCard(id) { this.socket.emit('select_card', { cardId: id }); }
+E:/School+AI/school-dice-duel\src\net\socket.js:40: playTacticalCard(id) { this.socket.emit('play_tactical_card', { cardId: id }); }
+E:/School+AI/school-dice-duel\src\net\socket.js:41: refreshDraftSlot(idx) { this.socket.emit('refresh_draft_slot', { slotIndex: idx }); }
+E:/School+AI/school-dice-duel\src\net\socket.js:42: buyDraftCard(idx) { this.socket.emit('buy_draft_card', { slotIndex: idx }); }
+E:/School+AI/school-dice-duel\src\net\socket.js:43: confirmDraftReady() { this.socket.emit('draft_ready'); }
+E:/School+AI/school-dice-duel\src\pages\autochess.js:28: const env = run.planeEnvironments?.[run.currentPlane] || '';
+E:/School+AI/school-dice-duel\src\pages\autochess.js:57: <div class="ac-plane ${i === run.currentPlane ? 'active' : i < run.currentPlane ? 'done' : ''}">
+E:/School+AI/school-dice-duel\src\pages\autochess.js:60: ${i === run.currentPlane ? `<span class="ac-plane-node">${nodeLabel} ${run.currentNode + 1}/${run.nodeTypes?.[i]?.length || '?'}</span>` : ''}
+E:/School+AI/school-dice-duel\src\pages\autochess.js:64: ${run.nodeTypes?.[run.currentPlane] ? (() => {
+E:/School+AI/school-dice-duel\src\pages\autochess.js:65: const nodes = run.nodeTypes[run.currentPlane];
+E:/School+AI/school-dice-duel\src\pages\autochess.js:131: <div class="ac-rs"><span>到达</span><span>位面${run.currentPlane + 1} 节点${run.currentNode + 1}</span></div>
+E:/School+AI/school-dice-duel\src\pages\autochess.js:386: <div class="ac-fighter-card">
+E:/School+AI/school-dice-duel\src\pages\autochess.js:392: <div class="ac-fighter-card">
+E:/School+AI/school-dice-duel\src\pages\battle.js:27: window._refreshDraftSlot = (idx) => { gameSocket.refreshDraftSlot(idx); };
+E:/School+AI/school-dice-duel\src\pages\battle.js:28: window._buyDraftCard = (idx) => { gameSocket.buyDraftCard(idx); };
+E:/School+AI/school-dice-duel\src\pages\battle.js:29: window._confirmDraftReady = () => { gameSocket.confirmDraftReady(); };
+E:/School+AI/school-dice-duel\src\pages\battle.js:30: window._playTacticalCard = (id, evt) => {
+E:/School+AI/school-dice-duel\src\pages\battle.js:31: const cardEl = evt?.currentTarget || document.querySelector(`.hand-card-kards[onclick*="${id}"]`);
+E:/School+AI/school-dice-duel\src\pages\battle.js:32: const targetCardEl = document.getElementById('card-op') || document.getElementById('card-me');
+E:/School+AI/school-dice-duel\src\pages\battle.js:33: vfxManager.playTacticalCardVFX(cardEl, targetCardEl, () => {
+E:/School+AI/school-dice-duel\src\pages\battle.js:34: gameSocket.playTacticalCard(id);
+E:/School+AI/school-dice-duel\src\pages\battle.js:81: <div class="card-row">
+E:/School+AI/school-dice-duel\src\pages\battle.js:83: <div class="battle-card-wrap" id="card-op">
+E:/School+AI/school-dice-duel\src\pages\battle.js:85: <div class="battle-card ${getAuraClass(op)}">
+E:/School+AI/school-dice-duel\src\pages\battle.js:86: <img src="${op.card?.image||''}" alt="" onerror="this.style.display='none'">
+E:/School+AI/school-dice-duel\src\pages\battle.js:87: <div class="bc-name">${op.card?.name||'???'}</div>
+E:/School+AI/school-dice-duel\src\pages\battle.js:97: ${op.card?.positiveSkill ? `<div class="skill-desc-line pos">✦ ${op.card.positiveSkill.name}: ${op.card.positiveSkill.desc}</div>` : ''}
+E:/School+AI/school-dice-duel\src\pages\battle.js:98: ${op.card?.neutralSkill ? `<div class="skill-desc-line neu">⬩ ${op.card.neutralSkill.name}: ${op.card.neutralSkill.desc}</div>` : ''}
+E:/School+AI/school-dice-duel\src\pages\battle.js:99: ${op.card?.negativeSkill ? `<div class="skill-desc-line neg">✧ ${op.card.negativeSkill.name}: ${op.card.negativeSkill.desc}</div>` : ''}
+E:/School+AI/school-dice-duel\src\pages\battle.js:110: <div class="battle-card-wrap self-side ${s.attackerIdx === s.myIndex ? 'active-attacker' : ''} ${me.isDead ? 'dead' : ''}" id="card-me">
+E:/School+AI/school-dice-duel\src\pages\battle.js:112: <div class="battle-card ${getAuraClass(me)}" style="border: 3px solid ${s.attackerIdx === s.myIndex ? 'var(--red)' : 'transparent'}">
+E:/School+AI/school-dice-duel\src\pages\battle.js:113: <img src="${me.card?.image||''}" alt="" onerror="this.style.display='none'">
+E:/School+AI/school-dice-duel\src\pages\battle.js:114: <div class="bc-name">${me.card?.name||'???'}</div>
+E:/School+AI/school-dice-duel\src\pages\battle.js:126: ${me.card?.positiveSkill ? `<div class="skill-desc-line pos">✦ ${me.card.positiveSkill.name}: ${me.card.positiveSkill.desc}</div>` : ''}
+E:/School+AI/school-dice-duel\src\pages\battle.js:127: ${me.card?.neutralSkill ? `<div class="skill-desc-line neu">⬩ ${me.card.neutralSkill.name}: ${me.card.neutralSkill.desc}</div>` : ''}
+E:/School+AI/school-dice-duel\src\pages\battle.js:128: ${me.card?.negativeSkill ? `<div class="skill-desc-line neg">✧ ${me.card.negativeSkill.name}: ${me.card.negativeSkill.desc}</div>` : ''}
+E:/School+AI/school-dice-duel\src\pages\battle.js:199: const opCard = document.querySelector('#card-op .battle-card');
+E:/School+AI/school-dice-duel\src\pages\battle.js:200: if (opCard) updateAura(opCard, S.opponent);
+E:/School+AI/school-dice-duel\src\pages\battle.js:222: const meCard = document.querySelector('#card-me .battle-card');
+E:/School+AI/school-dice-duel\src\pages\battle.js:223: if (meCard) updateAura(meCard, S.me);
+E:/School+AI/school-dice-duel\src\pages\battle.js:244: checkDraftShopModal(S);
+E:/School+AI/school-dice-duel\src\pages\battle.js:249: const fxr = s.players?.find(p => (p.card?.positiveSkill?.id === 'dream_king' || p.cardId === 'char_fxr'));
+E:/School+AI/school-dice-duel\src\pages\battle.js:260: <div class="dream-target-cards-container">
+E:/School+AI/school-dice-duel\src\pages\battle.js:298: const tp = me.tp || 0;
+E:/School+AI/school-dice-duel\src\pages\battle.js:299: const handCards = me.handCards || [];
+E:/School+AI/school-dice-duel\src\pages\battle.js:301: const canUseClass = me.card?.subjects?.includes(curSubj);
+E:/School+AI/school-dice-duel\src\pages\battle.js:303: let cardsHtml = '';
+E:/School+AI/school-dice-duel\src\pages\battle.js:304: if (handCards.length === 0) {
+E:/School+AI/school-dice-duel\src\pages\battle.js:305: cardsHtml = `<div style="color:var(--text-secondary); text-align:center; margin-top:40px;">暂无战术卡</div>`;
+E:/School+AI/school-dice-duel\src\pages\battle.js:307: cardsHtml = handCards.map((c, i) => {
+E:/School+AI/school-dice-duel\src\pages\battle.js:312: const canAfford = tp >= c.tpCost;
+E:/School+AI/school-dice-duel\src\pages\battle.js:320: else if (!canAfford) disableReason = 'TP不足';
+E:/School+AI/school-dice-duel\src\pages\battle.js:324: const total = handCards.length;
+E:/School+AI/school-dice-duel\src\pages\battle.js:330: <div class="hand-card-kards ${canPlay ? '' : 'disabled'}" style="transform: rotate(${rotateDeg}deg) translateY(${transY}px)" ${canPlay ? `onclick="window._toggleHand(); window._playTacticalCard('${c.id}', event)"` : ''} title="${disableReason}">
+E:/School+AI/school-dice-duel\src\pages\battle.js:331: <div class="card-tag-row">
+E:/School+AI/school-dice-duel\src\pages\battle.js:332: <span class="card-tag-type ${typeClass}">${scopeLabel}</span>
+E:/School+AI/school-dice-duel\src\pages\battle.js:333: <span class="card-tp-cost">⚡${c.tpCost}</span>
+E:/School+AI/school-dice-duel\src\pages\battle.js:335: <div class="card-title-text">${c.name}</div>
+E:/School+AI/school-dice-duel\src\pages\battle.js:336: <div class="card-desc-text">${c.desc}</div>
+E:/School+AI/school-dice-duel\src\pages\battle.js:337: ${!canPlay ? `<div class="card-disable-overlay">${disableReason}</div>` : ''}
+E:/School+AI/school-dice-duel\src\pages\battle.js:355: <span class="fab-count">${handCards.length}/3</span>
+E:/School+AI/school-dice-duel\src\pages\battle.js:356: <span class="fab-tp">⚡${tp}</span>
+E:/School+AI/school-dice-duel\src\pages\battle.js:359: ${cardsHtml}
+E:/School+AI/school-dice-duel\src\pages\battle.js:374: const originalBuy = window._buyDraftCard;
+E:/School+AI/school-dice-duel\src\pages\battle.js:375: window._buyDraftCard = (idx) => {
+E:/School+AI/school-dice-duel\src\pages\battle.js:381: function checkDraftShopModal(s) {
+E:/School+AI/school-dice-duel\src\pages\battle.js:382: const existing = document.getElementById('draft-shop-modal');
+E:/School+AI/school-dice-duel\src\pages\battle.js:383: if (s.draftShop && s.draftShop.active && s.me) {
+E:/School+AI/school-dice-duel\src\pages\battle.js:384: const pDraft = s.draftShop.players?.[s.me.id];
+E:/School+AI/school-dice-duel\src\pages\battle.js:385: if (!pDraft) return;
+E:/School+AI/school-dice-duel\src\pages\battle.js:388: return pDraft.slots.map((slot, idx) => {
+E:/School+AI/school-dice-duel\src\pages\battle.js:389: const c = slot.card;
+E:/School+AI/school-dice-duel\src\pages\battle.js:390: if (!c) return `<div class="draft-slot-card empty"><p>已购买</p></div>`;
+E:/School+AI/school-dice-duel\src\pages\battle.js:392: const isHandFull = (s.me.handCards || []).length >= 3;
+E:/School+AI/school-dice-duel\src\pages\battle.js:393: const isAfford = s.me.tp >= c.tpCost;
+E:/School+AI/school-dice-duel\src\pages\battle.js:397: else if (!isAfford) disableReason = 'TP不足';
+E:/School+AI/school-dice-duel\src\pages\battle.js:399: const stars = '★'.repeat(c.tpCost) + '☆'.repeat(3 - c.tpCost);
+E:/School+AI/school-dice-duel\src\pages\battle.js:402: <div class="draft-slot-card ${buyDisabled ? 'disabled' : 'clickable'}" ${buyDisabled ? '' : `onclick="window._buyDraftCard(${idx})"`}>
+E:/School+AI/school-dice-duel\src\pages\battle.js:403: <button class="btn-icon-refresh" ${slot.refreshesLeft > 0 ? '' : 'disabled'} onclick="event.stopPropagation(); window._refreshDraftSlot(${idx})" title="刷新 (${slot.refreshesLeft})">↻</button>
+E:/School+AI/school-dice-duel\src\pages\battle.js:404: <div class="draft-card-star">${stars}</div>
+E:/School+AI/school-dice-duel\src\pages\battle.js:407: ${buyDisabled ? `<div class="card-disable-overlay">${disableReason}</div>` : ''}
+E:/School+AI/school-dice-duel\src\pages\battle.js:413: if (pDraft.ready) {
+E:/School+AI/school-dice-duel\src\pages\battle.js:415: existing.querySelector('.draft-shop-panel').innerHTML = `
+E:/School+AI/school-dice-duel\src\pages\battle.js:424: const slotsWrap = existing.querySelector('#draft-slots-wrap');
+E:/School+AI/school-dice-duel\src\pages\battle.js:426: const subTitle = existing.querySelector('.draft-shop-panel p');
+E:/School+AI/school-dice-duel\src\pages\battle.js:428: subTitle.innerHTML = `下节课即将开始！点击卡面直接购买（当前持有: ${s.me.handCards?.length || 0}/3 | 战术点: ⚡${s.me.tp}）`;
+E:/School+AI/school-dice-duel\src\pages\battle.js:435: overlay.id = 'draft-shop-modal';
+E:/School+AI/school-dice-duel\src\pages\battle.js:439: <div class="draft-shop-panel">
+E:/School+AI/school-dice-duel\src\pages\battle.js:442: 下节课即将开始！点击卡面直接购买（当前持有: ${s.me.handCards?.length || 0}/3 | 战术点: ⚡${s.me.tp}）
+E:/School+AI/school-dice-duel\src\pages\battle.js:444: <div class="draft-slots-container" id="draft-slots-wrap">
+E:/School+AI/school-dice-duel\src\pages\battle.js:448: <button class="btn btn-primary btn-lg" onclick="window._confirmDraftReady()" style="min-width:180px;">
+E:/School+AI/school-dice-duel\src\pages\battle.js:469: if (!p || !p.card) return;
+E:/School+AI/school-dice-duel\src\pages\battle.js:476: <div data-pid="${p.id}" class="ffa-micro-card ${getAuraClass(p)} ${isDefender ? 'active-target' : ''} ${isAttacker ? 'active-attacker' : ''} ${p.isDead ? 'dead' : ''} ${canBeTargeted ? 'selectable-target' : ''}"
+E:/School+AI/school-dice-duel\src\pages\battle.js:477: style="position:relative; width:80px; background:var(--bg-card); border:2px solid ${isDefender ? 'var(--red)' : (isAttacker ? 'var(--gold)' : (canBeTargeted ? 'var(--accent)' : 'var(--bg-inset)'))}; border-radius:8px; padding:4px; text-align:center; cursor:${canBeTargeted ? 'pointer' : 'default'}; transition:all 0.2s;"
+E:/School+AI/school-dice-duel\src\pages\battle.js:481: <img src="${p.card?.image||''}" alt="" onerror="this.style.display='none'" style="width:40px; height:40px; border-radius:50%; object-fit:cover; margin:0 auto; display:block; filter:${p.isDead ? 'grayscale(1)' : 'none'}">
+E:/School+AI/school-dice-duel\src\pages\battle.js:485: <div style="position:absolute; top:-4px; right:-4px; background:var(--bg-card); border-radius:10px; font-size:10px; padding:0 4px; border:1px solid var(--bg-inset);">${identityDisplay}</div>
+E:/School+AI/school-dice-duel\src\pages\battle.js:517: const atkPool = atkPlayer?.effectiveDicePool || atkPlayer?.card?.dicePool || [];
+E:/School+AI/school-dice-duel\src\pages\battle.js:518: const defPool = defPlayer?.effectiveDicePool || defPlayer?.card?.dicePool || [];
+E:/School+AI/school-dice-duel\src\pages\battle.js:614: const target = isAtk ? S.me.card.atkSlots : (isDef ? S.me.card.defSlots : 99);
+E:/School+AI/school-dice-duel\src\pages\battle.js:619: if (isDef && S.me.cardId === 'char_8' && count === target) {
+E:/School+AI/school-dice-duel\src\pages\battle.js:755: const atkCard = (atkId && S.me && atkId === S.me.id) ? document.getElementById('card-me') : (atkId ? document.querySelector(`.ffa-micro-card[data-pid="${atkId}"]`) : null);
+E:/School+AI/school-dice-duel\src\pages\battle.js:756: if (atkCard) atkCard.classList.add('card-attacking');
+E:/School+AI/school-dice-duel\src\pages\battle.js:761: const cardId = atkP.cardId || atkP.card?.id;
+E:/School+AI/school-dice-duel\src\pages\battle.js:764: } else if (cardId === 'char_19' && (data.pierce || data.atkResult?.pierce)) {
+E:/School+AI/school-dice-duel\src\pages\battle.js:766: } else if (cardId === 'char_4' && data.atkResult?.posTriggered) {
+E:/School+AI/school-dice-duel\src\pages\battle.js:768: } else if (cardId === 'char_14' && (atkP.chargeStacks >= 2 || data.chargeConsumed >= 2)) {
+E:/School+AI/school-dice-duel\src\pages\battle.js:775: const dCard = dId === S.me.id ? document.getElementById('card-me') : document.querySelector(`.ffa-micro-card[data-pid="${dId}"]`);
+E:/School+AI/school-dice-duel\src\pages\battle.js:776: if (dCard) setTimeout(() => dCard.classList.add('card-hit'), 300);
+E:/School+AI/school-dice-duel\src\pages\battle.js:779: if (dCard) {
+E:/School+AI/school-dice-duel\src\pages\battle.js:780: vfxManager.playHitImpact(dCard, res.damage, {
+E:/School+AI/school-dice-duel\src\pages\battle.js:795: if (atkCard) atkCard.classList.remove('card-attacking');
+E:/School+AI/school-dice-duel\src\pages\battle.js:798: const dCard = dId === S.me.id ? document.getElementById('card-me') : document.querySelector(`.ffa-micro-card[data-pid="${dId}"]`);
+E:/School+AI/school-dice-duel\src\pages\battle.js:799: if (dCard) dCard.classList.remove('card-hit');
+E:/School+AI/school-dice-duel\src\pages\battle.js:816: let atkCard, defCard;
+E:/School+AI/school-dice-duel\src\pages\battle.js:818: atkCard = document.getElementById(isMyAtk ? 'card-me' : 'card-op');
+E:/School+AI/school-dice-duel\src\pages\battle.js:819: defCard = document.getElementById(isMyAtk ? 'card-op' : 'card-me');
+E:/School+AI/school-dice-duel\src\pages\battle.js:823: atkCard = (atkId && S.me && atkId === S.me.id) ? document.getElementById('card-me') : (atkId ? document.querySelector(`.ffa-micro-card[data-pid="${atkId}"]`) : null);
+E:/School+AI/school-dice-duel\src\pages\battle.js:824: defCard = (defId && S.me && defId === S.me.id) ? document.getElementById('card-me') : (defId ? document.querySelector(`.ffa-micro-card[data-pid="${defId}"]`) : null);
+E:/School+AI/school-dice-duel\src\pages\battle.js:827: if (atkCard) atkCard.classList.add('card-attacking');
+E:/School+AI/school-dice-duel\src\pages\battle.js:828: if (defCard) setTimeout(() => defCard.classList.add('card-hit'), 300);
+E:/School+AI/school-dice-duel\src\pages\battle.js:834: const cardId = atkP.cardId || atkP.card?.id;
+E:/School+AI/school-dice-duel\src\pages\battle.js:837: } else if (cardId === 'char_19' && (data.pierce || data.atkResult?.pierce)) {
+E:/School+AI/school-dice-duel\src\pages\battle.js:839: } else if (cardId === 'char_4' && data.atkResult?.posTriggered) {
+E:/School+AI/school-dice-duel\src\pages\battle.js:841: } else if (cardId === 'char_14' && (atkP.chargeStacks >= 2 || data.chargeConsumed >= 2)) {
+E:/School+AI/school-dice-duel\src\pages\battle.js:846: if (defCard) {
+E:/School+AI/school-dice-duel\src\pages\battle.js:847: vfxManager.playHitImpact(defCard, damage, {
+E:/School+AI/school-dice-duel\src\pages\battle.js:862: if (atkCard) atkCard.classList.remove('card-attacking');
+E:/School+AI/school-dice-duel\src\pages\battle.js:863: if (defCard) defCard.classList.remove('card-hit');
+E:/School+AI/school-dice-duel\src\pages\battle.js:969: const card = p.card;
+E:/School+AI/school-dice-duel\src\pages\battle.js:970: const isYzx = (p.cardId === 'char_10' || p.stealth) && !isMe;
+E:/School+AI/school-dice-duel\src\pages\battle.js:979: <img src="${card.image}" class="avatar" />
+E:/School+AI/school-dice-duel\src\pages\battle.js:985: <span class="card-name">${card.name}</span>
+E:/School+AI/school-dice-duel\src\pages\battle.js:1043: function getM(p,subj) { return p.card ? getSkillMultiplier(p.card.subjects, subj) : 1; }
+E:/School+AI/school-dice-duel\src\pages\battle.js:1050: if (p.cardId === 'char_19') return 'aura-yzm-gold';
+E:/School+AI/school-dice-duel\src\pages\battle.js:1096: const fxr = s.players.find(p => (p.card?.positiveSkill?.id === 'dream_king' || p.cardId === 'char_fxr'));
+E:/School+AI/school-dice-duel\src\pages\battle.js:1108: const buyBtn = (s.me.cardId === 'char_14' && !s.hasAttackerRerolled && s.me.chargeStacks < 2)
+E:/School+AI/school-dice-duel\src\pages\battle.js:1114: </div>` + `${s.me.card.atkSlots === -1 ? '至少选 1 颗' : `需选 ${s.me.card.atkSlots} 颗`}`;
+E:/School+AI/school-dice-duel\src\pages\battle.js:1117: const sacBtn = s.me.cardId === 'char_8' ? '<button id="btn-sacrifice" class="btn btn-secondary" style="display:none;" onclick="window._showSacrifice()">献祭回血</button>' : '';
+E:/School+AI/school-dice-duel\src\pages\battle.js:1121: </div>` + `需选 ${s.me.card.defSlots} 颗`;
+E:/School+AI/school-dice-duel\src\pages\lobby.js:54: <div class="modal-content" style="background:var(--bg-card); max-width:900px; width:95%; max-height:90vh; border-radius:12px; display:flex; flex-direction:column; box-shadow:var(--shadow-lg);">
+E:/School+AI/school-dice-duel\src\pages\lobby.js:68: <div class="info-card tutorial" style="grid-column: span 2;">
+E:/School+AI/school-dice-duel\src\pages\lobby.js:93: <div class="info-card" style="grid-column: span 2;">
+E:/School+AI/school-dice-duel\src\pages\lobby.js:129: gameSocket.startPVE(n);
+E:/School+AI/school-dice-duel\src\pages\preparation.js:11: let selectedCardId = null;
+E:/School+AI/school-dice-duel\src\pages\preparation.js:27: <div class="avatar-grid" id="card-selector">
+E:/School+AI/school-dice-duel\src\pages\preparation.js:68: <div class="modal-content-card">
+E:/School+AI/school-dice-duel\src\pages\preparation.js:70: <div class="card" style="width: 100%; cursor: default;">
+E:/School+AI/school-dice-duel\src\pages\preparation.js:71: <div class="card-image-wrap">
+E:/School+AI/school-dice-duel\src\pages\preparation.js:73: <div class="card-badge">${electLabel}</div>
+E:/School+AI/school-dice-duel\src\pages\preparation.js:75: <div class="card-body">
+E:/School+AI/school-dice-duel\src\pages\preparation.js:76: <div class="card-name">${char.name}</div>
+E:/School+AI/school-dice-duel\src\pages\preparation.js:77: <div class="card-title">${char.title}</div>
+E:/School+AI/school-dice-duel\src\pages\preparation.js:78: <div class="card-stats">
+E:/School+AI/school-dice-duel\src\pages\preparation.js:93: <div class="card-skills">
+E:/School+AI/school-dice-duel\src\pages\preparation.js:121: selectedCardId = charId;
+E:/School+AI/school-dice-duel\src\pages\preparation.js:125: gameSocket.selectCard(selectedCardId);
+E:/School+AI/school-dice-duel\src\pages\preparation.js:133: if (!selectedCardId) return;
+E:/School+AI/school-dice-duel\src\utils\vfx.js:70: * @param {HTMLElement} targetCardElement - Target card container
+E:/School+AI/school-dice-duel\src\utils\vfx.js:79: playHitImpact(targetCardElement, damageAmount, options = {}, onComplete = null) {
+E:/School+AI/school-dice-duel\src\utils\vfx.js:89: if (targetCardElement) {
+E:/School+AI/school-dice-duel\src\utils\vfx.js:90: this.spawnFloatingDamage(targetCardElement, damageAmount, isCrit);
+E:/School+AI/school-dice-duel\src\utils\vfx.js:92: // 3. Hit Flash on Target Card
+E:/School+AI/school-dice-duel\src\utils\vfx.js:94: gsap.fromTo(targetCardElement,
+E:/School+AI/school-dice-duel\src\utils\vfx.js:99: gsap.fromTo(targetCardElement,
+E:/School+AI/school-dice-duel\src\utils\vfx.js:107: this.triggerRevivalHalo(targetCardElement);
+E:/School+AI/school-dice-duel\src\utils\vfx.js:111: const rect = targetCardElement.getBoundingClientRect();
+E:/School+AI/school-dice-duel\src\utils\vfx.js:374: * @param {HTMLElement} cardElement - .battle-card element
+E:/School+AI/school-dice-duel\src\utils\vfx.js:376: triggerRevivalHalo(cardElement) {
+E:/School+AI/school-dice-duel\src\utils\vfx.js:377: if (!cardElement) return;
+E:/School+AI/school-dice-duel\src\utils\vfx.js:381: cardElement.appendChild(ring);
+E:/School+AI/school-dice-duel\src\utils\vfx.js:383: // Golden brightness flash on card
+E:/School+AI/school-dice-duel\src\utils\vfx.js:384: gsap.fromTo(cardElement,
+E:/School+AI/school-dice-duel\src\utils\vfx.js:396: const rect = cardElement.getBoundingClientRect();
+E:/School+AI/school-dice-duel\src\utils\vfx.js:403: * Tactical Card Play Feedback (Card elevation, sheen, traveling particles to target)
+E:/School+AI/school-dice-duel\src\utils\vfx.js:404: * @param {HTMLElement} sourceCardEl - Source card DOM element
+E:/School+AI/school-dice-duel\src\utils\vfx.js:405: * @param {HTMLElement} targetCardEl - Target card DOM element
+E:/School+AI/school-dice-duel\src\utils\vfx.js:408: playTacticalCardVFX(sourceCardEl, targetCardEl, onComplete = null) {
+E:/School+AI/school-dice-duel\src\utils\vfx.js:409: if (sourceCardEl) {
+E:/School+AI/school-dice-duel\src\utils\vfx.js:410: // 1. Elevate source card
+E:/School+AI/school-dice-duel\src\utils\vfx.js:411: gsap.fromTo(sourceCardEl,
+E:/School+AI/school-dice-duel\src\utils\vfx.js:418: sheen.className = 'tactical-card-sheen';
+E:/School+AI/school-dice-duel\src\utils\vfx.js:419: sourceCardEl.appendChild(sheen);
+E:/School+AI/school-dice-duel\src\utils\vfx.js:427: const sRect = sourceCardEl ? sourceCardEl.getBoundingClientRect() : { left: window.innerWidth / 2, top: window.innerHeight - 100, width: 0, height: 0 };
+E:/School+AI/school-dice-duel\src\utils\vfx.js:428: const tRect = targetCardEl ? targetCardEl.getBoundingClientRect() : { left: window.innerWidth / 2, top: window.innerHeight / 2, width: 0, height: 0 };
+E:/School+AI/school-dice-duel\src\utils\vfx.js:445: if (targetCardEl) {
+E:/School+AI/school-dice-duel\src\utils\vfx.js:447: gsap.fromTo(targetCardEl,
+E:/School+AI/school-dice-duel\src\utils\vfx.js:484: * Dynamic Aura & Glow Transition for Character Cards
+E:/School+AI/school-dice-duel\src\utils\vfx.js:485: * @param {HTMLElement} cardElement - .battle-card DOM element
+E:/School+AI/school-dice-duel\src\utils\vfx.js:488: triggerAuraEffect(cardElement, auraClass) {
+E:/School+AI/school-dice-duel\src\utils\vfx.js:489: if (!cardElement) return;
+E:/School+AI/school-dice-duel\src\utils\vfx.js:491: AURA_CLASSES.forEach(c => cardElement.classList.remove(c));
+E:/School+AI/school-dice-duel\src\utils\vfx.js:493: cardElement.classList.add(auraClass);
+E:/School+AI/school-dice-duel\src\utils\vfx.js:495: tl.fromTo(cardElement,
+E:/School+AI/school-dice-duel\src\utils\vfx.js:498: ).to(cardElement, {
+E:/School+AI/school-dice-duel\src\utils\vfx.js:570: export const playTacticalCardVFX = vfxManager.playTacticalCardVFX.bind(vfxManager);
+E:/School+AI/school-dice-duel\tests\stress_m2_1.js:4: const dom = new JSDOM('<!DOCTYPE html><html><body><div id="app"><div class="arena"><div id="dice-area"></div><div id="card-me"></div><div id="card-op"></div><div id="action-bar"></div><div id="reroll-count"></div><div id="reroll-hint"></div><button id="btn-reroll"></button></div></div></body></html>', {
+E:/School+AI/school-dice-duel\tests\stress_m2_1.js:5: url: 'http://localhost/'
+E:/School+AI/school-dice-duel\tests\stress_m2_1.js:72: card: { name: 'Player 1', dicePool: [6, 6, 6], atkSlots: 2, defSlots: 2 }
+E:/School+AI/school-dice-duel\tests\stress_m2_1.js:79: card: { name: 'Player 2', dicePool: [6, 6, 6], atkSlots: 2, defSlots: 2 }
+E:/School+AI/school-dice-duel\tests\stress_m2_1.js:313: me: { id: 'p1', hp: 100, maxHp: 100, rerolls: 0, card: { dicePool: [] } },
+E:/School+AI/school-dice-duel\tests\stress_m2_1.js:314: opponent: { id: 'p2', hp: 100, maxHp: 100, rerolls: 0, card: { dicePool: [] } }
+E:/School+AI/school-dice-duel\tests\stress_m2_3_deep.js:4: const dom = new JSDOM('<!DOCTYPE html><html><body><div id="app"><div class="arena"><div id="dice-area"></div><div id="card-me"></div><div id="card-op"></div><div id="action-bar"></div><div id="reroll-count"></div><div id="reroll-hint"></div><button id="btn-reroll"></button></div></div></body></html>', {
+E:/School+AI/school-dice-duel\tests\stress_m2_3_deep.js:5: url: 'http://localhost/'
+E:/School+AI/school-dice-duel\tests\test_m2_4_edge_cases.js:3: const dom = new JSDOM('<!DOCTYPE html><html><body><div id="app"></div><div id="sandbox"></div></body></html>', { url: 'http://localhost/' });
+E:/School+AI/school-dice-duel\tests\test_m2_4_empirical.js:7: url: 'http://localhost/'
+E:/School+AI/school-dice-duel\tests\test_m2_4_empirical.js:43: const cardEl = document.createElement('div');
+E:/School+AI/school-dice-duel\tests\test_m2_4_empirical.js:44: cardEl.className = 'battle-card';
+E:/School+AI/school-dice-duel\tests\test_m2_4_empirical.js:45: sandbox.appendChild(cardEl);
+E:/School+AI/school-dice-duel\tests\test_m2_4_empirical.js:48: vfxManager.playHitImpact(cardEl, 25, { isCrit: true, isHeavy: true, pierce: true }, () => {
+E:/School+AI/school-dice-duel\tests\test_m2_4_empirical.js:61: // TEST 2: Directional Flashes & Card Impulses
+E:/School+AI/school-dice-duel\tests\test_m2_4_empirical.js:64: const atkCard = document.createElement('div');
+E:/School+AI/school-dice-duel\tests\test_m2_4_empirical.js:65: atkCard.className = 'battle-card-wrap';
+E:/School+AI/school-dice-duel\tests\test_m2_4_empirical.js:66: const defCard = document.createElement('div');
+E:/School+AI/school-dice-duel\tests\test_m2_4_empirical.js:67: defCard.className = 'battle-card-wrap';
+E:/School+AI/school-dice-duel\tests\test_m2_4_empirical.js:68: sandbox.appendChild(atkCard);
+E:/School+AI/school-dice-duel\tests\test_m2_4_empirical.js:69: sandbox.appendChild(defCard);
+E:/School+AI/school-dice-duel\tests\test_m2_4_empirical.js:71: atkCard.classList.add('card-attacking');
+E:/School+AI/school-dice-duel\tests\test_m2_4_empirical.js:72: defCard.classList.add('card-hit');
+E:/School+AI/school-dice-duel\tests\test_m2_4_empirical.js:74: const pass = atkCard.classList.contains('card-attacking') && defCard.classList.contains('card-hit');
+E:/School+AI/school-dice-duel\tests\test_m2_4_empirical.js:75: record('Directional Flashes & Card Class Impulses', pass,
+E:/School+AI/school-dice-duel\tests\test_m2_4_empirical.js:78: record('Directional Flashes & Card Class Impulses', false, `Exception: ${e.message}`);
+E:/School+AI/school-dice-duel\tests\test_m2_4_empirical.js:92: me: { id: 'p1', hp: 30, maxHp: 30, card: { name: 'P1' } },
+E:/School+AI/school-dice-duel\tests\test_m3_1_empirical.js:12: <div class="player-card battle-card" id="card-p1"></div>
+E:/School+AI/school-dice-duel\tests\test_m3_1_empirical.js:13: <div class="enemy-card battle-card" id="card-p2"></div>
+E:/School+AI/school-dice-duel\tests\test_m3_1_empirical.js:18: `, { url: 'http://localhost/' });
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:7: url: 'http://localhost/'
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:52: const cardEl = document.createElement('div');
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:53: cardEl.className = 'battle-card';
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:54: sandbox.appendChild(cardEl);
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:58: vfxManager.triggerRevivalHalo(cardEl);
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:59: const ring = cardEl.querySelector('.revival-halo-ring');
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:76: detachedEl.className = 'battle-card';
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:85: vfxManager.triggerRevivalHalo(cardEl);
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:92: removeEl.className = 'battle-card';
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:105: // TEST 2: Tactical Card Play VFX (playTacticalCardVFX) Stress & Edge Cases
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:109: const srcCard = document.createElement('div');
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:110: srcCard.className = 'hand-card-kards';
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:111: const tgtCard = document.createElement('div');
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:112: tgtCard.className = 'battle-card';
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:113: sandbox.appendChild(srcCard);
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:114: sandbox.appendChild(tgtCard);
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:117: const tl = vfxManager.playTacticalCardVFX(srcCard, tgtCard, () => { cbFired = true; });
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:123: try { vfxManager.playTacticalCardVFX(null, tgtCard); } catch (e) { missingSrcOk = false; }
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:126: try { vfxManager.playTacticalCardVFX(srcCard, null); } catch (e) { missingTgtOk = false; }
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:129: try { vfxManager.playTacticalCardVFX(null, null); } catch (e) { missingBothOk = false; }
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:131: let cardSpamOk = true;
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:138: vfxManager.playTacticalCardVFX(dSrc, dTgt);
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:140: } catch (e) { cardSpamOk = false; }
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:144: el.className = 'ffa-micro-card';
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:150: multiTargets.forEach(tgt => vfxManager.playTacticalCardVFX(srcCard, tgt));
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:157: vfxManager.playTacticalCardVFX(tempSrc, tempTgt);
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:162: const pass2 = cbFired && missingSrcOk && missingTgtOk && missingBothOk && cardSpamOk && multiCombatOk;
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:163: record('Tactical Card Play VFX (playTacticalCardVFX) Stress & Edge Cases', pass2,
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:164: `Callback executed: ${cbFired}, Null Src/Tgt/Both safe: ${missingSrcOk && missingTgtOk && missingBothOk}, 50x Spam safe: ${cardSpamOk}, Multi-target safe: ${multiCombatOk}`);
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:168: // TEST 3: Card Aura Transitions (triggerAuraEffect) Stress & Edge Cases
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:172: const auraCard = document.createElement('div');
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:173: auraCard.className = 'battle-card';
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:174: sandbox.appendChild(auraCard);
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:178: vfxManager.triggerAuraEffect(auraCard, 'aura-gpy-rage');
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:186: vfxManager.triggerAuraEffect(auraCard, null);
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:190: record('Card Aura Transitions (triggerAuraEffect) Stress & Edge Cases', pass3,
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:245: const targetCard = document.createElement('div');
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:246: targetCard.className = 'battle-card';
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:247: sandbox.appendChild(targetCard);
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:251: vfxManager.playHitImpact(targetCard, 10, null);
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:262: vfxManager.playHitImpact(targetCard, i % 20, { isCrit: i % 2 === 0 });
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:285: me: { id: 'p1', hp: 30, maxHp: 30, card: { name: 'P1' } },
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:287: { id: 'p1', nickname: 'P1', hp: 30, maxHp: 30, cardId: 'char_fxr', inDreamState: true },
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:288: { id: 'p2', nickname: 'P2', hp: 25, maxHp: 30, cardId: 'char_19' },
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:289: { id: 'p3', nickname: 'P3', hp: 20, maxHp: 30, cardId: 'char_14', chargeStacks: 2 },
+E:/School+AI/school-dice-duel\tests\test_m3_2_empirical.js:290: { id: 'p4', nickname: 'P4', hp: 15, maxHp: 30, cardId: 'char_4' }
+E:/School+AI/school-dice-duel\tests\test_m3_3_reverification.js:7: url: 'http://localhost/'
+E:/School+AI/school-dice-duel\tests\test_m3_3_reverification.js:51: const cardEl = document.createElement('div');
+E:/School+AI/school-dice-duel\tests\test_m3_3_reverification.js:52: cardEl.className = 'battle-card';
+E:/School+AI/school-dice-duel\tests\test_m3_3_reverification.js:53: sandbox.appendChild(cardEl);
+E:/School+AI/school-dice-duel\tests\test_m3_3_reverification.js:57: vfxManager.triggerAuraEffect(cardEl, 'aura-gpy-rage');
+E:/School+AI/school-dice-duel\tests\test_m3_3_reverification.js:58: singleAuraOk = cardEl.classList.contains('aura-gpy-rage');
+E:/School+AI/school-dice-duel\tests\test_m3_3_reverification.js:68: vfxManager.triggerAuraEffect(cardEl, aura);
+E:/School+AI/school-dice-duel\tests\test_m3_3_reverification.js:70: auraCycleOk = auraList.some(a => cardEl.classList.contains(a));
+E:/School+AI/school-dice-duel\tests\test_m3_3_reverification.js:75: let nullCardOk = true;
+E:/School+AI/school-dice-duel\tests\test_m3_3_reverification.js:80: nullCardOk = false;
+E:/School+AI/school-dice-duel\tests\test_m3_3_reverification.js:85: vfxManager.triggerAuraEffect(cardEl, null);
+E:/School+AI/school-dice-duel\tests\test_m3_3_reverification.js:86: vfxManager.triggerAuraEffect(cardEl, undefined);
+E:/School+AI/school-dice-duel\tests\test_m3_3_reverification.js:93: const tempCard = document.createElement('div');
+E:/School+AI/school-dice-duel\tests\test_m3_3_reverification.js:94: sandbox.appendChild(tempCard);
+E:/School+AI/school-dice-duel\tests\test_m3_3_reverification.js:95: vfxManager.triggerAuraEffect(tempCard, 'aura-dream-domain');
+E:/School+AI/school-dice-duel\tests\test_m3_3_reverification.js:96: tempCard.remove();
+E:/School+AI/school-dice-duel\tests\test_m3_3_reverification.js:101: const pass1 = singleAuraOk && auraCycleOk && nullCardOk && nullAuraOk && unmountOk;
+E:/School+AI/school-dice-duel\tests\test_m3_3_reverification.js:103: `Single aura: ${singleAuraOk}, 100x Cycle: ${auraCycleOk}, Null card safe: ${nullCardOk}, Null aura safe: ${nullAuraOk}, Unmount safe: ${unmountOk}`);
+E:/School+AI/school-dice-duel\tests\test_m3_3_reverification.js:112: targetEl.className = 'battle-card';
+E:/School+AI/school-dice-duel\tests\test_m3_3_reverification.js:178: const cardEl = document.createElement('div');
+E:/School+AI/school-dice-duel\tests\test_m3_3_reverification.js:179: cardEl.className = 'battle-card';
+E:/School+AI/school-dice-duel\tests\test_m3_3_reverification.js:180: sandbox.appendChild(cardEl);
+E:/School+AI/school-dice-duel\tests\test_m3_3_reverification.js:184: vfxManager.triggerRevivalHalo(cardEl);
+E:/School+AI/school-dice-duel\tests\test_m3_3_reverification.js:185: haloSpawnOk = !!cardEl.querySelector('.revival-halo-ring');
+E:/School+AI/school-dice-duel\tests\test_m3_3_reverification.js:201: vfxManager.triggerRevivalHalo(cardEl);
+E:/School+AI/school-dice-duel\tests\test_m3_3_reverification.js:225: // SUITE 4: Deep Stress & Edge Cases for playTacticalCardVFX
+E:/School+AI/school-dice-duel\tests\test_m3_3_reverification.js:230: srcEl.className = 'hand-card-kards';
+E:/School+AI/school-dice-duel\tests\test_m3_3_reverification.js:232: tgtEl.className = 'battle-card';
+E:/School+AI/school-dice-duel\tests\test_m3_3_reverification.js:238: const tl = vfxManager.playTacticalCardVFX(srcEl, tgtEl, () => { cbFired = true; });
+E:/School+AI/school-dice-duel\tests\test_m3_3_reverification.js:246: let nullCardsOk = true;
+E:/School+AI/school-dice-duel\tests\test_m3_3_reverification.js:248: vfxManager.playTacticalCardVFX(null, tgtEl);
+E:/School+AI/school-dice-duel\tests\test_m3_3_reverification.js:249: vfxManager.playTacticalCardVFX(srcEl, null);
+E:/School+AI/school-dice-duel\tests\test_m3_3_reverification.js:250: vfxManager.playTacticalCardVFX(null, null);
+E:/School+AI/school-dice-duel\tests\test_m3_3_reverification.js:252: nullCardsOk = false;
+E:/School+AI/school-dice-duel\tests\test_m3_3_reverification.js:258: vfxManager.playTacticalCardVFX(srcEl, tgtEl);
+E:/School+AI/school-dice-duel\tests\test_m3_3_reverification.js:270: vfxManager.playTacticalCardVFX(d1, d2);
+E:/School+AI/school-dice-duel\tests\test_m3_3_reverification.js:279: const pass4 = cbFired && nullCardsOk && tacticalSpamOk && unmountTacticalOk;
+E:/School+AI/school-dice-duel\tests\test_m3_3_reverification.js:280: record('playTacticalCardVFX Deep Stress & Edge Cases', pass4,
+E:/School+AI/school-dice-duel\tests\test_m3_3_reverification.js:281: `Callback executed: ${cbFired}, Null src/tgt safe: ${nullCardsOk}, 50x Spam safe: ${tacticalSpamOk}, Unmount safe: ${unmountTacticalOk}`);
+E:/School+AI/school-dice-duel\tests\e2e\run_headless_verification.js:2: import http from 'http';
+E:/School+AI/school-dice-duel\tests\e2e\run_headless_verification.js:7: const BASE_URL = `http://localhost:${PORT}`;
+E:/School+AI/school-dice-duel\tests\e2e\run_headless_verification.js:25: http.get(url, (res) => {
+E:/School+AI/school-dice-duel\tests\e2e\run_headless_verification.js:72: await page.waitForSelector('#card-selector', { timeout: 10000 });
+E:/School+AI/school-dice-duel\tests\e2e\run_headless_verification.js:90: const skillSummary = page.locator('#card-me summary');
+E:/School+AI/school-dice-duel\tests\e2e\run_headless_verification.js:170: await mobilePage.waitForSelector('#card-selector', { timeout: 10000 });
+E:/School+AI/school-dice-duel\tests\e2e\run_headless_verification.js:208: const draftReadyBtn = page.locator('#draft-shop-modal button:has-text("完成选牌")');
+E:/School+AI/school-dice-duel\tests\e2e\run_headless_verification.js:209: if (await draftReadyBtn.isVisible()) {
+E:/School+AI/school-dice-duel\tests\e2e\run_headless_verification.js:210: await draftReadyBtn.click();
+E:/School+AI/school-dice-duel\tests\e2e\run_headless_verification.js:282: const draftReadyBtn = page.locator('#draft-shop-modal button:has-text("完成选牌")');
+E:/School+AI/school-dice-duel\tests\e2e\run_headless_verification.js:283: if (await draftReadyBtn.isVisible()) {
+E:/School+AI/school-dice-duel\tests\e2e\run_headless_verification.js:284: await draftReadyBtn.click();
+E:/School+AI/school-dice-duel\tests\e2e\run_headless_verification.js:342: if (msg.includes('http://localhost:3000')) {
+E:/School+AI/school-dice-duel\tests\e2e\run_headless_verification.js:343: console.log(`📡 [Server Output]: ${msg.trim()}`);
+E:/School+AI/school-dice-duel\tests\e2e\test_m1_2_empirical.js:1: import http from 'http';
+E:/School+AI/school-dice-duel\tests\e2e\test_m1_2_empirical.js:6: const BASE_URL = `http://localhost:${PORT}`;
+E:/School+AI/school-dice-duel\tests\e2e\test_m1_2_empirical.js:109: <div class="dream-target-cards-container">
+E:/School+AI/school-dice-duel\tests\e2e\test_m1_2_empirical.js:182: <div class="name-row"><span class="nickname">玩家1</span><span class="card-name">郭朋远</span></div>
+E:/School+AI/school-dice-duel\tests\e2e\test_m1_2_empirical.js:190: <div class="name-row"><span class="nickname">电脑</span><span class="card-name">付修然</span></div>
+E:/School+AI/school-dice-duel\tests\e2e\test_m2_2_empirical.js:2: import http from 'http';
+E:/School+AI/school-dice-duel\tests\e2e\test_m2_2_empirical.js:7: const BASE_URL = `http://localhost:${PORT}`;
+E:/School+AI/school-dice-duel\tests\e2e\test_m2_2_empirical.js:25: http.get(url, (res) => {
+E:/School+AI/school-dice-duel\tests\e2e\test_m2_2_empirical.js:101: targetDiv.className = 'test-card-target';
+E:/School+AI/school-dice-duel\tests\e2e\test_m2_2_empirical.js:110: let invalidTextPass = true;
+E:/School+AI/school-dice-duel\tests\e2e\test_m2_2_empirical.js:113: if (!el) invalidTextPass = false;
+E:/School+AI/school-dice-duel\tests\e2e\test_m2_2_empirical.js:127: logResult('vfx.spawnFloatingDamage Edge Cases & Cleanup', passNull && invalidTextPass && passCleanup,
+E:/School+AI/school-dice-duel\tests\e2e\test_m2_2_empirical.js:128: `nullTarget: ${passNull}, invalidValues: ${invalidTextPass}, floatCleanup (remaining: ${remainingFloatEls.length}/${spawnCount}): ${passCleanup}`);
+E:/School+AI/school-dice-duel\tests\e2e\test_m2_2_empirical.js:174: // Valid card target element
+E:/School+AI/school-dice-duel\tests\e2e\test_m2_2_empirical.js:175: const cardEl = document.createElement('div');
+E:/School+AI/school-dice-duel\tests\e2e\test_m2_2_empirical.js:176: cardEl.className = 'battle-card';
+E:/School+AI/school-dice-duel\tests\e2e\test_m2_2_empirical.js:177: sandbox.appendChild(cardEl);
+E:/School+AI/school-dice-duel\tests\e2e\test_m2_2_empirical.js:179: let cardHitCompleted = false;
+E:/School+AI/school-dice-duel\tests\e2e\test_m2_2_empirical.js:180: vfxManager.playHitImpact(cardEl, NaN, { isCrit: true, isHeavy: true, nineLivesTriggered: true }, () => { cardHitCompleted = true; });
+E:/School+AI/school-dice-duel\tests\e2e\test_m2_2_empirical.js:181: vfxManager.playHitImpact(cardEl, null, { isCrit: false });
+E:/School+AI/school-dice-duel\tests\e2e\test_m2_2_empirical.js:182: vfxManager.playHitImpact(cardEl, undefined);
+E:/School+AI/school-dice-duel\tests\e2e\test_m2_2_empirical.js:183: vfxManager.playHitImpact(cardEl, -100);
+E:/School+AI/school-dice-duel\tests\e2e\test_m2_2_empirical.js:184: vfxManager.playHitImpact(cardEl, Infinity);
+E:/School+AI/school-dice-duel\tests\e2e\test_m2_2_empirical.js:188: logResult('vfx.playHitImpact Null/Invalid Inputs', hitCompleted && cardHitCompleted,
+E:/School+AI/school-dice-duel\tests\e2e\test_m2_2_empirical.js:189: `Null target callback fired: ${hitCompleted}, Card target callback fired: ${cardHitCompleted}`);
+E:/School+AI/school-dice-duel\tests\e2e\test_m2_2_empirical.js:246: me: { id: 'p1', hp: 20, maxHp: 30, card: { name: 'P1' } },
+E:/School+AI/school-dice-duel\tests\e2e\test_m2_2_empirical.js:247: opponent: { id: 'p2', hp: 15, maxHp: 30, card: { name: 'P2' } },
+E:/School+AI/school-dice-duel\tests\e2e\test_m2_2_empirical.js:257: <div id="card-me" class="battle-card-wrap"><div class="hp-bar-h" id="hp-me"></div><span id="hp-me-t">20</span></div>
+E:/School+AI/school-dice-duel\tests\e2e\test_m2_2_empirical.js:301: me: { id: 'p1', hp: 30, maxHp: 30, card: { name: 'Player 1' } },
+E:/School+AI/school-dice-duel\tests\e2e\test_m2_2_empirical.js:302: opponent: { id: 'p2', hp: 30, maxHp: 30, card: { name: 'Player 2' } },
+E:/School+AI/school-dice-duel\tests\e2e\test_m2_2_empirical.js:354: me: { id: 'p1', hp: 30, maxHp: 30, card: { name: 'P1' } },
+E:/School+AI/school-dice-duel\tests\e2e\test_m2_2_empirical.js:355: opponent: { id: 'p2', hp: 30, maxHp: 30, card: { name: 'P2' } },
+E:/School+AI/school-dice-duel\tests\e2e\test_m2_2_empirical.js:428: me: { id: 'p1', hp: 30, maxHp: 30, card: { name: 'P1' } },
+E:/School+AI/school-dice-duel\tests\e2e\test_m2_2_empirical.js:429: opponent: { id: 'p2', hp: 30, maxHp: 30, card: { name: 'P2' } },
+E:/School+AI/school-dice-duel\tests\e2e\test_m2_2_empirical.js:515: if (msg.includes('http://localhost:3000')) {
+E:/School+AI/school-dice-duel\tests\e2e\test_m2_2_empirical.js:516: console.log(`📡 [Server Output]: ${msg.trim()}`);
+E:/School+AI/school-dice-duel\tests\e2e\ui_vfx_verification.spec.js:40: await page.goto('http://localhost:3000');
+E:/School+AI/school-dice-duel\tests\e2e\ui_vfx_verification.spec.js:56: await page.goto('http://localhost:3000');
+E:/School+AI/school-dice-duel\tests\e2e\ui_vfx_verification.spec.js:61: await page.waitForSelector('#card-selector');
+E:/School+AI/school-dice-duel\tests\e2e\ui_vfx_verification.spec.js:73: await page.goto('http://localhost:3000');
+E:/School+AI/school-dice-duel\tests\e2e\ui_vfx_verification.spec.js:78: await page.waitForSelector('#card-selector');
+E:/School+AI/school-dice-duel\tests\e2e\ui_vfx_verification.spec.js:88: await expect(page.locator('#card-me')).toBeVisible();
+E:/School+AI/school-dice-duel\tests\e2e\ui_vfx_verification.spec.js:89: await expect(page.locator('#card-op')).toBeVisible();
+E:/School+AI/school-dice-duel\tests\e2e\ui_vfx_verification.spec.js:98: await page.goto('http://localhost:3000');
+E:/School+AI/school-dice-duel\tests\e2e\ui_vfx_verification.spec.js:103: await page.waitForSelector('#card-selector', { state: 'visible', timeout: 10000 });
+E:/School+AI/school-dice-duel\tests\e2e\ui_vfx_verification.spec.js:133: await page.goto('http://localhost:3000');
+E:/School+AI/school-dice-duel\tests\e2e\ui_vfx_verification.spec.js:138: await page.waitForSelector('#card-selector', { state: 'visible', timeout: 10000 });
+E:/School+AI/school-dice-duel\tests\e2e\ui_vfx_verification.spec.js:151: const skillSummary = page.locator('#card-me summary');
+E:/School+AI/school-dice-duel\tests\e2e\ui_vfx_verification.spec.js:176: await page.goto('http://localhost:3000');
+E:/School+AI/school-dice-duel\tests\e2e\ui_vfx_verification.spec.js:181: await page.waitForSelector('#card-selector', { state: 'visible', timeout: 10000 });
+E:/School+AI/school-dice-duel\tests\e2e\ui_vfx_verification.spec.js:219: await page.goto('http://localhost:3000');
+E:/School+AI/school-dice-duel\tests\e2e\ui_vfx_verification.spec.js:224: await page.waitForSelector('#card-selector', { state: 'visible', timeout: 10000 });
+E:/School+AI/school-dice-duel\tests\e2e\ui_vfx_verification.spec.js:263: await page.goto('http://localhost:3000');
+E:/School+AI/school-dice-duel\tests\e2e\ui_vfx_verification.spec.js:272: await page.waitForSelector('#card-selector');
+E:/School+AI/school-dice-duel\tests\e2e\ui_vfx_verification.spec.js:303: await page.goto('http://localhost:3000');
+E:/School+AI/school-dice-duel\tests\e2e\ui_vfx_verification.spec.js:308: await page.waitForSelector('#card-selector');
+E:/School+AI/school-dice-duel\tests\e2e\ui_vfx_verification.spec.js:322: const draftReadyBtn = page.locator('#draft-shop-modal button:has-text("完成选牌")');
+E:/School+AI/school-dice-duel\tests\e2e\ui_vfx_verification.spec.js:323: if (await draftReadyBtn.isVisible()) {
+E:/School+AI/school-dice-duel\tests\e2e\ui_vfx_verification.spec.js:324: await draftReadyBtn.click();
+E:/School+AI/school-dice-duel\tests\e2e\ui_vfx_verification.spec.js:378: await page.goto('http://localhost:3000');
+E:/School+AI/school-dice-duel\tests\e2e\ui_vfx_verification.spec.js:383: await page.waitForSelector('#card-selector');
+E:/School+AI/school-dice-duel\tests\e2e\ui_vfx_verification.spec.js:400: const draftReadyBtn = page.locator('#draft-shop-modal button:has-text("完成选牌")');
+E:/School+AI/school-dice-duel\tests\e2e\ui_vfx_verification.spec.js:401: if (await draftReadyBtn.isVisible()) {
+E:/School+AI/school-dice-duel\tests\e2e\ui_vfx_verification.spec.js:402: await draftReadyBtn.click();

@@ -562,16 +562,14 @@ function triggerAiPhase(roomId) {
   const aiPlayer = g.players.find(p => p.id === room.aiId);
   if (aiPlayer && !aiPlayer.isDead && aiPlayer.handCards && aiPlayer.handCards.length > 0) {
     const curSubj = g.schedule[g.currentClassIndex];
-    if (aiPlayer.card?.subjects?.includes(curSubj)) {
-      const playableCard = aiPlayer.handCards.find(c => {
-        const canAfford = (aiPlayer.tp || 0) >= c.tpCost;
-        const subjMatch = c.subject === 'universal' || c.subject === curSubj;
-        return canAfford && subjMatch;
-      });
-      if (playableCard) {
-        playTacticalCard(g, room.aiId, playableCard.id);
-        emitStateToAll(room);
-      }
+    const canUseClass = aiPlayer.card?.subjects?.includes(curSubj);
+    const playableCard = aiPlayer.handCards.find(c => {
+      const subjMatch = c.subject === 'universal' || (c.subject === curSubj && canUseClass);
+      return subjMatch;
+    });
+    if (playableCard) {
+      playTacticalCard(g, room.aiId, playableCard.id);
+      emitStateToAll(room);
     }
   }
 

@@ -119,12 +119,18 @@ export const cardMap = Object.fromEntries(CARDS.map(c => [c.id, c]));
 
 /** 抽卡辅助库 */
 export function getRandomCard(currentSubject, playerSubjects = []) {
-  // 过滤出通用卡 + 当前学科卡
-  const pool = CARDS.filter(c => {
-    if (c.subject === 'universal') return true;
-    if (c.subject === currentSubject && playerSubjects.includes(currentSubject)) return true;
-    return false;
-  });
-  if (pool.length === 0) return CARDS.find(c => c.subject === 'universal');
-  return pool[Math.floor(Math.random() * pool.length)];
+  // 玩家包含的学科卡或当前课程学科卡
+  const subjectPool = CARDS.filter(c => 
+    c.subject !== 'universal' && (playerSubjects.includes(c.subject) || c.subject === currentSubject)
+  );
+  const universalPool = CARDS.filter(c => c.subject === 'universal');
+
+  // 均衡采样：若有可用学科卡，50% 概率抽选学科卡，50% 概率抽选通用卡
+  if (subjectPool.length > 0 && Math.random() < 0.5) {
+    return subjectPool[Math.floor(Math.random() * subjectPool.length)];
+  }
+  if (universalPool.length > 0) {
+    return universalPool[Math.floor(Math.random() * universalPool.length)];
+  }
+  return CARDS[Math.floor(Math.random() * CARDS.length)];
 }

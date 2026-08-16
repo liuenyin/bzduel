@@ -3,10 +3,10 @@ import http from 'http';
 import net from 'net';
 import { chromium } from 'playwright';
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3005;
 const BASE_URL = `http://localhost:${PORT}`;
 
-function isPortOpen(port, host = 'localhost') {
+function isPortOpen(port, host = '127.0.0.1') {
   return new Promise((resolve) => {
     const socket = net.connect(port, host, () => {
       socket.end();
