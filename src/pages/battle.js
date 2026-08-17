@@ -193,7 +193,9 @@ function battleLogContentHTML(state) {
 
   const classGroups = new Map();
   for (const entry of entries) {
-    const classKey = Number.isInteger(entry.classIndex) ? entry.classIndex : 'legacy';
+    const classKey = Number.isInteger(entry.classIndex)
+      ? `${Number.isInteger(entry.day) ? entry.day : 1}:${entry.classIndex}`
+      : 'legacy';
     if (!classGroups.has(classKey)) classGroups.set(classKey, []);
     classGroups.get(classKey).push(entry);
   }
@@ -201,9 +203,12 @@ function battleLogContentHTML(state) {
   return [...classGroups.entries()].map(([classKey, classEntries]) => {
     const first = classEntries[0];
     const subject = SUBJECTS[first.subject];
+    const [dayNumber, classIndex] = classKey === 'legacy'
+      ? [null, null]
+      : classKey.split(':').map(Number);
     const classTitle = classKey === 'legacy'
       ? '早期记录'
-      : `第 ${Number(classKey) + 1} 节 · ${subject?.label || first.subject || '课程'}`;
+      : `第 ${dayNumber} 天 · 第 ${classIndex + 1} 节 · ${subject?.label || first.subject || '课程'}`;
     const roundGroups = new Map();
     for (const entry of classEntries) {
       const roundKey = Number.isInteger(entry.totalRound) ? entry.totalRound : 'legacy';
@@ -419,12 +424,11 @@ function buildArena(s) {
     }
   };
   return `
+    <div class="battle-view">
     <div class="arena">
-      <aside class="sidebar sidebar-left" id="sidebar-schedule">
-        <div class="sidebar-title">课程表</div>
-        ${scheduleHTML(s)}
-        ${me.hasReschedule ? '<button id="btn-reschedule" class="btn btn-secondary" style="width:100%;margin-top:8px;font-size:.78rem;">调课</button>' : ''}
-      </aside>
+      <header class="battle-topbar sidebar-left" id="sidebar-schedule">
+        ${battleTopbarHTML(s)}
+      </header>
 
       <main class="arena-center">
         <div class="card-row">
@@ -432,7 +436,7 @@ function buildArena(s) {
           <div class="battle-card-wrap" id="card-op">
             <div class="bc-multi" id="multi-op">${multiTag(getM(op,subj))}</div>
             <div class="battle-card ${getAuraClass(op)}">
-              <img src="${op.card?.image||''}" alt="" onerror="this.style.display='none'">
+              ${portraitHTML(op.card?.name, op.card?.image)}
               <div class="bc-name">${op.card?.name||'???'}</div>
             </div>
             <div class="bc-hp">
@@ -459,7 +463,7 @@ function buildArena(s) {
           <div class="battle-card-wrap self-side ${s.attackerIdx === s.myIndex ? 'active-attacker' : ''} ${me.isDead ? 'dead' : ''}" id="card-me">
             <div class="bc-multi" id="multi-me">${multiTag(getM(me,subj))}</div>
             <div class="battle-card ${getAuraClass(me)}" style="border: 3px solid ${s.attackerIdx === s.myIndex ? 'var(--red)' : 'transparent'}">
-              <img src="${me.card?.image||''}" alt="" onerror="this.style.display='none'">
+              ${portraitHTML(me.card?.name, me.card?.image)}
               <div class="bc-name">${me.card?.name||'???'}</div>
               ${s.attackerIdx === s.myIndex ? `<div class="atk-badge-lg">ATTACKING</div>` : ''}
               ${me.isDead ? `<div class="dead-overlay">已阵亡</div>` : ''}
@@ -481,23 +485,27 @@ function buildArena(s) {
           </div>
         </div>
 
-        <div class="dice-area" id="dice-area"></div>
-        <div class="action-bar" id="action-bar">${actionButtons(s)}</div>
-        <div class="tactical-bar" id="tactical-bar">${tacticalBarHTML(s)}</div>
+        <section class="battle-control-panel" aria-label="本回合操作">
+          <div class="dice-area" id="dice-area"></div>
+          <div class="action-bar" id="action-bar">${actionButtons(s)}</div>
+          <div class="battle-control-strip" id="sidebar-reroll">
+            <div class="reroll-count" id="reroll-count">重投 <strong>${me.rerolls}</strong> 次</div>
+            <p class="reroll-hint" id="reroll-hint">选中骰子后可重投</p>
+            <button id="btn-reroll" class="btn btn-secondary" style="display:none;">重投选中</button>
+            <details class="battle-menu">
+              <summary aria-label="更多对局操作" title="更多对局操作">&#8943;</summary>
+              <div class="battle-menu-popover">
+                ${s.gameMode === '1v1' ? '<button id="btn-surrender" class="btn btn-secondary">投降</button>' : ''}
+                <button id="btn-leave-battle" class="btn btn-secondary">退出对局</button>
+              </div>
+            </details>
+          </div>
+        </section>
+        <div class="tactical-layer" id="tactical-bar">${tacticalBarHTML(s)}</div>
       </main>
-
-      <aside class="sidebar sidebar-right" id="sidebar-reroll">
-        <div class="sidebar-title">重投</div>
-        <div class="reroll-count" id="reroll-count">剩余 <strong>${me.rerolls}</strong> 次</div>
-        <p class="reroll-hint" id="reroll-hint">点击骰子选中后重投</p>
-        <button id="btn-reroll" class="btn btn-secondary" style="width:100%;display:none;">重投选中</button>
-        <div class="battle-room-actions">
-          ${s.gameMode === '1v1' ? '<button id="btn-surrender" class="btn btn-secondary">投降</button>' : ''}
-          <button id="btn-leave-battle" class="btn btn-secondary">退出</button>
-        </div>
-      </aside>
     </div>
     ${battleLogHTML(s)}
+    </div>
   `;
 }
 // ── 事件绑定 (仅初始化时调用一次) ──
@@ -631,11 +639,11 @@ function refreshAll() {
   const sb = document.getElementById('sidebar-schedule');
   if (sb) {
     const hasR = S.me.hasReschedule;
-    sb.innerHTML = `<div class="sidebar-title">课程表</div>${scheduleHTML(S)}${hasR ? '<button id="btn-reschedule" class="btn btn-secondary" style="width:100%;margin-top:8px;font-size:.78rem;">调课</button>' : ''}`;
+    sb.innerHTML = battleTopbarHTML(S);
     if (hasR) on('btn-reschedule', 'click', () => showRescheduleModal());
   }
   // Reroll count
-  setText('reroll-count', `剩余 <strong>${S.me.rerolls}</strong> 次`);
+  setText('reroll-count', `重投 <strong>${S.me.rerolls}</strong> 次`);
   const rrEl = document.getElementById('btn-reroll');
   if (rrEl) delete rrEl.dataset.rerolling;
   // Phase & actions
@@ -1397,16 +1405,18 @@ function showClassChange(data) {
   setTimeout(() => {
     const s = SUBJECTS[data.subject];
     const overlay = document.createElement('div');
-    overlay.className = 'class-change-overlay';
+    overlay.className = data.dayChanged ? 'class-change-overlay day-change-overlay' : 'class-change-overlay compact';
     overlay.innerHTML = `
       <div class="class-change-content">
         <div class="cc-icon">${s?.icon || '📝'}</div>
+        ${data.dayChanged ? `<div class="cc-day">第 ${data.day || 1} 天</div>` : ''}
         <div class="cc-label">第 ${data.index + 1} 节课</div>
         <div class="cc-name">${s?.label || data.subject}</div>
       </div>
     `;
     document.body.appendChild(overlay);
-    setTimeout(() => { overlay.classList.add('fade-out'); setTimeout(() => overlay.remove(), 500); }, 1800);
+    const holdTime = data.dayChanged ? 1700 : 900;
+    setTimeout(() => { overlay.classList.add('fade-out'); setTimeout(() => overlay.remove(), 350); }, holdTime);
   }, 2500);
 }
 
@@ -1743,6 +1753,30 @@ function actionButtons(s) {
         </div>` + `需选 ${defenseSlots} 颗`;
   }
   return `<span style="color:var(--text-muted);font-size:.88rem">${phasePrompt(s)}</span>`;
+}
+
+function portraitInitials(name) {
+  const cleaned = Array.from(String(name || '?').replace(/[\[\]\s]/g, ''));
+  return cleaned.slice(-2).join('') || '?';
+}
+
+function portraitHTML(name, image) {
+  return `
+    <span class="portrait-fallback" aria-hidden="true">${portraitInitials(name)}</span>
+    ${image ? `<img src="${image}" alt="${name || '角色'}" onerror="this.remove()">` : ''}
+  `;
+}
+
+function battleTopbarHTML(s) {
+  const canReschedule = !!s.me?.hasReschedule;
+  return `
+    <div class="battle-day">
+      <span>对局进度</span>
+      <strong>第 ${s.currentDay || 1} 天</strong>
+    </div>
+    <div class="battle-schedule-track">${scheduleHTML(s)}</div>
+    ${canReschedule ? '<button id="btn-reschedule" class="btn btn-secondary battle-reschedule">调课</button>' : ''}
+  `;
 }
 
 function scheduleHTML(s) {

@@ -353,7 +353,10 @@ io.on('connection', (socket) => {
     const roomId = socketToRoom.get(playerId);
     if (res.classChanged) {
       emitToAll(room, 'class_change', () => ({
-        subject: res.nextSubject, index: g.currentClassIndex,
+        subject: res.nextSubject,
+        index: g.currentClassIndex,
+        day: res.currentDay || g.currentDay || 1,
+        dayChanged: !!res.dayChanged,
       }));
       setTimeout(() => triggerAiPhase(roomId), 5000);
     } else {
@@ -440,7 +443,10 @@ io.on('connection', (socket) => {
         scheduleFinishedRoomCleanup(room);
       } else if (res.classChanged) {
         emitToAll(room, 'class_change', () => ({
-          subject: res.nextSubject, index: g.currentClassIndex,
+          subject: res.nextSubject,
+          index: g.currentClassIndex,
+          day: res.currentDay || g.currentDay || 1,
+          dayChanged: !!res.dayChanged,
         }));
         setTimeout(() => triggerAiPhase(roomId), 5000);
       } else {
@@ -733,7 +739,12 @@ function triggerAiPhase(roomId) {
         }
         scheduleFinishedRoomCleanup(room);
       } else if (res.classChanged) {
-        emitToAll(room, 'class_change', () => ({ subject: res.nextSubject, index: g.currentClassIndex }));
+        emitToAll(room, 'class_change', () => ({
+          subject: res.nextSubject,
+          index: g.currentClassIndex,
+          day: res.currentDay || g.currentDay || 1,
+          dayChanged: !!res.dayChanged,
+        }));
         setTimeout(() => triggerAiPhase(roomId), 5000);
       } else {
         triggerAiPhase(roomId);

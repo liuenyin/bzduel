@@ -48,6 +48,7 @@ function appendBattleLog(state, entry) {
 
   state.log.push({
     id: `battle-log-${state.logSequence}`,
+    day: Number.isInteger(state.currentDay) ? state.currentDay : 1,
     totalRound: Number.isInteger(state.totalRound) ? state.totalRound : null,
     classIndex,
     subRound: Number.isInteger(state.currentSubRound) ? state.currentSubRound : null,
@@ -79,6 +80,7 @@ export function createGame(playerList, gameMode = GAME_MODE.MODE_1V1) {
     gameMode,
     players: playerList.map(p => makePlayer(p.id, p.nickname)),
     schedule: generateSchedule(),
+    currentDay: 1,
     currentClassIndex: 0,
     firstAttacker: 0,
     currentSubRound: 0,
@@ -1202,7 +1204,7 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
     });
     advanceAttackerTimedStates(state, atk);
 
-    const { gameOver, winner, classChanged, nextSubject } = resolvePhaseEnd(state);
+    const { gameOver, winner, classChanged, nextSubject, dayChanged, currentDay } = resolvePhaseEnd(state);
     
     return {
       ok: true,
@@ -1212,7 +1214,7 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
       selfDamage,
       firstBloodTriggered: firstBloodTriggeredGlobal,
       extraTurnTriggered: anyExtraTurnTriggered,
-      gameOver, winner, classChanged, nextSubject,
+      gameOver, winner, classChanged, nextSubject, dayChanged, currentDay,
       attackerIdx: state.turnData.attackerIdx
     };
 
@@ -1572,6 +1574,7 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
 
   // Check game over & handle deaths
   let gameOver = false, winner = null, classChanged = false, nextSubject = null;
+  let dayChanged = false, currentDay = state.currentDay || 1;
   const prevAttackerIdx = state.turnData.attackerIdx;
   
   if (atk.hp <= 0) {
@@ -1665,6 +1668,8 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
   winner = resPhase.winner;
   classChanged = resPhase.classChanged;
   nextSubject = resPhase.nextSubject;
+  dayChanged = resPhase.dayChanged;
+  currentDay = resPhase.currentDay;
   
   return {
     ok: true, baseDef, finalDef, penalty, keptIndices: keepIndices,
@@ -1680,7 +1685,7 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
     firstBloodTriggered: firstBloodTriggeredThisTurn,
     nineLivesTriggered,
     chargeConsumed,
-    gameOver, winner, classChanged, nextSubject,
+    gameOver, winner, classChanged, nextSubject, dayChanged, currentDay,
     attackerIdx: prevAttackerIdx,
   };
   }
@@ -1831,6 +1836,7 @@ export function getStateView(state, playerId) {
   const playersView = state.players.map(mapPlayerView);
   const logView = (state.log || []).map((entry, index) => ({
     id: entry.id || `legacy-log-${index}`,
+    day: Number.isInteger(entry.day) ? entry.day : 1,
     totalRound: Number.isInteger(entry.totalRound) ? entry.totalRound : null,
     classIndex: Number.isInteger(entry.classIndex) ? entry.classIndex : null,
     subRound: Number.isInteger(entry.subRound) ? entry.subRound : null,
@@ -1845,6 +1851,7 @@ export function getStateView(state, playerId) {
   return {
     gameMode: state.gameMode,
     phase: state.phase, schedule: state.schedule,
+    currentDay: state.currentDay || 1,
     currentClassIndex: state.currentClassIndex,
     currentSubRound: state.currentSubRound,
     totalRound: state.totalRound,
@@ -1901,6 +1908,8 @@ export function getStateView(state, playerId) {
 
 export function resolvePhaseEnd(state) {
   let gameOver = false, winner = null, classChanged = false, nextSubject = null;
+  let dayChanged = false;
+  if (!Number.isInteger(state.currentDay) || state.currentDay < 1) state.currentDay = 1;
   
   // Handle deaths
   state.players.forEach(p => {
@@ -1983,6 +1992,7 @@ export function resolvePhaseEnd(state) {
         const completedSubject = state.schedule[state.currentClassIndex];
         state.currentSubRound = 0;
         state.currentClassIndex++;
+        const completedClassNumber = state.currentClassIndex;
         
         let nextFirst = (state.firstAttacker + 1) % state.players.length;
         let attempts = 0;
@@ -2014,8 +2024,24 @@ export function resolvePhaseEnd(state) {
           }
         });
 
-        // 触发第 2/4/6 节课后的三选一战术卡商店
-        if (state.currentClassIndex === 2 || state.currentClassIndex === 4 || state.currentClassIndex === 6) {
+        const reachedDayEnd = state.currentClassIndex >= GAME_CONFIG.CLASSES_PER_GAME;
+        if (reachedDayEnd && state.gameMode === GAME_MODE.MODE_1V1) {
+          state.currentDay++;
+          state.currentClassIndex = 0;
+          state.schedule = generateSchedule();
+          dayChanged = true;
+          state.players.forEach(p => {
+            p.rerolls = GAME_CONFIG.REROLLS_PER_GAME;
+            p.hasReschedule = true;
+          });
+          appendBattleLog(state, {
+            type: 'system',
+            text: `第 ${state.currentDay} 天开始，双方继续对决`,
+          });
+        }
+
+        // 每天第 2/4/6 节课后触发三选一战术卡商店。
+        if (completedClassNumber === 2 || completedClassNumber === 4 || completedClassNumber === 6) {
           const nextSubj = state.schedule[state.currentClassIndex] || 'chinese';
           state.draftShop = {
             active: true,
@@ -2032,7 +2058,7 @@ export function resolvePhaseEnd(state) {
           };
         }
 
-        if (state.currentClassIndex >= GAME_CONFIG.CLASSES_PER_GAME) {
+        if (reachedDayEnd && state.gameMode !== GAME_MODE.MODE_1V1) {
           gameOver = true;
           state.phase = PHASE.GAME_OVER;
           if (state.gameMode === GAME_MODE.MODE_1V1) {
@@ -2075,7 +2101,14 @@ export function resolvePhaseEnd(state) {
     }
   }
 
-  return { gameOver, winner, classChanged, nextSubject };
+  return {
+    gameOver,
+    winner,
+    classChanged,
+    nextSubject,
+    dayChanged,
+    currentDay: state.currentDay,
+  };
 }
 
 // ── 周煊声: 买水 (跳过攻击，获得蓄势) ──

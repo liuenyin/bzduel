@@ -12,6 +12,7 @@ let currentCleanup = null;
 let currentPage = 'lobby';
 let chatWidgetEl = null;
 let chatMessagesEl = null;
+let unreadChatCount = 0;
 
 /**
  * 切换页面
@@ -55,10 +56,11 @@ function initGlobalChat() {
   chatWidgetEl.style.display = 'none'; // 初始隐藏，进入房间后显示
 
   chatWidgetEl.innerHTML = `
-    <div class="chat-header" id="chat-header">
-      <span>💬 房间聊天</span>
+    <button class="chat-header" id="chat-header" type="button" aria-expanded="false" aria-label="打开房间聊天">
+      <span class="chat-title"><span class="chat-icon" aria-hidden="true">💬</span><span class="chat-label">房间聊天</span></span>
+      <span class="chat-unread" id="chat-unread" hidden>0</span>
       <span class="chat-toggle-icon">▼</span>
-    </div>
+    </button>
     <div class="chat-messages" id="chat-messages">
       <div class="chat-msg system">加入房间即可开始聊天</div>
     </div>
@@ -73,11 +75,22 @@ function initGlobalChat() {
   chatMessagesEl = document.getElementById('chat-messages');
   const input = document.getElementById('chat-input');
   const btnSend = document.getElementById('btn-chat-send');
+  const unreadBadge = document.getElementById('chat-unread');
+
+  const updateUnreadBadge = () => {
+    unreadBadge.textContent = unreadChatCount > 99 ? '99+' : String(unreadChatCount);
+    unreadBadge.hidden = unreadChatCount === 0;
+  };
 
   // 展开/收起聊天框
   header.addEventListener('click', () => {
     chatWidgetEl.classList.toggle('collapsed');
-    if (!chatWidgetEl.classList.contains('collapsed')) {
+    const expanded = !chatWidgetEl.classList.contains('collapsed');
+    header.setAttribute('aria-expanded', String(expanded));
+    header.setAttribute('aria-label', expanded ? '收起房间聊天' : '打开房间聊天');
+    if (expanded) {
+      unreadChatCount = 0;
+      updateUnreadBadge();
       input.focus();
     }
   });
@@ -108,6 +121,10 @@ function initGlobalChat() {
     `;
     chatMessagesEl.appendChild(msgEl);
     chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+    if (chatWidgetEl.classList.contains('collapsed')) {
+      unreadChatCount++;
+      updateUnreadBadge();
+    }
   });
 }
 

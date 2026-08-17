@@ -6,6 +6,19 @@ import { navigate } from '../main.js';
 import { characters } from '../../shared/characters.js';
 import { SUBJECTS, getSubjectLabel, getSubjectIcon, getSkillMultiplier, DICE_COLORS } from '../../shared/rules.js';
 
+function portraitInitials(name) {
+  return Array.from(String(name || '?').replace(/[\[\]\s]/g, '')).slice(-2).join('') || '?';
+}
+
+function portraitFrame(character, className = '') {
+  return `
+    <span class="portrait-frame ${className}">
+      <span class="portrait-fallback" aria-hidden="true">${portraitInitials(character.name)}</span>
+      ${character.image ? `<img src="${character.image}" alt="${character.name}" onerror="this.remove()">` : ''}
+    </span>
+  `;
+}
+
 export function renderPreparation(container, data) {
   const { schedule, state, opponent, aiOpponentCardId } = data;
   let selectedCardId = null;
@@ -14,7 +27,7 @@ export function renderPreparation(container, data) {
   container.innerHTML = `
     <div style="flex:1; display:flex; flex-direction:column; gap:16px; padding:8px 0;">
       <div class="panel prep-opponent-summary">
-        ${selectedAiOpponent ? `<img src="${selectedAiOpponent.image || ''}" alt="" class="prep-opponent-avatar">` : ''}
+        ${selectedAiOpponent ? portraitFrame(selectedAiOpponent, 'prep-opponent-avatar') : ''}
         <div>
           <span>对手</span>
           <strong>${opponent || state.opponent.nickname}</strong>
@@ -74,7 +87,7 @@ export function renderPreparation(container, data) {
           <div class="modal-close" id="modal-close-btn">&times;</div>
           <div class="card" style="width: 100%; cursor: default;">
             <div class="card-image-wrap">
-              <img src="${char.image || ''}" alt="${char.name}" onerror="this.style.display='none'">
+              ${portraitFrame(char, 'card-detail-portrait')}
               <div class="card-badge">${electLabel}</div>
             </div>
             <div class="card-body">
@@ -230,7 +243,7 @@ function renderAvatar(char, gameMode) {
   const disabled = char.ffaOnly && gameMode === '1v1';
   return `
     <div class="avatar-cell ${disabled ? 'disabled' : ''}" data-id="${char.id}" style="${disabled ? 'opacity: 0.5; filter: grayscale(1); cursor: not-allowed; position: relative;' : ''}">
-      <img src="${char.image || ''}" alt="${char.name}" class="avatar-img">
+      ${portraitFrame(char, 'avatar-img')}
       <div class="avatar-name">${char.name}</div>
       ${disabled ? `<div style="position:absolute; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6); border-radius:12px; display:flex; align-items:center; justify-content:center; color:white; font-size:10px; font-weight:bold;">仅大乱斗</div>` : ''}
     </div>

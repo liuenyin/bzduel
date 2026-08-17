@@ -5,6 +5,19 @@ import { gameSocket } from '../net/socket.js';
 import { navigate, showGlobalChat } from '../main.js';
 import { characters } from '../../shared/characters.js';
 
+function portraitInitials(name) {
+  return Array.from(String(name || '?').replace(/[\[\]\s]/g, '')).slice(-2).join('') || '?';
+}
+
+function portraitFrame(character, className = '') {
+  return `
+    <span class="portrait-frame ${className}">
+      <span class="portrait-fallback" aria-hidden="true">${portraitInitials(character.name)}</span>
+      ${character.image ? `<img src="${character.image}" alt="${character.name}" loading="lazy" onerror="this.remove()">` : ''}
+    </span>
+  `;
+}
+
 export function renderLobby(container, data = {}) {
   container.innerHTML = `
     <div class="lobby">
@@ -60,7 +73,7 @@ export function renderLobby(container, data = {}) {
           <div class="pve-opponent-grid">
             ${characters.filter(character => !character.ffaOnly).map(character => `
               <button class="pve-opponent-option" type="button" data-character-id="${character.id}" aria-pressed="false">
-                <img src="${character.image || ''}" alt="" loading="lazy">
+                ${portraitFrame(character, 'pve-opponent-portrait')}
                 <span>${character.name}</span>
                 <small>${character.hp} HP</small>
               </button>

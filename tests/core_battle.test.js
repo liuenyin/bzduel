@@ -235,6 +235,45 @@ test('subject blessings are discarded when their class finishes', () => {
   assert.deepEqual(game.players[0].activeBlessings, []);
 });
 
+test('a surviving 1v1 continues into a new six-class day', () => {
+  const game = createBattle();
+  game.players.forEach(player => {
+    player.hp = 999;
+    player.maxHp = 999;
+  });
+  const firstSchedule = [...game.schedule];
+  let result = null;
+
+  for (let turn = 0; turn < 11; turn++) {
+    result = completeCurrentTurn(game, { attackRandom: 0.5, defenseRollValue: 100 });
+    assert.equal(result.gameOver, false);
+  }
+
+  game.players.forEach(player => {
+    player.rerolls = 0;
+    player.hasReschedule = false;
+  });
+  result = completeCurrentTurn(game, { attackRandom: 0.5, defenseRollValue: 100 });
+
+  assert.equal(result.gameOver, false);
+  assert.equal(result.classChanged, true);
+  assert.equal(result.dayChanged, true);
+  assert.equal(result.currentDay, 2);
+  assert.equal(game.phase, 'battle');
+  assert.equal(game.currentDay, 2);
+  assert.equal(game.currentClassIndex, 0);
+  assert.equal(game.currentSubRound, 0);
+  assert.equal(game.schedule.length, firstSchedule.length);
+  assert.equal(game.players.every(player => player.rerolls === 3), true);
+  assert.equal(game.players.every(player => player.hasReschedule), true);
+  assert.equal(game.draftShop?.active, true);
+
+  const view = getStateView(game, 'player-a');
+  assert.equal(view.currentDay, 2);
+  assert.equal(view.log.at(-1).day, 2);
+  assert.match(view.log.at(-1).text, /第 2 天开始/);
+});
+
 test('nine lives revives once and upgrades the restored dice pool', () => {
   const game = createBattle('char_6', 'char_16');
   game.players[1].hp = 1;
