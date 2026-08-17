@@ -1159,6 +1159,8 @@ function buildAlerts(data) {
   let alerts = [];
   const ar = data.atkResult || {};
 
+  if (data.deathCause === 'red_heat') alerts.push('<div class="skill-alert negative">红温伤害致死</div>');
+
   if (ar.posTriggered) alerts.push(`<div class="skill-alert positive">[${ar.posName}] 发动</div>`);
   if (ar.negTriggered) alerts.push(`<div class="skill-alert negative">[${ar.negName}] 发动</div>`);
 
@@ -1582,7 +1584,7 @@ function showGameOver(s, meta = {}) {
   const surrenderedPlayer = s.players?.find(player => player.id === (meta.surrenderedId || s.surrenderedId));
   const reasonText = endReason === 'surrender'
     ? `${surrenderedPlayer?.nickname || '一名玩家'} 投降`
-    : '对局结束';
+    : (endReason === 'red_heat' ? '红温伤害致死' : '对局结束');
 
   function renderPlayer(p, index) {
     if (!p) return '';

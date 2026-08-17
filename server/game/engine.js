@@ -352,6 +352,9 @@ export function rollAttack(state) {
   const atk = state.players[state.turnData.attackerIdx];
   const subj = state.schedule[state.currentClassIndex];
   let multi = getSkillMultiplier(atk.card.subjects, subj);
+  const hpBeforeTurnDamage = atk.hp;
+  let redHeatDamage = 0;
+  let redHeatKilled = false;
 
   // 清理过期 buff
   if (!atk.buffs) atk.buffs = [];
@@ -359,9 +362,18 @@ export function rollAttack(state) {
 
   // 红温伤害 (攻击回合开始时)
   if (atk.redHeat > 0) {
-    atk.hp -= atk.redHeat;
+    const heatStacks = atk.redHeat;
+    redHeatDamage = Math.min(atk.hp, heatStacks);
+    atk.hp -= heatStacks;
     atk.redHeat = Math.max(0, atk.redHeat - 1);
     if (atk.hp < 0) atk.hp = 0;
+    redHeatKilled = atk.hp <= 0;
+    appendBattleLog(state, {
+      text: `【红温】${atk.nickname} 受到 ${redHeatDamage} 点伤害${redHeatKilled ? '并倒下' : ''}`,
+      type: 'status',
+      actorId: atk.id,
+      details: { redHeatDamage, remainingRedHeat: atk.redHeat, lethal: redHeatKilled },
+    });
   }
 
   // 犯糖自伤
@@ -383,9 +395,19 @@ export function rollAttack(state) {
       atk.hp = 9;
       atk.card.dicePool = atk.card.dicePool.map(() => 10);
     } else {
+      atk.isDead = true;
       state.phase = PHASE.GAME_OVER;
       state.winner = state.turnData.defenderIdx;
-      return { ok: true, rolls: [], selfKill: true };
+      state.endReason = redHeatKilled ? 'red_heat' : 'self_damage';
+      return {
+        ok: true,
+        rolls: [],
+        selfKill: true,
+        gameOver: true,
+        winner: state.winner,
+        selfDamage: Math.max(0, hpBeforeTurnDamage - atk.hp),
+        deathCause: state.endReason,
+      };
     }
   }
 
@@ -2108,6 +2130,15 @@ export function resolvePhaseEnd(state) {
     nextSubject,
     dayChanged,
     currentDay: state.currentDay,
+  };
+}
+
+export function getAttackConfirmationView(state, playerId) {
+  const stateView = getStateView(state, playerId);
+  return {
+    atkResult: stateView.atkResult,
+    defenseRolls: stateView.defenseRolls,
+    state: stateView,
   };
 }
 

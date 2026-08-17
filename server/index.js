@@ -10,7 +10,7 @@ import {
   createGame, selectCard, setReady, useReschedule,
   rollAttack, rerollDice, confirmAttack, confirmDefense, selectTarget, buyWater, chooseDreamTarget,
   playTacticalCard, refreshDraftSlot, buyDraftCard, confirmDraftReady,
-  getCurrentAttackerId, getCurrentDefenderId, getStateView,
+  getCurrentAttackerId, getCurrentDefenderId, getStateView, getAttackConfirmationView,
   getEffectiveDicePool, getAllowedSlotCount, TURN,
 } from './game/engine.js';
 import {
@@ -319,9 +319,10 @@ io.on('connection', (socket) => {
       emitStateToAll(room);
       if (res.selfKill) {
         emitToAll(room, 'turn_resolved', (pid) => ({
-          damage: 0, selfDamage: 0, pierce: false, finalDef: 0, penalty: 0,
+          damage: 0, selfDamage: res.selfDamage || 0, pierce: false, finalDef: 0, penalty: 0,
           defNegTriggered: false, defNegName: null, defPosTriggered: false, defPosName: null,
-          noobTriggered: false, gameOver: true, winner: g.winner,
+          noobTriggered: false, gameOver: res.gameOver ?? true, winner: res.winner ?? g.winner,
+          deathCause: res.deathCause || 'self_damage',
           attackerIdx: g.turnData.attackerIdx,
           state: getStateView(g, pid),
         }));
@@ -373,14 +374,7 @@ io.on('connection', (socket) => {
     if (g.turnPhase === TURN.ATK_ROLLED && getCurrentAttackerId(g) === playerId) {
       const res = confirmAttack(g, indices);
       if (!res.ok) return;
-      // YZX masking: hide defense rolls from attacker if defender is YZX
-      const defIdx = g.turnData.defenderIdx;
-      const isDefYZX = defIdx !== null && g.players[defIdx]?.cardId === 'char_10';
-      emitToAll(room, 'atk_confirmed', (pid) => ({
-        atkResult: res.atkResult,
-        defenseRolls: (isDefYZX && g.players[defIdx]?.id !== pid) ? res.defenseRolls?.map(() => -1) : res.defenseRolls,
-        state: getStateView(g, pid),
-      }));
+      emitToAll(room, 'atk_confirmed', (pid) => getAttackConfirmationView(g, pid));
       triggerAiPhase(roomId);
 
     } else if (g.turnPhase === TURN.DEF_ROLLED) {
@@ -632,9 +626,10 @@ function triggerAiPhase(roomId) {
 
       if (rollRes.selfKill) {
         emitToAll(room, 'turn_resolved', (pid) => ({
-          damage: 0, selfDamage: 0, pierce: false, finalDef: 0, penalty: 0,
+          damage: 0, selfDamage: rollRes.selfDamage || 0, pierce: false, finalDef: 0, penalty: 0,
           defNegTriggered: false, defNegName: null, defPosTriggered: false, defPosName: null,
-          noobTriggered: false, gameOver: true, winner: g.winner,
+          noobTriggered: false, gameOver: rollRes.gameOver ?? true, winner: rollRes.winner ?? g.winner,
+          deathCause: rollRes.deathCause || 'self_damage',
           attackerIdx: g.turnData.attackerIdx,
           state: getStateView(g, pid),
         }));
@@ -676,10 +671,7 @@ function triggerAiPhase(roomId) {
       const indices = aiChooseKeepIndices({ rolls, faces, slots, phase: 'attack', skillId });
       const res = confirmAttack(g, indices);
       if (!res.ok) { console.error("AI confirmAttack failed", res, indices, atk.card); return; }
-      emitToAll(room, 'atk_confirmed', (pid) => ({
-        atkResult: res.atkResult, defenseRolls: res.defenseRolls,
-        state: getStateView(g, pid),
-      }));
+      emitToAll(room, 'atk_confirmed', (pid) => getAttackConfirmationView(g, pid));
       // 这里不需要 triggerAiPhase，因为确认后进入玩家防御
     });
   }

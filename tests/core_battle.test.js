@@ -7,6 +7,7 @@ import {
   confirmAttack,
   confirmDefense,
   createGame,
+  getAttackConfirmationView,
   getStateView,
   playTacticalCard,
   rerollDice,
@@ -297,6 +298,38 @@ test('red heat damages its owner at the start of their next attack', () => {
   assert.equal(game.players[1].redHeat, heatBefore - 1);
 });
 
+test('lethal red heat ends the game before attack dice are rolled', () => {
+  const game = createBattle();
+  const attacker = game.players[game.turnData.attackerIdx];
+  attacker.hp = 2;
+  attacker.redHeat = 3;
+
+  const result = rollAttack(game);
+
+  assert.equal(result.ok, true);
+  assert.equal(result.selfKill, true);
+  assert.equal(result.gameOver, true);
+  assert.equal(result.deathCause, 'red_heat');
+  assert.equal(result.winner, game.turnData.defenderIdx);
+  assert.equal(attacker.hp, 0);
+  assert.equal(attacker.isDead, true);
+  assert.equal(game.phase, 'game_over');
+  assert.equal(game.endReason, 'red_heat');
+  assert.match(game.log.at(-1).text, /红温.*倒下/);
+});
+
+test('playing a tactical card does not spend TP', () => {
+  const game = createBattle();
+  game.players[0].tp = 3;
+  game.players[0].handCards = [cardMap.card_gen_12];
+
+  const result = playTacticalCard(game, 'player-a', 'card_gen_12');
+
+  assert.equal(result.ok, true);
+  assert.equal(game.players[0].tp, 3);
+  assert.equal(game.players[0].handCards.length, 0);
+});
+
 test('buy water stores charge and consumes it on the next normal attack', () => {
   const game = createBattle('char_14', 'char_6');
   withRandom(0.5, () => rollAttack(game));
@@ -327,8 +360,22 @@ test('stealth tactical cards hide rolls from opponents and expire after the turn
   const attackSlots = game.players[0].card.atkSlots;
   assert.equal(confirmAttack(game, distinctIndices(attackSlots)).ok, true);
   assert.equal(getStateView(game, 'player-b').atkResult.finalAtk, '??');
+  assert.equal(getAttackConfirmationView(game, 'player-b').atkResult.finalAtk, '??');
 
   const defenseSlots = game.players[1].card.defSlots;
   assert.equal(confirmDefense(game, 'player-b', distinctIndices(defenseSlots)).ok, true);
   assert.equal(game.players[0].stealthActive, false);
+});
+
+test('stealth masks defense dice in attack confirmation events', () => {
+  const game = createBattle();
+  game.players[1].handCards = [cardMap.card_gen_12];
+  assert.equal(playTacticalCard(game, 'player-b', 'card_gen_12').ok, true);
+  withRandom(0.75, () => rollAttack(game));
+  assert.equal(confirmAttack(game, distinctIndices(game.players[0].card.atkSlots)).ok, true);
+
+  const attackerView = getAttackConfirmationView(game, 'player-a');
+  const defenderView = getAttackConfirmationView(game, 'player-b');
+  assert.deepEqual(attackerView.defenseRolls, attackerView.defenseRolls.map(() => -1));
+  assert.notDeepEqual(defenderView.defenseRolls, defenderView.defenseRolls.map(() => -1));
 });
