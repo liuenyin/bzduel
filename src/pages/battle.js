@@ -278,6 +278,65 @@ function getTurnSignature(state) {
   return `${state.totalRound ?? 0}:${attackerId ?? 'none'}:${state.isExtraTurn ? 'extra' : 'normal'}`;
 }
 
+function hasRenderedDice(state) {
+  return !!(state?.attackRolls || state?.defenseRolls || state?.aoeDefenses?.[state?.me?.id]?.rolls);
+}
+
+function getTurnFlow(state) {
+  if (state.attackerIdx === state.myIndex) return { direction: 'toward-opponent', arrow: '←' };
+  const meIsDefender = state.gameMode === '1v1' || state.defenderIdx === state.myIndex || state.isMyDefendTurn;
+  return meIsDefender
+    ? { direction: 'toward-me', arrow: '→' }
+    : { direction: 'neutral', arrow: '↔' };
+}
+
+function updateTurnFlow(state) {
+  const flow = document.querySelector('#vs-area .battle-flow');
+  const round = document.getElementById('battle-round');
+  if (!flow || !round) return;
+  const { direction, arrow: arrowText } = getTurnFlow(state);
+  flow.classList.remove('toward-me', 'toward-opponent', 'neutral');
+  flow.classList.add(direction);
+  const arrow = flow.querySelector('.flow-arrow');
+  if (arrow) arrow.textContent = arrowText;
+  round.textContent = state.isExtraTurn ? '额外回合' : `第 ${state.totalRound || 1} 回合`;
+}
+
+function syncActiveCombatants(state) {
+  const meWrap = document.getElementById('card-me');
+  const opWrap = document.getElementById('card-op');
+  const meIsAttacker = state.attackerIdx === state.myIndex;
+  if (meWrap) {
+    meWrap.classList.toggle('active-attacker', meIsAttacker);
+    meWrap.classList.toggle('dead', !!state.me?.isDead);
+  }
+  if (opWrap) {
+    opWrap.classList.toggle('active-attacker', !meIsAttacker);
+    opWrap.classList.toggle('dead', !!state.opponent?.isDead);
+  }
+}
+
+function syncBattleControlPanel() {
+  const panel = document.querySelector('.battle-control-panel');
+  const area = document.getElementById('dice-area');
+  if (!panel || !area) return;
+  const hasDice = area.childElementCount > 0;
+  panel.classList.toggle('has-dice', hasDice);
+  panel.classList.toggle('is-idle', !hasDice);
+}
+
+function revealCurrentClass() {
+  const track = document.querySelector('.battle-schedule-track');
+  const active = track?.querySelector('.sch-item.active');
+  if (!track || !active || track.clientWidth >= track.scrollWidth) return;
+  const target = active.offsetLeft - (track.clientWidth - active.offsetWidth) / 2;
+  track.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
+}
+
+function hpLabel(hp, maxHp) {
+  return hp === '??' ? '??' : `${hp} / ${maxHp}`;
+}
+
 function seedBattleFeedbackState(state) {
   lastRenderedStatusIds = new Map(
     (state?.players || []).map(player => [player.id, new Set(getStatusEffects(player, state).map(effect => effect.id))])
@@ -313,6 +372,10 @@ export function renderBattle(container, data) {
   container.innerHTML = buildArena(S);
   seedBattleFeedbackState(S);
   bindCoreEvents();
+  syncActiveCombatants(S);
+  syncBattleControlPanel();
+  updateTurnFlow(S);
+  queueMicrotask(revealCurrentClass);
 
   gameSocket.on('state_update', (s) => {
     if (animLock) {
@@ -417,6 +480,7 @@ export function renderBattle(container, data) {
 function buildArena(s) {
   const me = s.me, op = s.opponent;
   const subj = s.schedule[s.currentClassIndex];
+  const turnFlow = getTurnFlow(s);
   
   window.selectFfaTarget = (pid) => {
     if (S.turnPhase === 'choose_target' && S.isMyAttackTurn) {
@@ -433,15 +497,16 @@ function buildArena(s) {
       <main class="arena-center">
         <div class="card-row">
           ${ s.gameMode === 'sanguosha' ? `<div id="ffa-grid-container">${buildFfaGrid(s)}</div>` : `
-          <div class="battle-card-wrap" id="card-op">
+          <div class="battle-card-wrap opponent-side ${s.attackerIdx !== s.myIndex ? 'active-attacker' : ''} ${op.isDead ? 'dead' : ''}" id="card-op">
             <div class="bc-multi" id="multi-op">${multiTag(getM(op,subj))}</div>
             <div class="battle-card ${getAuraClass(op)}">
               ${portraitHTML(op.card?.name, op.card?.image)}
               <div class="bc-name">${op.card?.name||'???'}</div>
+              <div class="atk-badge-lg">进攻</div>
             </div>
-            <div class="bc-hp">
-              <div class="hp-bar-h enemy" id="hp-op" style="width:${pct(op.hp,op.maxHp)}%"></div>
-              <span class="hp-label" id="hp-op-t">${op.hp}</span>
+            <div class="bc-hp ${pct(op.hp, op.maxHp) <= 25 ? 'hp-critical' : ''}" aria-label="对手生命 ${op.hp}/${op.maxHp}">
+              <div class="hp-bar-h enemy" id="hp-op" data-hp="${op.hp}" style="width:${pct(op.hp,op.maxHp)}%"></div>
+              <span class="hp-label" id="hp-op-t">${hpLabel(op.hp, op.maxHp)}</span>
             </div>
             ${s.gameMode === 'sanguosha' ? `<div class="bc-identity-badge">${identityName(op.identity)}</div>` : ''}
             <details class="skill-details">
@@ -457,20 +522,24 @@ function buildArena(s) {
           `}
 
           <div class="vs-area" id="vs-area">
+            <div class="battle-flow ${turnFlow.direction}" aria-hidden="true">
+              <span class="flow-line"></span><span class="flow-arrow">${turnFlow.arrow}</span>
+            </div>
+            <div class="battle-round" id="battle-round">${s.isExtraTurn ? '额外回合' : `第 ${s.totalRound || 1} 回合`}</div>
             <div id="phase-text" class="phase-text">${phasePrompt(s)}</div>
           </div>
 
           <div class="battle-card-wrap self-side ${s.attackerIdx === s.myIndex ? 'active-attacker' : ''} ${me.isDead ? 'dead' : ''}" id="card-me">
             <div class="bc-multi" id="multi-me">${multiTag(getM(me,subj))}</div>
-            <div class="battle-card ${getAuraClass(me)}" style="border: 3px solid ${s.attackerIdx === s.myIndex ? 'var(--red)' : 'transparent'}">
+            <div class="battle-card ${getAuraClass(me)}">
               ${portraitHTML(me.card?.name, me.card?.image)}
               <div class="bc-name">${me.card?.name||'???'}</div>
-              ${s.attackerIdx === s.myIndex ? `<div class="atk-badge-lg">ATTACKING</div>` : ''}
+              <div class="atk-badge-lg">进攻</div>
               ${me.isDead ? `<div class="dead-overlay">已阵亡</div>` : ''}
             </div>
-            <div class="bc-hp">
-              <div class="hp-bar-h friendly" id="hp-me" style="width:${pct(me.hp,me.maxHp)}%"></div>
-              <span class="hp-label" id="hp-me-t">${me.hp}</span>
+            <div class="bc-hp ${pct(me.hp, me.maxHp) <= 25 ? 'hp-critical' : ''}" aria-label="我的生命 ${me.hp}/${me.maxHp}">
+              <div class="hp-bar-h friendly" id="hp-me" data-hp="${me.hp}" style="width:${pct(me.hp,me.maxHp)}%"></div>
+              <span class="hp-label" id="hp-me-t">${hpLabel(me.hp, me.maxHp)}</span>
             </div>
             ${s.gameMode === 'sanguosha' ? `<div class="bc-identity-badge">${identityName(me.identity)}</div>` : ''}
             <details class="skill-details">
@@ -485,7 +554,7 @@ function buildArena(s) {
           </div>
         </div>
 
-        <section class="battle-control-panel" aria-label="本回合操作">
+        <section class="battle-control-panel ${hasRenderedDice(s) ? 'has-dice' : 'is-idle'}" aria-label="本回合操作">
           <div class="dice-area" id="dice-area"></div>
           <div class="action-bar" id="action-bar">${actionButtons(s)}</div>
           <div class="battle-control-strip" id="sidebar-reroll">
@@ -654,6 +723,10 @@ function refreshAll() {
   refreshBattleLog();
   // Dice - render if available
   renderDice();
+  syncActiveCombatants(S);
+  syncBattleControlPanel();
+  updateTurnFlow(S);
+  revealCurrentClass();
   // Check dream target modal
   checkDreamTargetModal(S);
   checkDraftShopModal(S);
@@ -1185,6 +1258,28 @@ function buildAlerts(data) {
   return [...new Set(alerts)].join('');
 }
 
+function buildResolutionSummary(data) {
+  const selfDamage = Number(data.selfDamage) || 0;
+  if (selfDamage > 0 && (!data.damage || Number(data.damage) === 0)) {
+    return `<div class="resolution-summary self-damage">自伤 ${selfDamage}</div>`;
+  }
+
+  if (data.isAoE && Array.isArray(data.aoeResults)) {
+    const knownDamage = data.aoeResults.reduce((sum, result) => sum + (Number(result.damage) || 0), 0);
+    const hitCount = data.aoeResults.filter(result => Number(result.damage) > 0).length;
+    return knownDamage > 0
+      ? `<div class="resolution-summary damage">命中 ${hitCount} 人 · 共 ${knownDamage} 伤害</div>`
+      : '<div class="resolution-summary guarded">群体防守成功</div>';
+  }
+
+  const damage = Number(data.damage);
+  if (Number.isFinite(damage) && damage > 0) {
+    return `<div class="resolution-summary damage">造成 ${damage} 点伤害</div>`;
+  }
+  if (Number.isFinite(damage)) return '<div class="resolution-summary guarded">防守成功 · 未受伤</div>';
+  return '<div class="resolution-summary">本回合结算完成</div>';
+}
+
 function playResolvedSkillFeedback(data, state) {
   const attacker = state.players?.[data.attackerIdx];
   const attackerElement = getPlayerCardElement(attacker?.id, state);
@@ -1215,7 +1310,7 @@ export function onTurnResolved(data) {
 
   const phase = document.getElementById('phase-text');
   const alerts = buildAlerts(data);
-  if (phase && alerts) phase.innerHTML = alerts;
+  if (phase) phase.innerHTML = `${buildResolutionSummary(data)}${alerts}`;
   playResolvedSkillFeedback(data, newState);
 
   const dArea = document.getElementById('dice-area');
@@ -1748,7 +1843,7 @@ function actionButtons(s) {
     return `<div>
           <button id="btn-confirm" class="btn btn-success" disabled>✓ 确认</button>
           ${buyBtn}
-        </div>` + `${attackSlots === -1 ? '至少选 1 颗' : `需选 ${attackSlots} 颗`}`;
+        </div>`;
   }
   if (s.turnPhase === 'def_rolled' && s.isMyDefendTurn) {
     const defenseSlots = s.me.effectiveDefSlots ?? s.me.card.defSlots;
@@ -1756,7 +1851,7 @@ function actionButtons(s) {
     return `<div>
           <button id="btn-confirm" class="btn btn-primary" disabled>✓ 确认</button>
           ${sacBtn}
-        </div>` + `需选 ${defenseSlots} 颗`;
+        </div>`;
   }
   return `<span style="color:var(--text-muted);font-size:.88rem">${phasePrompt(s)}</span>`;
 }
@@ -1790,7 +1885,7 @@ function scheduleHTML(s) {
     const info = SUBJECTS[subj];
     const active = i === s.currentClassIndex;
     const past = i < s.currentClassIndex;
-    return `<div class="sch-item${active?' active':''}" style="${past?'opacity:.35':''}">
+    return `<div class="sch-item${active ? ' active' : ''}${past ? ' past' : ''}" data-class-index="${i}">
       <span>${info?.icon||'📝'}</span><span class="sch-label">${info?.label||subj}</span>
     </div>`;
   }).join('');
@@ -1800,8 +1895,25 @@ function setHP(barId, hp, maxHp, txtId) {
   const bar = document.getElementById(barId);
   const txt = document.getElementById(txtId);
   const isHidden = hp === '??';
-  if (bar) bar.style.width = isHidden ? '100%' : `${pct(hp, maxHp)}%`;
-  if (txt) txt.textContent = isHidden ? '??' : hp;
+  if (bar) {
+    const container = bar.closest('.bc-hp');
+    const previousHp = Number(bar.dataset.hp);
+    const nextHp = Number(hp);
+    bar.style.width = isHidden ? '100%' : `${pct(hp, maxHp)}%`;
+    if (!isHidden && Number.isFinite(nextHp)) {
+      bar.dataset.hp = String(nextHp);
+      container?.classList.toggle('hp-critical', maxHp > 0 && nextHp / maxHp <= 0.25);
+      container?.setAttribute('aria-label', `生命 ${nextHp}/${maxHp}`);
+      if (Number.isFinite(previousHp) && previousHp !== nextHp && container) {
+        const feedbackClass = nextHp < previousHp ? 'hp-loss' : 'hp-gain';
+        container.classList.remove('hp-loss', 'hp-gain');
+        void container.offsetWidth;
+        container.classList.add(feedbackClass);
+        setTimeout(() => container.classList.remove(feedbackClass), 620);
+      }
+    }
+  }
+  if (txt) txt.textContent = hpLabel(hp, maxHp);
 }
 
 function on(id, evt, fn) { document.getElementById(id)?.addEventListener(evt, fn); }
