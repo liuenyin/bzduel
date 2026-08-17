@@ -174,6 +174,138 @@ function removePositiveSkill(player) {
   if (player.sealedSkills) player.sealedSkills.positiveSkill = null;
 }
 
+function reviveNineLives(player) {
+  if (player?.hp > 0 || player?.card?.positiveSkill?.id !== SKILL.NINE_LIVES || player.nineLivesUsed) return false;
+  player.nineLivesUsed = true;
+  player.isDead = false;
+  player.hp = 9;
+  player.card.dicePool = player.card.dicePool.map(() => 10);
+  return true;
+}
+
+function finishSelfKill(state, player, winner, { cause = 'self_damage', selfDamage = 0 } = {}) {
+  const attackerIdx = state.turnData?.attackerIdx ?? null;
+  player.hp = 0;
+  player.isDead = true;
+
+  if (state.gameMode === GAME_MODE.MODE_FFA) {
+    const phaseResolution = resolvePhaseEnd(state);
+    if (phaseResolution.gameOver) state.endReason = cause;
+    return {
+      selfKill: true,
+      ...phaseResolution,
+      selfDamage,
+      deathCause: cause,
+      attackerIdx,
+    };
+  }
+
+  state.phase = PHASE.GAME_OVER;
+  state.winner = winner;
+  state.endReason = cause;
+  return {
+    selfKill: true,
+    gameOver: true,
+    winner,
+    selfDamage,
+    deathCause: cause,
+    attackerIdx,
+  };
+}
+
+function resolveImmediateDeaths(state, {
+  actor = null,
+  cause = 'self_damage',
+  penalizeLoyalistKill = false,
+} = {}) {
+  let nineLivesTriggered = false;
+  const defeatedPlayers = [];
+
+  state.players.forEach(player => {
+    if (player.hp > 0 || player.isDead) return;
+    if (reviveNineLives(player)) {
+      nineLivesTriggered = true;
+      return;
+    }
+    player.hp = 0;
+    player.isDead = true;
+    defeatedPlayers.push(player);
+  });
+
+  if (defeatedPlayers.length === 0) {
+    return {
+      gameOver: false,
+      winner: null,
+      nineLivesTriggered,
+      defeatedIds: [],
+      deathCause: null,
+    };
+  }
+
+  if (penalizeLoyalistKill && state.gameMode === GAME_MODE.MODE_FFA && actor?.identity === IDENTITY.LORD) {
+    defeatedPlayers.filter(player => player.identity === IDENTITY.LOYALIST).forEach(player => {
+      removePositiveSkill(actor);
+      appendBattleLog(state, {
+        text: `【系统】主公 ${actor.nickname} 误杀忠臣，失去了正面技能！`,
+        type: 'system',
+        actorId: actor.id,
+        targetId: player.id,
+      });
+    });
+  }
+
+  let gameOver = false;
+  let winner = null;
+  if (state.gameMode === GAME_MODE.MODE_1V1) {
+    const [first, second] = state.players;
+    gameOver = first.isDead || second.isDead;
+    if (first.isDead && second.isDead) winner = 'draw';
+    else if (second.isDead) winner = 0;
+    else if (first.isDead) winner = 1;
+  } else {
+    const lord = state.players.find(player => player.identity === IDENTITY.LORD);
+    if (lord?.isDead) {
+      gameOver = true;
+      const aliveSpies = state.players.filter(player => player.identity === IDENTITY.SPY && !player.isDead);
+      const otherAlive = state.players.filter(player => player.identity !== IDENTITY.SPY && !player.isDead);
+      winner = aliveSpies.length === 1 && otherAlive.length === 0 ? 'spy' : 'rebel';
+    } else {
+      const aliveBadGuys = state.players.filter(player => (
+        player.identity === IDENTITY.REBEL || player.identity === IDENTITY.SPY
+      ) && !player.isDead);
+      if (aliveBadGuys.length === 0) {
+        gameOver = true;
+        winner = 'lord';
+      }
+    }
+  }
+
+  if (gameOver) {
+    state.phase = PHASE.GAME_OVER;
+    state.winner = winner;
+    state.endReason = cause;
+  }
+
+  return {
+    gameOver,
+    winner,
+    nineLivesTriggered,
+    defeatedIds: defeatedPlayers.map(player => player.id),
+    deathCause: gameOver ? cause : null,
+  };
+}
+
+function resolveImmediateCardDeaths(state, actor, card) {
+  return {
+    ...resolveImmediateDeaths(state, {
+      actor,
+      cause: 'tactical_card',
+      penalizeLoyalistKill: true,
+    }),
+    cardId: card.id,
+  };
+}
+
 function advanceAttackerTimedStates(state, attacker) {
   if (!attacker) return;
 
@@ -390,23 +522,15 @@ export function rollAttack(state) {
 
   // 如果自伤致死，立刻判定游戏结束
   if (atk.hp <= 0) {
-    if (atk.card.positiveSkill?.id === 'nine_lives' && !atk.nineLivesUsed) {
-      atk.nineLivesUsed = true;
-      atk.hp = 9;
-      atk.card.dicePool = atk.card.dicePool.map(() => 10);
-    } else {
-      atk.isDead = true;
-      state.phase = PHASE.GAME_OVER;
-      state.winner = state.turnData.defenderIdx;
-      state.endReason = redHeatKilled ? 'red_heat' : 'self_damage';
+    if (!reviveNineLives(atk)) {
+      const resolution = finishSelfKill(state, atk, state.turnData.defenderIdx, {
+        cause: redHeatKilled ? 'red_heat' : 'self_damage',
+        selfDamage: Math.max(0, hpBeforeTurnDamage - atk.hp),
+      });
       return {
         ok: true,
         rolls: [],
-        selfKill: true,
-        gameOver: true,
-        winner: state.winner,
-        selfDamage: Math.max(0, hpBeforeTurnDamage - atk.hp),
-        deathCause: state.endReason,
+        ...resolution,
       };
     }
   }
@@ -456,10 +580,13 @@ export function rollAttack(state) {
     if (ones > 0) {
       atk.hp -= ones;
       if (atk.hp <= 0) {
-        atk.hp = 0;
-        state.phase = PHASE.GAME_OVER;
-        state.winner = state.turnData.defenderIdx;
-        return { ok: true, rolls: [...rolls], selfKill: true };
+        if (!reviveNineLives(atk)) {
+          const resolution = finishSelfKill(state, atk, state.turnData.defenderIdx, {
+            cause: 'dice_self_damage',
+            selfDamage: ones,
+          });
+          return { ok: true, rolls: [...rolls], ...resolution };
+        }
       }
     }
   }
@@ -606,11 +733,14 @@ export function rerollDice(state, playerId, indices) {
     if (newlyRolledOnes > 0) {
       p.hp -= newlyRolledOnes;
       if (p.hp <= 0) {
-        p.hp = 0;
-        state.phase = PHASE.GAME_OVER;
-        // 如果是大乱斗模式，逻辑较复杂，这里简化为单挑判断
-        state.winner = (state.turnPhase === TURN.ATK_ROLLED) ? state.turnData.defenderIdx : state.turnData.attackerIdx;
-        return { ok: true, rolls: [...rolls], remaining: p.rerolls, selfKill: true };
+        if (!reviveNineLives(p)) {
+          const winner = state.turnPhase === TURN.ATK_ROLLED ? state.turnData.defenderIdx : state.turnData.attackerIdx;
+          const resolution = finishSelfKill(state, p, winner, {
+            cause: 'dice_self_damage',
+            selfDamage: newlyRolledOnes,
+          });
+          return { ok: true, rolls: [...rolls], remaining: p.rerolls, ...resolution };
+        }
       }
     }
   }
@@ -793,6 +923,7 @@ export function confirmAttack(state, keepIndices) {
     state.turnData.isAoE = true;
     state.turnData.aoeDefenses = {};
     let defenseRollsRecord = {};
+    let rollSelfDamage = 0;
     state.players.forEach(p => {
       if (!p.isDead && p.id !== atk.id) {
         const rolls = rollDiceGroup(getRollingPool(p, state));
@@ -802,7 +933,7 @@ export function confirmAttack(state, keepIndices) {
           const ones = rolls.filter(r => r === 1).length;
           if (ones > 0) {
             p.hp = Math.max(0, p.hp - ones);
-            if (p.hp === 0) p.isDead = true; // 简单处理死亡
+            rollSelfDamage += ones;
           }
         }
         
@@ -816,8 +947,34 @@ export function confirmAttack(state, keepIndices) {
         defenseRollsRecord[p.id] = [...rolls];
       }
     });
+
+    const deathResolution = resolveImmediateDeaths(state, { cause: 'dice_self_damage' });
+    deathResolution.defeatedIds.forEach(playerId => {
+      delete state.turnData.aoeDefenses[playerId];
+      delete defenseRollsRecord[playerId];
+    });
+
+    if (deathResolution.gameOver) {
+      return {
+        ok: true,
+        atkResult: state.turnData.atkResult,
+        aoeDefenseRolls: defenseRollsRecord,
+        selfKill: true,
+        selfDamage: rollSelfDamage,
+        attackerIdx: state.turnData.attackerIdx,
+        ...deathResolution,
+      };
+    }
+
     state.turnPhase = TURN.DEF_ROLLED;
-    return { ok: true, atkResult: state.turnData.atkResult, aoeDefenseRolls: defenseRollsRecord };
+    return {
+      ok: true,
+      atkResult: state.turnData.atkResult,
+      aoeDefenseRolls: defenseRollsRecord,
+      selfDamage: rollSelfDamage,
+      nineLivesTriggered: deathResolution.nineLivesTriggered,
+      defeatedIds: deathResolution.defeatedIds,
+    };
   } else {
     state.turnData.isAoE = false;
     const defRolls = rollDiceGroup(getRollingPool(def, state));
@@ -828,10 +985,13 @@ export function confirmAttack(state, keepIndices) {
       if (ones > 0) {
         def.hp -= ones;
         if (def.hp <= 0) {
-          def.hp = 0;
-          state.phase = PHASE.GAME_OVER;
-          state.winner = state.turnData.attackerIdx;
-          return { ok: true, atkResult: state.turnData.atkResult, defenseRolls: [...defRolls], selfKill: true };
+          if (!reviveNineLives(def)) {
+            const resolution = finishSelfKill(state, def, state.turnData.attackerIdx, {
+              cause: 'dice_self_damage',
+              selfDamage: ones,
+            });
+            return { ok: true, atkResult: state.turnData.atkResult, defenseRolls: [...defRolls], ...resolution };
+          }
         }
       }
     }
@@ -1149,13 +1309,7 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
         pFirstBloodTriggered = true;
       }
 
-      let pNineLivesTriggered = false;
-      if (p.hp <= 0 && p.card.positiveSkill?.id === SKILL.NINE_LIVES && !p.nineLivesUsed) {
-        p.hp = 9;
-        p.nineLivesUsed = true;
-        p.dicePool = [8, 8, 8, 8, 8, 8];
-        pNineLivesTriggered = true;
-      }
+      const pNineLivesTriggered = reviveNineLives(p);
       let pExtraTurnTriggered = false;
       if (damage >= 8 && p.card.positiveSkill?.id === SKILL.EXTRA_TURN && p.hp > 0) {
         pExtraTurnTriggered = true;
@@ -1580,19 +1734,9 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
   }
 
   // 张锦元正面: 九条命 — 首次HP归零时复活
-  let nineLivesTriggered = false;
-  if (def.hp <= 0 && def.card.positiveSkill?.id === SKILL.NINE_LIVES && !def.nineLivesUsed) {
-    def.nineLivesUsed = true;
-    def.hp = 9;
-    def.card.dicePool = def.card.dicePool.map(() => 10); // 全部升级为D10
-    nineLivesTriggered = true;
-  }
-  if (atk.hp <= 0 && atk.card.positiveSkill?.id === SKILL.NINE_LIVES && !atk.nineLivesUsed) {
-    atk.nineLivesUsed = true;
-    atk.hp = 9;
-    atk.card.dicePool = atk.card.dicePool.map(() => 10);
-    nineLivesTriggered = true;
-  }
+  const defenderNineLivesTriggered = reviveNineLives(def);
+  const attackerNineLivesTriggered = reviveNineLives(atk);
+  const nineLivesTriggered = defenderNineLivesTriggered || attackerNineLivesTriggered;
 
   // Check game over & handle deaths
   let gameOver = false, winner = null, classChanged = false, nextSubject = null;
@@ -2299,7 +2443,11 @@ export function playTacticalCard(state, playerId, cardId) {
     applyInstantCardEffect(state, p, card);
   }
 
-  return { ok: true, card };
+  const deathResolution = state.players.some(player => player.hp <= 0)
+    ? resolveImmediateCardDeaths(state, p, card)
+    : { gameOver: false, winner: null, nineLivesTriggered: false, defeatedIds: [] };
+
+  return { ok: true, card, ...deathResolution };
 }
 
 function applyInstantCardEffect(state, p, card) {

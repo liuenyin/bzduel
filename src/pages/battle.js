@@ -1584,7 +1584,11 @@ function showGameOver(s, meta = {}) {
   const surrenderedPlayer = s.players?.find(player => player.id === (meta.surrenderedId || s.surrenderedId));
   const reasonText = endReason === 'surrender'
     ? `${surrenderedPlayer?.nickname || '一名玩家'} 投降`
-    : (endReason === 'red_heat' ? '红温伤害致死' : '对局结束');
+    : (endReason === 'red_heat'
+      ? '红温伤害致死'
+      : (endReason === 'dice_self_damage'
+        ? '掷骰自伤致死'
+        : (endReason === 'tactical_card' ? '战术卡造成致命伤害' : '对局结束')));
 
   function renderPlayer(p, index) {
     if (!p) return '';

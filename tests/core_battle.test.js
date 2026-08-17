@@ -13,9 +13,11 @@ import {
   rerollDice,
   rollAttack,
   selectCard,
+  selectTarget,
   setReady,
 } from '../server/game/engine.js';
 import { cardMap } from '../shared/cards.js';
+import { GAME_MODE, IDENTITY } from '../shared/rules.js';
 
 function createBattle(firstCard = 'char_6', secondCard = 'char_6') {
   const game = createGame([
@@ -27,6 +29,23 @@ function createBattle(firstCard = 'char_6', secondCard = 'char_6') {
   assert.equal(selectCard(game, 'player-b', secondCard).ok, true);
   assert.equal(setReady(game, 'player-a').battleStarted, false);
   assert.equal(setReady(game, 'player-b').battleStarted, true);
+  return game;
+}
+
+function createFfaBattle(cardIds = ['char_6', 'char_6', 'char_6']) {
+  const players = cardIds.map((_, index) => ({
+    id: `ffa-player-${index}`,
+    nickname: `FFA ${index + 1}`,
+  }));
+  const game = createGame(players, GAME_MODE.MODE_FFA);
+
+  players.forEach((player, index) => {
+    assert.equal(selectCard(game, player.id, cardIds[index]).ok, true);
+    const readyResult = setReady(game, player.id);
+    assert.equal(readyResult.ok, true);
+    assert.equal(readyResult.battleStarted, index === players.length - 1);
+  });
+
   return game;
 }
 
@@ -328,6 +347,123 @@ test('playing a tactical card does not spend TP', () => {
   assert.equal(result.ok, true);
   assert.equal(game.players[0].tp, 3);
   assert.equal(game.players[0].handCards.length, 0);
+});
+
+test('a lethal tactical red-heat detonation settles the game immediately', () => {
+  const game = createBattle();
+  game.schedule[game.currentClassIndex] = 'chemistry';
+  game.players[0].handCards = [cardMap.card_che_3];
+  game.players[1].hp = 2;
+  game.players[1].redHeat = 3;
+
+  const result = playTacticalCard(game, 'player-a', 'card_che_3');
+
+  assert.equal(result.ok, true);
+  assert.equal(result.gameOver, true);
+  assert.equal(result.winner, 0);
+  assert.equal(result.deathCause, 'tactical_card');
+  assert.deepEqual(result.defeatedIds, ['player-b']);
+  assert.equal(game.players[1].hp, 0);
+  assert.equal(game.players[1].isDead, true);
+  assert.equal(game.phase, 'game_over');
+  assert.equal(game.endReason, 'tactical_card');
+});
+
+test('nine lives revives from lethal tactical-card damage before game-over settlement', () => {
+  const game = createBattle('char_6', 'char_16');
+  game.schedule[game.currentClassIndex] = 'chemistry';
+  game.players[0].handCards = [cardMap.card_che_3];
+  game.players[1].hp = 2;
+  game.players[1].redHeat = 3;
+
+  const result = playTacticalCard(game, 'player-a', 'card_che_3');
+
+  assert.equal(result.ok, true);
+  assert.equal(result.gameOver, false);
+  assert.equal(result.nineLivesTriggered, true);
+  assert.equal(game.players[1].hp, 9);
+  assert.equal(game.players[1].isDead, false);
+  assert.equal(game.players[1].nineLivesUsed, true);
+  assert.deepEqual(game.players[1].card.dicePool, [10, 10, 10, 10]);
+  assert.equal(game.phase, 'battle');
+});
+
+test('lethal reroll self-damage returns a complete game-over result', () => {
+  const game = createBattle('char_19', 'char_6');
+  const attacker = game.players[0];
+  attacker.hp = 1;
+  withRandom(0.999999, () => rollAttack(game));
+
+  const result = withRandom(0, () => rerollDice(game, 'player-a', [0]));
+
+  assert.equal(result.ok, true);
+  assert.equal(result.selfKill, true);
+  assert.equal(result.gameOver, true);
+  assert.equal(result.winner, 1);
+  assert.equal(result.deathCause, 'dice_self_damage');
+  assert.equal(attacker.isDead, true);
+  assert.equal(game.phase, 'game_over');
+});
+
+test('lethal automatic defense-roll self-damage settles before defense selection', () => {
+  const game = createBattle('char_6', 'char_19');
+  const defender = game.players[1];
+  defender.hp = 1;
+  withRandom(0.999999, () => rollAttack(game));
+
+  const result = withRandom(0, () => confirmAttack(
+    game,
+    distinctIndices(game.players[0].card.atkSlots),
+  ));
+
+  assert.equal(result.ok, true);
+  assert.equal(result.selfKill, true);
+  assert.equal(result.gameOver, true);
+  assert.equal(result.winner, 0);
+  assert.equal(result.deathCause, 'dice_self_damage');
+  assert.equal(defender.isDead, true);
+  assert.equal(game.phase, 'game_over');
+});
+
+test('FFA self-damage eliminates one attacker and advances without ending the match', () => {
+  const game = createFfaBattle(['char_19', 'char_6', 'char_6']);
+  game.players[0].identity = IDENTITY.REBEL;
+  game.players[1].identity = IDENTITY.LORD;
+  game.players[2].identity = IDENTITY.SPY;
+  game.players[0].hp = 1;
+  assert.equal(selectTarget(game, game.players[0].id, game.players[1].id).ok, true);
+
+  const result = withRandom(0, () => rollAttack(game));
+
+  assert.equal(result.ok, true);
+  assert.equal(result.selfKill, true);
+  assert.equal(result.gameOver, false);
+  assert.equal(result.deathCause, 'dice_self_damage');
+  assert.equal(game.players[0].isDead, true);
+  assert.equal(game.phase, 'battle');
+  assert.equal(game.turnPhase, TURN.CHOOSE_TARGET);
+  assert.equal(game.players[game.turnData.attackerIdx].id, game.players[1].id);
+});
+
+test('lethal FFA AoE defense-roll self-damage settles before defense selection', () => {
+  const game = createFfaBattle(['char_13', 'char_19', 'char_6']);
+  game.players[0].identity = IDENTITY.REBEL;
+  game.players[1].identity = IDENTITY.LORD;
+  game.players[2].identity = IDENTITY.SPY;
+  game.players[1].hp = 1;
+  assert.equal(selectTarget(game, game.players[0].id, game.players[1].id).ok, true);
+  withRandom(0.999999, () => rollAttack(game));
+
+  const result = withRandom(0, () => confirmAttack(game, [0, 1, 2]));
+
+  assert.equal(result.ok, true);
+  assert.equal(result.selfKill, true);
+  assert.equal(result.gameOver, true);
+  assert.equal(result.winner, IDENTITY.REBEL);
+  assert.equal(result.deathCause, 'dice_self_damage');
+  assert.deepEqual(result.defeatedIds, [game.players[1].id]);
+  assert.equal(game.players[1].isDead, true);
+  assert.equal(game.phase, 'game_over');
 });
 
 test('buy water stores charge and consumes it on the next normal attack', () => {

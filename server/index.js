@@ -318,15 +318,7 @@ io.on('connection', (socket) => {
     }
       emitStateToAll(room);
       if (res.selfKill) {
-        emitToAll(room, 'turn_resolved', (pid) => ({
-          damage: 0, selfDamage: res.selfDamage || 0, pierce: false, finalDef: 0, penalty: 0,
-          defNegTriggered: false, defNegName: null, defPosTriggered: false, defPosName: null,
-          noobTriggered: false, gameOver: res.gameOver ?? true, winner: res.winner ?? g.winner,
-          deathCause: res.deathCause || 'self_damage',
-          attackerIdx: g.turnData.attackerIdx,
-          state: getStateView(g, pid),
-        }));
-        scheduleFinishedRoomCleanup(room);
+        emitImmediateTurnResolution(room, res);
       }
   });
 
@@ -334,7 +326,9 @@ io.on('connection', (socket) => {
   socket.on('reroll_dice', ({ indices } = {}) => {
     const room = getRoom(playerId); if (!room) return;
     const res = rerollDice(room.game, playerId, indices);
-    if (res.ok) emitStateToAll(room);
+    if (!res.ok) return;
+    emitStateToAll(room);
+    if (res.selfKill) emitImmediateTurnResolution(room, res);
   });
 
   // ── 周煊声: 买水 (跳过攻击，蓄势) ──
@@ -374,6 +368,10 @@ io.on('connection', (socket) => {
     if (g.turnPhase === TURN.ATK_ROLLED && getCurrentAttackerId(g) === playerId) {
       const res = confirmAttack(g, indices);
       if (!res.ok) return;
+      if (res.selfKill) {
+        emitImmediateTurnResolution(room, res);
+        return;
+      }
       emitToAll(room, 'atk_confirmed', (pid) => getAttackConfirmationView(g, pid));
       triggerAiPhase(roomId);
 
@@ -480,6 +478,7 @@ io.on('connection', (socket) => {
     if (typeof acknowledge === 'function') acknowledge({ ok: true, card: res.card });
     emitToAll(room, 'tactical_card_played', { playerId, card: res.card });
     emitStateToAll(room);
+    if (res.gameOver) emitTacticalGameOver(room, res);
   });
 
   socket.on('refresh_draft_slot', ({ slotIndex }) => {
@@ -611,6 +610,10 @@ function triggerAiPhase(roomId) {
       if (result.ok) {
         emitToAll(room, 'tactical_card_played', () => ({ playerId: room.aiId, card: result.card }));
         emitStateToAll(room);
+        if (result.gameOver) {
+          emitTacticalGameOver(room, result);
+          return;
+        }
       }
     }
   }
@@ -625,15 +628,7 @@ function triggerAiPhase(roomId) {
       emitStateToAll(room);
 
       if (rollRes.selfKill) {
-        emitToAll(room, 'turn_resolved', (pid) => ({
-          damage: 0, selfDamage: rollRes.selfDamage || 0, pierce: false, finalDef: 0, penalty: 0,
-          defNegTriggered: false, defNegName: null, defPosTriggered: false, defPosName: null,
-          noobTriggered: false, gameOver: rollRes.gameOver ?? true, winner: rollRes.winner ?? g.winner,
-          deathCause: rollRes.deathCause || 'self_damage',
-          attackerIdx: g.turnData.attackerIdx,
-          state: getStateView(g, pid),
-        }));
-        scheduleFinishedRoomCleanup(room);
+        emitImmediateTurnResolution(room, rollRes);
         return;
       }
       // 掷骰完自动进入下个子阶段处理
@@ -662,6 +657,10 @@ function triggerAiPhase(roomId) {
         const rerollResult = rerollDice(g, atk.id, rerollIndices);
         if (rerollResult.ok) {
           emitStateToAll(room);
+          if (rerollResult.selfKill) {
+            emitImmediateTurnResolution(room, rerollResult);
+            return;
+          }
           triggerAiPhase(roomId);
           return;
         }
@@ -671,6 +670,10 @@ function triggerAiPhase(roomId) {
       const indices = aiChooseKeepIndices({ rolls, faces, slots, phase: 'attack', skillId });
       const res = confirmAttack(g, indices);
       if (!res.ok) { console.error("AI confirmAttack failed", res, indices, atk.card); return; }
+      if (res.selfKill) {
+        emitImmediateTurnResolution(room, res);
+        return;
+      }
       emitToAll(room, 'atk_confirmed', (pid) => getAttackConfirmationView(g, pid));
       // 这里不需要 triggerAiPhase，因为确认后进入玩家防御
     });
@@ -699,6 +702,10 @@ function triggerAiPhase(roomId) {
         const rerollResult = rerollDice(g, def.id, rerollIndices);
         if (rerollResult.ok) {
           emitStateToAll(room);
+          if (rerollResult.selfKill) {
+            emitImmediateTurnResolution(room, rerollResult);
+            return;
+          }
           triggerAiPhase(roomId);
           return;
         }
@@ -766,6 +773,66 @@ function scheduleFinishedRoomCleanup(room) {
   if (room.cleanupTimer) clearTimeout(room.cleanupTimer);
   room.cleanupTimer = setTimeout(() => cleanupRoom(room), finishedRoomRetentionMs);
   room.cleanupTimer.unref?.();
+}
+
+function recordCompletedMatch(game) {
+  if (game.gameMode !== '1v1' || game.winner === null || game.winner === 'draw') return;
+  const winnerCardId = game.players[game.winner]?.cardId;
+  const loserIdx = game.winner === 0 ? 1 : 0;
+  const loserCardId = game.players[loserIdx]?.cardId;
+  if (!winnerCardId || !loserCardId) return;
+  const isPvE = game.players.some(player => player.id.startsWith('AI_'));
+  recordMatch(winnerCardId, loserCardId, isPvE);
+}
+
+function emitImmediateTurnResolution(room, result) {
+  const game = room.game;
+  emitToAll(room, 'turn_resolved', pid => ({
+    damage: 0,
+    selfDamage: result.selfDamage || 0,
+    pierce: false,
+    finalDef: 0,
+    penalty: 0,
+    defNegTriggered: false,
+    defNegName: null,
+    defPosTriggered: false,
+    defPosName: null,
+    noobTriggered: false,
+    gameOver: result.gameOver ?? true,
+    winner: result.winner ?? game.winner,
+    deathCause: result.deathCause || 'self_damage',
+    attackerIdx: result.attackerIdx ?? game.turnData.attackerIdx,
+    state: getStateView(game, pid),
+  }));
+  if (result.gameOver ?? true) {
+    recordCompletedMatch(game);
+    scheduleFinishedRoomCleanup(room);
+    return;
+  }
+
+  const roomId = [...rooms.entries()].find(([, candidate]) => candidate === room)?.[0];
+  if (result.classChanged) {
+    emitToAll(room, 'class_change', () => ({
+      subject: result.nextSubject,
+      index: game.currentClassIndex,
+      day: result.currentDay || game.currentDay || 1,
+      dayChanged: !!result.dayChanged,
+    }));
+    if (roomId) setTimeout(() => triggerAiPhase(roomId), 5000);
+  } else if (roomId) {
+    triggerAiPhase(roomId);
+  }
+}
+
+function emitTacticalGameOver(room, result) {
+  if (!result.gameOver) return;
+  recordCompletedMatch(room.game);
+  emitToAll(room, 'game_over', pid => ({
+    reason: result.deathCause || 'tactical_card',
+    cardId: result.card?.id || result.cardId || null,
+    state: getStateView(room.game, pid),
+  }));
+  scheduleFinishedRoomCleanup(room);
 }
 
 function surrenderGame(room, playerId) {
