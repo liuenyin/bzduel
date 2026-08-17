@@ -10,10 +10,17 @@ import {
   createGame, selectCard, setReady, useReschedule,
   rollAttack, rerollDice, confirmAttack, confirmDefense, selectTarget, buyWater, chooseDreamTarget,
   playTacticalCard, refreshDraftSlot, buyDraftCard, confirmDraftReady,
-  getCurrentAttackerId, getCurrentDefenderId, getStateView, TURN,
+  getCurrentAttackerId, getCurrentDefenderId, getStateView,
+  getEffectiveDicePool, getAllowedSlotCount, TURN,
 } from './game/engine.js';
-import { aiSelectCard } from './game/ai.js';
-import { SKILL } from '../shared/characters.js';
+import {
+  aiSelectCard,
+  aiChooseKeepIndices,
+  aiChooseRerollIndices,
+  aiChooseTacticalCard,
+  aiChooseDraftSlot,
+} from './game/ai.js';
+import { SKILL, characterMap } from '../shared/characters.js';
 import {
   createRun, placeCharacter, removeFromBoard, buyXP,
   calculateSupportBuffs, processBattleResult, getCurrentNodeType,
@@ -42,7 +49,10 @@ const io = new Server(httpServer, { cors: { origin: '*' }, pingTimeout: 30000, p
 if (process.env.NODE_ENV !== "production") {
   const { createServer: createViteServer } = await import('vite');
   const vite = await createViteServer({
-    server: { middlewareMode: true },
+    server: {
+      middlewareMode: true,
+      hmr: { server: httpServer },
+    },
     appType: "spa",
   });
   app.use(vite.middlewares);
@@ -54,54 +64,72 @@ if (process.env.NODE_ENV !== "production") {
 const rooms = new Map();
 const matchQueue = [];
 const socketToRoom = new Map();
+const activeSockets = new Map();
 const acRuns = new Map(); // socketId -> autochess run
+const reconnectGraceMs = Math.max(1000, Number(process.env.RECONNECT_GRACE_MS) || 60000);
+const finishedRoomRetentionMs = Math.max(30000, Number(process.env.FINISHED_ROOM_RETENTION_MS) || 300000);
 let roomCounter = 1000;
 function newRoomId() { return String(++roomCounter); }
 
 // ── Socket.IO ──
 io.on('connection', (socket) => {
-  console.log(`[连接] ${socket.id}`);
+  const playerId = getPersistentPlayerId(socket);
+  const previousSocketId = activeSockets.get(playerId);
+  activeSockets.set(playerId, socket.id);
+  socket.data.playerId = playerId;
+  socket.join(playerId);
+
+  if (previousSocketId && previousSocketId !== socket.id) {
+    io.sockets.sockets.get(previousSocketId)?.disconnect(true);
+  }
+
+  console.log(`[连接] ${socket.id} (${playerId})`);
 
   socket.on('error', (err) => {
     console.error(`[Socket Error ${socket.id}]:`, err);
   });
 
   // ── PVE ──
-  socket.on('start_pve', ({ nickname }) => {
+  socket.on('start_pve', ({ nickname, aiCardId = null } = {}) => {
+    const requestedAiCard = typeof aiCardId === 'string' ? characterMap[aiCardId] : null;
+    if (aiCardId && (!requestedAiCard || requestedAiCard.ffaOnly)) {
+      socket.emit('error_msg', { message: '无法使用该角色作为人机对手' });
+      return;
+    }
+
     const roomId = newRoomId();
     const aiId = 'AI_' + roomId;
     const game = createGame([
-      { id: socket.id, nickname },
+      { id: playerId, nickname },
       { id: aiId, nickname: '🤖 电脑' }
     ]);
-    rooms.set(roomId, { game, playerSockets: [socket.id, null], isAI: true, aiId });
-    socketToRoom.set(socket.id, roomId);
+    rooms.set(roomId, {
+      game,
+      playerSockets: [playerId, null],
+      isAI: true,
+      aiId,
+      aiCardId: requestedAiCard?.id || null,
+    });
+    socketToRoom.set(playerId, roomId);
     socket.emit('match_found', {
       roomId, opponent: '🤖 电脑',
-      schedule: game.schedule, state: getStateView(game, socket.id),
+      schedule: game.schedule,
+      state: getStateView(game, playerId),
+      aiOpponentCardId: requestedAiCard?.id || null,
     });
-    console.log(`[PVE] 房间 ${roomId} 已创建, AI: ${aiId}`);
+    console.log(`[PVE] 房间 ${roomId} 已创建, AI: ${aiId}, 指定角色: ${requestedAiCard?.id || '自动选择'}`);
 
-    // AI 预选卡片 (增加体验，让玩家看到 AI 已选)
-    setTimeout(() => {
-      const room = rooms.get(roomId);
-      if (room && room.isAI) {
-        const aiCardId = aiSelectCard(room.game.schedule);
-        selectCard(room.game, room.aiId, aiCardId);
-        console.log(`[PVE] AI ${aiId} 已自动选卡: ${aiCardId}`);
-        socket.emit('opponent_selected');
-      }
-    }, 1000);
+    scheduleAiSelection(roomId, playerId);
   });
 
   // ── 创建房间 ──
   socket.on('create_room', ({ nickname }) => {
     const roomId = newRoomId();
     rooms.set(roomId, {
-      game: { pending: true, creatorId: socket.id, creatorName: nickname, mode: '1v1' },
-      playerSockets: [socket.id, null], isAI: false,
+      game: { pending: true, creatorId: playerId, creatorName: nickname, mode: '1v1' },
+      playerSockets: [playerId, null], isAI: false,
     });
-    socketToRoom.set(socket.id, roomId);
+    socketToRoom.set(playerId, roomId);
     socket.join(roomId);
     socket.emit('room_created', { roomId, mode: '1v1' });
   });
@@ -114,10 +142,10 @@ io.on('connection', (socket) => {
     }
     const game = createGame([
       { id: room.game.creatorId, nickname: room.game.creatorName },
-      { id: socket.id, nickname }
+      { id: playerId, nickname }
     ]);
-    room.game = game; room.playerSockets[1] = socket.id;
-    socketToRoom.set(socket.id, roomId);
+    room.game = game; room.playerSockets[1] = playerId;
+    socketToRoom.set(playerId, roomId);
     socket.join(roomId);
     for (const pid of [game.players[0].id, game.players[1].id]) {
       io.to(pid).emit('match_found', {
@@ -130,25 +158,26 @@ io.on('connection', (socket) => {
   // ── 匹配 ──
   socket.on('join_matchmaking', ({ nickname }) => {
     if (matchQueue.length > 0) {
-      const idx = matchQueue.findIndex(p => p.socketId !== socket.id);
+      const idx = matchQueue.findIndex(p => p.playerId !== playerId);
       if (idx === -1) {
-        if (!matchQueue.some(p => p.socketId === socket.id)) {
-          matchQueue.push({ socketId: socket.id, nickname });
+        if (!matchQueue.some(p => p.playerId === playerId)) {
+          matchQueue.push({ playerId, nickname });
         }
         return;
       }
       const other = matchQueue.splice(idx, 1)[0];
       const roomId = newRoomId();
       const game = createGame([
-        { id: other.socketId, nickname: other.nickname },
-        { id: socket.id, nickname }
+        { id: other.playerId, nickname: other.nickname },
+        { id: playerId, nickname }
       ]);
-      rooms.set(roomId, { game, playerSockets: [other.socketId, socket.id], isAI: false });
-      socketToRoom.set(socket.id, roomId);
-      socketToRoom.set(other.socketId, roomId);
+      rooms.set(roomId, { game, playerSockets: [other.playerId, playerId], isAI: false });
+      socketToRoom.set(playerId, roomId);
+      socketToRoom.set(other.playerId, roomId);
       socket.join(roomId);
-      io.sockets.sockets.get(other.socketId)?.join(roomId);
-      for (const pid of [other.socketId, socket.id]) {
+      const otherSocketId = activeSockets.get(other.playerId);
+      if (otherSocketId) io.sockets.sockets.get(otherSocketId)?.join(roomId);
+      for (const pid of [other.playerId, playerId]) {
         io.to(pid).emit('match_found', {
           roomId,
           opponent: game.players.find(p => p.id !== pid)?.nickname || "未知对手",
@@ -157,13 +186,13 @@ io.on('connection', (socket) => {
         });
       }
     } else {
-      matchQueue.push({ socketId: socket.id, nickname });
+      matchQueue.push({ playerId, nickname });
       socket.emit('matchmaking_waiting');
     }
   });
 
   socket.on('cancel_matchmaking', () => {
-    const idx = matchQueue.findIndex(p => p.socketId === socket.id);
+    const idx = matchQueue.findIndex(p => p.playerId === playerId);
     if (idx !== -1) matchQueue.splice(idx, 1);
   });
 
@@ -171,13 +200,13 @@ io.on('connection', (socket) => {
   socket.on('create_ffa_room', ({ nickname }) => {
     const roomId = newRoomId();
     rooms.set(roomId, {
-      game: { pending: true, mode: 'sanguosha', players: [{ id: socket.id, nickname }] },
-      playerSockets: [socket.id], isAI: false,
+      game: { pending: true, mode: 'sanguosha', players: [{ id: playerId, nickname }] },
+      playerSockets: [playerId], isAI: false,
     });
-    socketToRoom.set(socket.id, roomId);
+    socketToRoom.set(playerId, roomId);
     socket.join(roomId);
     socket.emit('room_created', { roomId, mode: 'sanguosha' });
-    io.to(roomId).emit('ffa_room_update', { players: [{ id: socket.id, nickname }] });
+    io.to(roomId).emit('ffa_room_update', { players: [{ id: playerId, nickname }] });
   });
 
   socket.on('join_ffa_room', ({ nickname, roomId }) => {
@@ -188,9 +217,9 @@ io.on('connection', (socket) => {
     if (room.game.players.length >= 8) {
       socket.emit('error_msg', { message: '房间已满 (最多8人)' }); return;
     }
-    room.game.players.push({ id: socket.id, nickname });
-    room.playerSockets.push(socket.id);
-    socketToRoom.set(socket.id, roomId);
+    room.game.players.push({ id: playerId, nickname });
+    room.playerSockets.push(playerId);
+    socketToRoom.set(playerId, roomId);
     socket.join(roomId);
 
     // 通知所有人更新房间玩家列表
@@ -201,7 +230,7 @@ io.on('connection', (socket) => {
     const room = rooms.get(roomId);
     if (!room || !room.game.pending || room.game.mode !== 'sanguosha') return;
     // 只有房主可以开始
-    if (room.game.players[0].id !== socket.id) return;
+    if (room.game.players[0].id !== playerId) return;
     if (room.game.players.length < 3) {
       socket.emit('error_msg', { message: '大乱斗至少需要 3 名玩家' }); return;
     }
@@ -221,8 +250,8 @@ io.on('connection', (socket) => {
 
   // ── 战斗内交互 ──
   socket.on('select_target', ({ targetId }) => {
-    const room = getRoom(socket.id); if (!room) return;
-    if (selectTarget(room.game, socket.id, targetId).ok) {
+    const room = getRoom(playerId); if (!room) return;
+    if (selectTarget(room.game, playerId, targetId).ok) {
       room.playerSockets.forEach(pid => {
         io.to(pid).emit('state_update', getStateView(room.game, pid));
       });
@@ -230,56 +259,56 @@ io.on('connection', (socket) => {
   });
 
   socket.on('choose_dream_target', ({ targetIndex }) => {
-    const room = getRoom(socket.id); if (!room) return;
-    const res = chooseDreamTarget(room.game, socket.id, targetIndex);
+    const room = getRoom(playerId); if (!room) return;
+    const res = chooseDreamTarget(room.game, playerId, targetIndex);
     if (res.ok) {
       emitStateToAll(room);
     }
   });
 
   socket.on('select_card', ({ cardId }) => {
-    const room = getRoom(socket.id); if (!room) return;
-    if (selectCard(room.game, socket.id, cardId).ok) {
-      socket.emit('state_update', getStateView(room.game, socket.id));
-      broadcastToOpponent(room, socket.id, 'opponent_selected');
+    const room = getRoom(playerId); if (!room) return;
+    if (selectCard(room.game, playerId, cardId).ok) {
+      socket.emit('state_update', getStateView(room.game, playerId));
+      broadcastToOpponent(room, playerId, 'opponent_selected');
     }
   });
 
   // ── 准备 ──
   socket.on('ready', () => {
-    const room = getRoom(socket.id); if (!room) return;
-    const res = setReady(room.game, socket.id);
+    const room = getRoom(playerId); if (!room) return;
+    const res = setReady(room.game, playerId);
     if (!res.ok) return;
     if (room.isAI && !res.battleStarted) {
-      const aiCardId = room.game.players[1].cardId || aiSelectCard(room.game.schedule);
+      const aiCardId = room.game.players[1].cardId || room.aiCardId || aiSelectCard(room.game.schedule);
       if (!room.game.players[1].cardId) selectCard(room.game, room.aiId, aiCardId);
       const aiRes = setReady(room.game, room.aiId);
       if (aiRes.battleStarted) res.battleStarted = true;
       console.log(`[PVE] AI ${room.aiId} 准备完毕, 战斗开始: ${res.battleStarted}`);
     }
-    const roomId = socketToRoom.get(socket.id);
+    const roomId = socketToRoom.get(playerId);
     if (res.battleStarted) {
       emitStateToAll(room);
       triggerAiPhase(roomId);
     } else {
-      socket.emit('state_update', getStateView(room.game, socket.id));
-      broadcastToOpponent(room, socket.id, 'opponent_ready');
+      socket.emit('state_update', getStateView(room.game, playerId));
+      broadcastToOpponent(room, playerId, 'opponent_ready');
     }
   });
 
   // ── 调课权 ──
   socket.on('use_reschedule', ({ classIndex, newType }) => {
-    const room = getRoom(socket.id); if (!room) return;
-    if (useReschedule(room.game, socket.id, classIndex, newType).ok) {
+    const room = getRoom(playerId); if (!room) return;
+    if (useReschedule(room.game, playerId, classIndex, newType).ok) {
       emitStateToAll(room);
     }
   });
 
   // ── 掷攻击骰 ──
   socket.on('roll_dice', () => {
-    const room = getRoom(socket.id); if (!room) return;
+    const room = getRoom(playerId); if (!room) return;
     const g = room.game;
-    if (getCurrentAttackerId(g) !== socket.id) return;
+    if (getCurrentAttackerId(g) !== playerId) return;
     const res = rollAttack(g);
     if (!res.ok) {
       if (res.error === 'dream_target_required') {
@@ -296,22 +325,22 @@ io.on('connection', (socket) => {
           attackerIdx: g.turnData.attackerIdx,
           state: getStateView(g, pid),
         }));
-        setTimeout(() => cleanupRoom(room), 30000);
+        scheduleFinishedRoomCleanup(room);
       }
   });
 
   // ── 重投骰子 ──
-  socket.on('reroll_dice', ({ indices }) => {
-    const room = getRoom(socket.id); if (!room) return;
-    const res = rerollDice(room.game, socket.id, indices);
+  socket.on('reroll_dice', ({ indices } = {}) => {
+    const room = getRoom(playerId); if (!room) return;
+    const res = rerollDice(room.game, playerId, indices);
     if (res.ok) emitStateToAll(room);
   });
 
   // ── 周煊声: 买水 (跳过攻击，蓄势) ──
   socket.on('buy_water', () => {
-    const room = getRoom(socket.id); if (!room) return;
+    const room = getRoom(playerId); if (!room) return;
     const g = room.game;
-    const res = buyWater(g, socket.id);
+    const res = buyWater(g, playerId);
     if (!res.ok) {
       if (res.error === 'already_rerolled') socket.emit('error_msg', { message: '已经重投过了，无法买水！' });
       else if (res.error === 'max_charges') socket.emit('error_msg', { message: '蓄势已满（最多2层）！' });
@@ -321,7 +350,7 @@ io.on('connection', (socket) => {
       chargeStacks: res.chargeStacks,
       state: getStateView(g, pid),
     }));
-    const roomId = socketToRoom.get(socket.id);
+    const roomId = socketToRoom.get(playerId);
     if (res.classChanged) {
       emitToAll(room, 'class_change', () => ({
         subject: res.nextSubject, index: g.currentClassIndex,
@@ -333,12 +362,12 @@ io.on('connection', (socket) => {
   });
 
   // ── 确认骰子 ──
-  socket.on('confirm_dice', ({ indices, options = {} }) => {
-    const roomId = socketToRoom.get(socket.id);
-    const room = getRoom(socket.id); if (!room) return;
+  socket.on('confirm_dice', ({ indices, options = {} } = {}) => {
+    const roomId = socketToRoom.get(playerId);
+    const room = getRoom(playerId); if (!room) return;
     const g = room.game;
 
-    if (g.turnPhase === TURN.ATK_ROLLED && getCurrentAttackerId(g) === socket.id) {
+    if (g.turnPhase === TURN.ATK_ROLLED && getCurrentAttackerId(g) === playerId) {
       const res = confirmAttack(g, indices);
       if (!res.ok) return;
       // YZX masking: hide defense rolls from attacker if defender is YZX
@@ -353,9 +382,9 @@ io.on('connection', (socket) => {
 
     } else if (g.turnPhase === TURN.DEF_ROLLED) {
       if (g.turnData.isAoE) {
-        if (!g.turnData.aoeDefenses[socket.id]) return;
+        if (!g.turnData.aoeDefenses[playerId]) return;
       } else {
-        if (getCurrentDefenderId(g) !== socket.id) return;
+        if (getCurrentDefenderId(g) !== playerId) return;
       }
 
       // Save defender info before confirmDefense modifies state
@@ -368,7 +397,7 @@ io.on('connection', (socket) => {
       const preAtkId = g.players[preAtkIdx]?.id;
       const preAtkCardId = g.players[preAtkIdx]?.cardId;
 
-      const res = confirmDefense(g, socket.id, indices, options);
+      const res = confirmDefense(g, playerId, indices, options);
       if (!res.ok) {
         if (res.error === 'zww_d10_limit') {
           socket.emit('error_msg', { message: '曾无畏的限制：防御时最多只能选中一个 D10 骰子！' });
@@ -399,7 +428,7 @@ io.on('connection', (socket) => {
         }
         return data;
       });
-      const roomId = socketToRoom.get(socket.id);
+      const roomId = socketToRoom.get(playerId);
       if (res.gameOver) {
         if (g.gameMode === '1v1' && g.winner !== null && g.winner !== 'draw') {
           const winnerCardId = g.players[g.winner].cardId;
@@ -408,7 +437,7 @@ io.on('connection', (socket) => {
           const isPvE = g.players[0].id.startsWith('AI_') || g.players[1].id.startsWith('AI_');
           recordMatch(winnerCardId, loserCardId, isPvE);
         }
-        setTimeout(() => cleanupRoom(room), 30000);
+        scheduleFinishedRoomCleanup(room);
       } else if (res.classChanged) {
         emitToAll(room, 'class_change', () => ({
           subject: res.nextSubject, index: g.currentClassIndex,
@@ -422,29 +451,41 @@ io.on('connection', (socket) => {
 
   // ── 请求状态 (断线重连) ──
   socket.on('request_state', () => {
-    const room = getRoom(socket.id);
+    const room = getRoom(playerId);
     if (room && room.game.players) {
-      socket.emit('state_update', getStateView(room.game, socket.id));
+      socket.emit('state_update', getStateView(room.game, playerId));
     }
   });
 
+  socket.on('resume_session', (_payload = {}, acknowledge) => {
+    const result = resumePlayerSession(socket, playerId);
+    if (typeof acknowledge === 'function') acknowledge(result);
+    if (result.ok && result.state) socket.emit('state_update', result.state);
+  });
+
   // ── 战术卡与商店 ──
-  socket.on('play_tactical_card', ({ cardId }) => {
-    const room = getRoom(socket.id);
-    if (!room || !room.game) return;
-    const res = playTacticalCard(room.game, socket.id, cardId);
-    if (!res.ok) {
-      socket.emit('error_msg', { message: res.error || '无法打出此战术卡' });
+  socket.on('play_tactical_card', ({ cardId } = {}, acknowledge) => {
+    const room = getRoom(playerId);
+    if (!room || !room.game) {
+      if (typeof acknowledge === 'function') acknowledge({ ok: false, error: '对局不存在' });
       return;
     }
-    io.to(room.id).emit('tactical_card_played', { playerId: socket.id, card: res.card });
+    const res = playTacticalCard(room.game, playerId, cardId);
+    if (!res.ok) {
+      const error = res.error || '无法打出此战术卡';
+      if (typeof acknowledge === 'function') acknowledge({ ok: false, error });
+      else socket.emit('error_msg', { message: error });
+      return;
+    }
+    if (typeof acknowledge === 'function') acknowledge({ ok: true, card: res.card });
+    emitToAll(room, 'tactical_card_played', { playerId, card: res.card });
     emitStateToAll(room);
   });
 
   socket.on('refresh_draft_slot', ({ slotIndex }) => {
-    const room = getRoom(socket.id);
+    const room = getRoom(playerId);
     if (!room || !room.game) return;
-    const res = refreshDraftSlot(room.game, socket.id, slotIndex);
+    const res = refreshDraftSlot(room.game, playerId, slotIndex);
     if (!res.ok) {
       socket.emit('error_msg', { message: res.error || '无法刷新' });
       return;
@@ -452,22 +493,46 @@ io.on('connection', (socket) => {
     emitStateToAll(room);
   });
 
-  socket.on('buy_draft_card', ({ slotIndex }) => {
-    const room = getRoom(socket.id);
-    if (!room || !room.game) return;
-    const res = buyDraftCard(room.game, socket.id, slotIndex);
-    if (!res.ok) {
-      socket.emit('error_msg', { message: res.error || '购买失败' });
+  socket.on('buy_draft_card', ({ slotIndex } = {}, acknowledge) => {
+    const room = getRoom(playerId);
+    if (!room || !room.game) {
+      if (typeof acknowledge === 'function') acknowledge({ ok: false, error: '对局不存在' });
       return;
     }
+    const res = buyDraftCard(room.game, playerId, slotIndex);
+    if (!res.ok) {
+      const error = res.error || '购买失败';
+      if (typeof acknowledge === 'function') acknowledge({ ok: false, error });
+      else socket.emit('error_msg', { message: error });
+      return;
+    }
+    if (typeof acknowledge === 'function') acknowledge({ ok: true });
     emitStateToAll(room);
   });
 
   socket.on('draft_ready', () => {
-    const room = getRoom(socket.id);
+    const room = getRoom(playerId);
     if (!room || !room.game) return;
-    confirmDraftReady(room.game, socket.id);
+    confirmDraftReady(room.game, playerId);
     emitStateToAll(room);
+  });
+
+  socket.on('surrender', (_payload = {}, acknowledge) => {
+    const room = getRoom(playerId);
+    const result = surrenderGame(room, playerId);
+    if (typeof acknowledge === 'function') acknowledge(result);
+  });
+
+  socket.on('request_rematch', (_payload = {}, acknowledge) => {
+    const roomId = socketToRoom.get(playerId);
+    const room = roomId ? rooms.get(roomId) : null;
+    const result = requestRoomRematch(roomId, room, playerId);
+    if (typeof acknowledge === 'function') acknowledge(result);
+  });
+
+  socket.on('leave_room', (_payload = {}, acknowledge) => {
+    const result = leavePlayerRoom(socket, playerId);
+    if (typeof acknowledge === 'function') acknowledge(result);
   });
 
   // ── 断线 ──
@@ -478,52 +543,30 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    const idx = matchQueue.findIndex(q => q.socketId === socket.id);
+    const idx = matchQueue.findIndex(q => q.playerId === playerId);
     if (idx >= 0) matchQueue.splice(idx, 1);
-    const roomId = socketToRoom.get(socket.id);
-    if (roomId) {
-      const room = rooms.get(roomId);
-      if (room && room.game && room.game.players) {
-        if (room.isAI) {
-          rooms.delete(roomId);
-        } else {
-          if (room.game.pending) {
-            // Remove from list if game hasn't started
-            room.game.players = room.game.players.filter(p => p.id !== socket.id);
-            room.playerSockets = room.playerSockets.filter(sid => sid !== socket.id);
-            if (room.playerSockets.length === 0) {
-              rooms.delete(roomId);
-            } else {
-              io.to(roomId).emit('ffa_room_update', { players: room.game.players });
-            }
-          } else {
-            // Battle started: Mark as dead
-            const player = room.game.players.find(p => p.id === socket.id);
-            if (player) {
-              player.hp = 0;
-              player.isDead = true;
-              // Auto-confirm AoE defense if they are currently supposed to be rolling
-              if (room.game.turnPhase === TURN.DEF_ROLLED && room.game.turnData?.isAoE) {
-                const defState = room.game.turnData.aoeDefenses[socket.id];
-                if (defState && !defState.confirmed) {
-                  const res = confirmDefense(room.game, socket.id, defState.rolls.map((_, i) => i).slice(0, player.card.defSlots));
-                  if (res.ok && !res.waitingForOthers) {
-                    emitToAll(room, 'turn_resolved', (pid) => ({ ...res, state: getStateView(room.game, pid) }));
-                  }
-                }
-              }
-              emitToAll(room, 'opponent_disconnected', { disconnectedId: socket.id });
-              emitStateToAll(room);
-            }
-          }
-        }
-      }
-      socketToRoom.delete(socket.id);
-    }
+
+    if (activeSockets.get(playerId) !== socket.id) return;
+    activeSockets.delete(playerId);
+
+    const roomId = socketToRoom.get(playerId);
+    const room = roomId ? rooms.get(roomId) : null;
+    if (room) schedulePlayerDisconnect(roomId, room, playerId);
   });
 });
 
 // ── AI 阶段自动处理 ──
+function scheduleAiAction(room, key, delay, action) {
+  if (!room || room.aiActionKey === key) return;
+  if (room.aiActionTimer) clearTimeout(room.aiActionTimer);
+  room.aiActionKey = key;
+  room.aiActionTimer = setTimeout(() => {
+    room.aiActionTimer = null;
+    room.aiActionKey = null;
+    action();
+  }, delay);
+}
+
 function triggerAiPhase(roomId) {
   const room = rooms.get(roomId);
   if (!room || !room.isAI || room.game.phase !== 'battle') return;
@@ -547,10 +590,11 @@ function triggerAiPhase(roomId) {
     if (aiDraft && !aiDraft.ready) {
       const aiPlayer = g.players.find(p => p.id === room.aiId);
       if (aiPlayer) {
-        for (let i = 0; i < aiDraft.slots.length; i++) {
-          if ((aiPlayer.handCards || []).length < 3 && aiDraft.slots[i].card) {
-            buyDraftCard(g, room.aiId, i);
-          }
+        let slotIndex = aiChooseDraftSlot(g, room.aiId);
+        while (slotIndex !== null && (aiPlayer.handCards || []).length < 3) {
+          const result = buyDraftCard(g, room.aiId, slotIndex);
+          if (!result.ok) break;
+          slotIndex = aiChooseDraftSlot(g, room.aiId);
         }
       }
       confirmDraftReady(g, room.aiId);
@@ -561,21 +605,19 @@ function triggerAiPhase(roomId) {
   // AI 打出战术卡策略 (在自己攻防回合自动打出可用卡)
   const aiPlayer = g.players.find(p => p.id === room.aiId);
   if (aiPlayer && !aiPlayer.isDead && aiPlayer.handCards && aiPlayer.handCards.length > 0) {
-    const curSubj = g.schedule[g.currentClassIndex];
-    const canUseClass = aiPlayer.card?.subjects?.includes(curSubj);
-    const playableCard = aiPlayer.handCards.find(c => {
-      const subjMatch = c.subject === 'universal' || (c.subject === curSubj && canUseClass);
-      return subjMatch;
-    });
+    const playableCard = aiChooseTacticalCard(g, room.aiId);
     if (playableCard) {
-      playTacticalCard(g, room.aiId, playableCard.id);
-      emitStateToAll(room);
+      const result = playTacticalCard(g, room.aiId, playableCard.id);
+      if (result.ok) {
+        emitToAll(room, 'tactical_card_played', () => ({ playerId: room.aiId, card: result.card }));
+        emitStateToAll(room);
+      }
     }
   }
 
   // 1. 等待攻击阶段 (掷骰)
   if (g.turnPhase === TURN.WAITING_ATK && getCurrentAttackerId(g) === room.aiId) {
-    setTimeout(() => {
+    scheduleAiAction(room, `roll:${g.totalRound}:${g.turnData?.attackerIdx}`, 900, () => {
       if (!rooms.has(roomId)) return;
       if (g.phase !== 'battle' || g.turnPhase !== TURN.WAITING_ATK) return;
       const rollRes = rollAttack(g);
@@ -590,38 +632,42 @@ function triggerAiPhase(roomId) {
           attackerIdx: g.turnData.attackerIdx,
           state: getStateView(g, pid),
         }));
-        setTimeout(() => cleanupRoom(room), 30000);
+        scheduleFinishedRoomCleanup(room);
         return;
       }
       // 掷骰完自动进入下个子阶段处理
       triggerAiPhase(roomId);
-    }, 2200);
+    });
   }
 
   // 2. 已掷攻击骰阶段 (重投或确认)
   if (g.turnPhase === TURN.ATK_ROLLED && getCurrentAttackerId(g) === room.aiId) {
-    setTimeout(() => {
+    scheduleAiAction(room, `attack:${g.totalRound}:${g.turnData?.hasAttackerRerolled ? 1 : 0}`, 850, () => {
       if (!rooms.has(roomId)) return;
       if (g.phase !== 'battle' || g.turnPhase !== TURN.ATK_ROLLED) return;
       const atk = g.players[g.turnData.attackerIdx];
       const rolls = g.turnData.attackRolls;
+      const faces = getEffectiveDicePool(g, atk.id);
+      const slots = getAllowedSlotCount(g, atk.id, 'attack');
 
-      // AI 决定是否重投 (如果点数太小则尝试)
-      if (atk.rerolls > 0) {
-        const badIndices = rolls.map((v, i) => v <= (atk.card.dicePool[i] / 2) ? i : -1).filter(i => i !== -1);
-        if (badIndices.length > 0) {
-          const res = rerollDice(g, atk.id, badIndices);
-          if (res.ok) {
-            emitStateToAll(room);
-            triggerAiPhase(roomId); // 递归：重投完再次进入本阶段判断
-            return;
-          }
+      const rerollIndices = aiChooseRerollIndices({
+        player: atk,
+        rolls,
+        faces,
+        slots,
+        phase: 'attack',
+      });
+      if (rerollIndices.length > 0) {
+        const rerollResult = rerollDice(g, atk.id, rerollIndices);
+        if (rerollResult.ok) {
+          emitStateToAll(room);
+          triggerAiPhase(roomId);
+          return;
         }
       }
 
-      // 不重投或重投完，则确认攻击
-      const slots = atk.card.atkSlots === -1 ? rolls.length : atk.card.atkSlots;
-      const indices = rolls.map((v, i) => ({ v, i })).sort((a, b) => b.v - a.v).slice(0, slots).map(x => x.i);
+      const skillId = atk.card?.positiveSkill?.id || atk.card?.neutralSkill?.id;
+      const indices = aiChooseKeepIndices({ rolls, faces, slots, phase: 'attack', skillId });
       const res = confirmAttack(g, indices);
       if (!res.ok) { console.error("AI confirmAttack failed", res, indices, atk.card); return; }
       emitToAll(room, 'atk_confirmed', (pid) => ({
@@ -629,49 +675,39 @@ function triggerAiPhase(roomId) {
         state: getStateView(g, pid),
       }));
       // 这里不需要 triggerAiPhase，因为确认后进入玩家防御
-    }, 1500);
+    });
   }
 
   // 3. 已掷防御骰阶段 (重投或确认)
   if (g.turnPhase === TURN.DEF_ROLLED && getCurrentDefenderId(g) === room.aiId) {
-    setTimeout(() => {
+    scheduleAiAction(room, `defense:${g.totalRound}:${g.turnData?.hasDefenderRerolled ? 1 : 0}`, 850, () => {
       if (!rooms.has(roomId)) return;
       if (g.phase !== 'battle' || g.turnPhase !== TURN.DEF_ROLLED) return;
       const def = g.players[g.turnData.defenderIdx];
       const rolls = g.turnData.defenseRolls;
+      const faces = getEffectiveDicePool(g, def.id);
+      const slots = getAllowedSlotCount(g, def.id, 'defense');
+      const targetValue = Number(g.turnData?.atkResult?.finalAtk) || 0;
 
-      // 防御方也可以考虑重投
-      if (def.rerolls > 0) {
-        const badIndices = rolls.map((v, i) => v <= (def.card.dicePool[i] / 2) ? i : -1).filter(i => i !== -1);
-        if (badIndices.length >= 2) { // 防御方比较保守
-          const res = rerollDice(g, def.id, badIndices);
-          if (res.ok) {
-            emitStateToAll(room);
-            triggerAiPhase(roomId); // 递归
-            return;
-          }
+      const rerollIndices = aiChooseRerollIndices({
+        player: def,
+        rolls,
+        faces,
+        slots,
+        phase: 'defense',
+        targetValue,
+      });
+      if (rerollIndices.length > 0) {
+        const rerollResult = rerollDice(g, def.id, rerollIndices);
+        if (rerollResult.ok) {
+          emitStateToAll(room);
+          triggerAiPhase(roomId);
+          return;
         }
       }
 
-      // AI 选择最高的骰子
-      let candidates = rolls.map((v, i) => ({ v, i, face: def.card.dicePool[i] })).sort((a, b) => b.v - a.v);
-
-      let indices;
-      if (def.card.negativeSkill?.id === SKILL.D10_LIMIT) {
-        let chosenIndices = [];
-        let d10Used = false;
-        for (let c of candidates) {
-          if (c.face === 10) {
-            if (!d10Used) { chosenIndices.push(c.i); d10Used = true; }
-          } else {
-            chosenIndices.push(c.i);
-          }
-          if (chosenIndices.length === def.card.defSlots) break;
-        }
-        indices = chosenIndices;
-      } else {
-        indices = candidates.slice(0, def.card.defSlots).map(x => x.i);
-      }
+      const skillId = def.card?.neutralSkill?.id || def.card?.positiveSkill?.id;
+      const indices = aiChooseKeepIndices({ rolls, faces, slots, phase: 'defense', skillId, targetValue });
 
       let options = {};
       if (def.card.id === 'char_8' && def.hp < def.maxHp * 0.5) {
@@ -695,18 +731,319 @@ function triggerAiPhase(roomId) {
           const isPvE = g.players[0].id.startsWith('AI_') || g.players[1].id.startsWith('AI_');
           recordMatch(winnerCardId, loserCardId, isPvE);
         }
-        setTimeout(() => cleanupRoom(room), 30000);
+        scheduleFinishedRoomCleanup(room);
       } else if (res.classChanged) {
         emitToAll(room, 'class_change', () => ({ subject: res.nextSubject, index: g.currentClassIndex }));
         setTimeout(() => triggerAiPhase(roomId), 5000);
       } else {
         triggerAiPhase(roomId);
       }
-    }, 1500);
+    });
   }
 }
 
 // ── 辅助 ──
+function scheduleAiSelection(roomId, humanPlayerId) {
+  const room = rooms.get(roomId);
+  if (!room?.isAI) return;
+  const game = room.game;
+
+  setTimeout(() => {
+    const currentRoom = rooms.get(roomId);
+    if (!currentRoom?.isAI || currentRoom.game !== game || game.phase !== 'preparation') return;
+    const aiCardId = currentRoom.aiCardId || aiSelectCard(game.schedule);
+    selectCard(game, currentRoom.aiId, aiCardId);
+    console.log(`[PVE] AI ${currentRoom.aiId} 已选卡: ${aiCardId}`);
+    io.to(humanPlayerId).emit('opponent_selected');
+  }, 1000);
+}
+
+function scheduleFinishedRoomCleanup(room) {
+  if (!room) return;
+  if (room.cleanupTimer) clearTimeout(room.cleanupTimer);
+  room.cleanupTimer = setTimeout(() => cleanupRoom(room), finishedRoomRetentionMs);
+  room.cleanupTimer.unref?.();
+}
+
+function surrenderGame(room, playerId) {
+  const game = room?.game;
+  if (!game || game.pending) return { ok: false, error: '对局不存在' };
+  if (game.gameMode !== '1v1') return { ok: false, error: '当前模式暂不支持投降' };
+  if (game.phase !== 'battle') return { ok: false, error: '当前阶段无法投降' };
+
+  const loserIndex = game.players.findIndex(player => player.id === playerId);
+  if (loserIndex === -1) return { ok: false, error: '玩家不在对局中' };
+
+  const winnerIndex = 1 - loserIndex;
+  const loser = game.players[loserIndex];
+  loser.hp = 0;
+  loser.isDead = true;
+  game.phase = 'game_over';
+  game.winner = winnerIndex;
+  game.endReason = 'surrender';
+  game.surrenderedId = playerId;
+
+  const winnerCardId = game.players[winnerIndex]?.cardId;
+  const loserCardId = loser.cardId;
+  if (winnerCardId && loserCardId) {
+    const isPvE = game.players.some(player => player.id.startsWith('AI_'));
+    recordMatch(winnerCardId, loserCardId, isPvE);
+  }
+
+  emitToAll(room, 'game_over', pid => ({
+    reason: 'surrender',
+    surrenderedId: playerId,
+    state: getStateView(game, pid),
+  }));
+  scheduleFinishedRoomCleanup(room);
+  return { ok: true };
+}
+
+function requestRoomRematch(roomId, room, playerId) {
+  const game = room?.game;
+  if (!roomId || !game || game.pending) return { ok: false, error: '房间不存在' };
+  if (game.gameMode !== '1v1') return { ok: false, error: '当前模式暂不支持重赛' };
+  if (game.phase !== 'game_over') return { ok: false, error: '对局尚未结束' };
+  if (!room.playerSockets?.includes(playerId) || room.departedPlayers?.has(playerId)) {
+    return { ok: false, error: '你已离开该房间' };
+  }
+
+  room.rematchReady ??= new Set();
+  room.rematchReady.add(playerId);
+  const humanIds = game.players.filter(player => !player.id.startsWith('AI_')).map(player => player.id);
+  const required = room.isAI ? 1 : humanIds.length;
+
+  emitToAll(room, 'rematch_status', pid => ({
+    readyCount: room.rematchReady.size,
+    required,
+    isReady: room.rematchReady.has(pid),
+  }));
+
+  const canStart = room.isAI || humanIds.every(id => room.rematchReady.has(id));
+  if (canStart) startRoomRematch(roomId, room);
+  return { ok: true, started: canStart };
+}
+
+function startRoomRematch(roomId, room) {
+  if (room.cleanupTimer) {
+    clearTimeout(room.cleanupTimer);
+    room.cleanupTimer = null;
+  }
+  if (room.aiActionTimer) {
+    clearTimeout(room.aiActionTimer);
+    room.aiActionTimer = null;
+    room.aiActionKey = null;
+  }
+
+  const previousGame = room.game;
+  const players = previousGame.players.map(player => ({ id: player.id, nickname: player.nickname }));
+  room.game = createGame(players, previousGame.gameMode);
+  room.rematchReady = new Set();
+  room.departedPlayers = new Set();
+
+  for (const player of room.game.players) {
+    if (player.id.startsWith('AI_')) continue;
+    io.to(player.id).emit('rematch_started', {
+      roomId,
+      opponent: room.game.players.find(other => other.id !== player.id)?.nickname || '未知对手',
+      schedule: room.game.schedule,
+      state: getStateView(room.game, player.id),
+      aiOpponentCardId: room.isAI ? room.aiCardId : null,
+    });
+  }
+
+  if (room.isAI) {
+    const humanId = room.game.players.find(player => !player.id.startsWith('AI_'))?.id;
+    if (humanId) scheduleAiSelection(roomId, humanId);
+  }
+}
+
+function leavePlayerRoom(socket, playerId) {
+  const roomId = socketToRoom.get(playerId);
+  const room = roomId ? rooms.get(roomId) : null;
+  if (!roomId || !room) {
+    socketToRoom.delete(playerId);
+    return { ok: true };
+  }
+
+  if (room.game.pending) {
+    socketToRoom.delete(playerId);
+    socket.leave(roomId);
+
+    if (room.game.mode === 'sanguosha' && room.game.players) {
+      room.game.players = room.game.players.filter(player => player.id !== playerId);
+      room.playerSockets = room.playerSockets.filter(id => id !== playerId);
+      if (room.playerSockets.length === 0) cleanupRoom(roomId);
+      else io.to(roomId).emit('ffa_room_update', { players: room.game.players });
+    } else {
+      io.to(roomId).emit('room_closed', { reason: '房主已离开房间' });
+      cleanupRoom(roomId);
+    }
+    return { ok: true };
+  }
+
+  if (room.game.phase === 'preparation') {
+    broadcastToOpponent(room, playerId, 'room_closed', { reason: '对手已离开准备房间' });
+    cleanupRoom(roomId);
+    socket.leave(roomId);
+    return { ok: true };
+  }
+
+  if (room.game.phase === 'battle' && room.game.gameMode === '1v1') {
+    surrenderGame(room, playerId);
+  }
+
+  room.departedPlayers ??= new Set();
+  room.departedPlayers.add(playerId);
+  room.rematchReady?.delete(playerId);
+  room.playerSockets = room.playerSockets.filter(id => id !== playerId);
+  socketToRoom.delete(playerId);
+  socket.leave(roomId);
+
+  broadcastToOpponent(room, playerId, 'opponent_left_room', { playerId });
+  if (room.isAI || room.playerSockets.filter(Boolean).length === 0) cleanupRoom(roomId);
+  else scheduleFinishedRoomCleanup(room);
+  return { ok: true };
+}
+
+function getPersistentPlayerId(socket) {
+  const sessionId = socket.handshake.auth?.playerSessionId;
+  if (typeof sessionId === 'string' && /^[a-zA-Z0-9_-]{16,96}$/.test(sessionId)) {
+    return `P_${sessionId}`;
+  }
+  return socket.id;
+}
+
+function resumePlayerSession(socket, playerId) {
+  const roomId = socketToRoom.get(playerId);
+  const room = roomId ? rooms.get(roomId) : null;
+  if (!room) {
+    socketToRoom.delete(playerId);
+    return { ok: false };
+  }
+
+  const belongsToRoom = room.playerSockets?.includes(playerId)
+    || room.game?.creatorId === playerId
+    || room.game?.players?.some(p => p.id === playerId);
+  if (!belongsToRoom) {
+    socketToRoom.delete(playerId);
+    return { ok: false };
+  }
+
+  socket.join(roomId);
+  const wasDisconnected = room.disconnectedPlayers?.delete(playerId) || false;
+  const disconnectTimer = room.disconnectTimers?.get(playerId);
+  if (disconnectTimer) clearTimeout(disconnectTimer);
+  room.disconnectTimers?.delete(playerId);
+
+  if (room.game.pending) {
+    if (wasDisconnected && room.game.players) {
+      io.to(roomId).emit('ffa_room_update', { players: room.game.players });
+    }
+    return {
+      ok: true,
+      pending: true,
+      roomId,
+      mode: room.game.mode,
+      isOwner: room.game.mode === 'sanguosha'
+        ? room.game.players?.[0]?.id === playerId
+        : room.game.creatorId === playerId,
+      players: room.game.players || [{ id: room.game.creatorId, nickname: room.game.creatorName }],
+    };
+  }
+
+  const player = room.game.players?.find(p => p.id === playerId);
+  if (!player) {
+    socketToRoom.delete(playerId);
+    return { ok: false };
+  }
+
+  if (wasDisconnected) {
+    broadcastToOpponent(room, playerId, 'opponent_reconnected', { playerId });
+  }
+
+  const opponent = room.game.gameMode === 'sanguosha'
+    ? '大乱斗模式'
+    : room.game.players.find(p => p.id !== playerId)?.nickname || '未知对手';
+
+  return {
+    ok: true,
+    roomId,
+    opponent,
+    schedule: room.game.schedule,
+    state: getStateView(room.game, playerId),
+    aiOpponentCardId: room.isAI ? room.aiCardId : null,
+  };
+}
+
+function schedulePlayerDisconnect(roomId, room, playerId) {
+  room.disconnectedPlayers ??= new Set();
+  room.disconnectTimers ??= new Map();
+
+  const previousTimer = room.disconnectTimers.get(playerId);
+  if (previousTimer) clearTimeout(previousTimer);
+
+  room.disconnectedPlayers.add(playerId);
+  if (!room.game.pending) {
+    broadcastToOpponent(room, playerId, 'opponent_connection_lost', {
+      playerId,
+      graceMs: reconnectGraceMs,
+    });
+  }
+
+  const timer = setTimeout(() => finalizePlayerDisconnect(roomId, playerId), reconnectGraceMs);
+  timer.unref?.();
+  room.disconnectTimers.set(playerId, timer);
+}
+
+function finalizePlayerDisconnect(roomId, playerId) {
+  if (activeSockets.has(playerId)) return;
+
+  const room = rooms.get(roomId);
+  if (!room || socketToRoom.get(playerId) !== roomId) return;
+
+  room.disconnectTimers?.delete(playerId);
+  room.disconnectedPlayers?.delete(playerId);
+  socketToRoom.delete(playerId);
+
+  if (room.isAI) {
+    cleanupRoom(roomId);
+    return;
+  }
+
+  if (room.game.pending) {
+    if (room.game.mode === 'sanguosha' && room.game.players) {
+      room.game.players = room.game.players.filter(p => p.id !== playerId);
+      room.playerSockets = room.playerSockets.filter(pid => pid !== playerId);
+      if (room.playerSockets.length === 0) cleanupRoom(roomId);
+      else io.to(roomId).emit('ffa_room_update', { players: room.game.players });
+    } else {
+      cleanupRoom(roomId);
+    }
+    return;
+  }
+
+  const player = room.game.players?.find(p => p.id === playerId);
+  if (!player) return;
+
+  player.hp = 0;
+  player.isDead = true;
+
+  if (room.game.turnPhase === TURN.DEF_ROLLED && room.game.turnData?.isAoE) {
+    const defState = room.game.turnData.aoeDefenses[playerId];
+    if (defState && !defState.confirmed) {
+      const indices = defState.rolls.map((_, index) => index).slice(0, player.card.defSlots);
+      const result = confirmDefense(room.game, playerId, indices);
+      if (result.ok && !result.waitingForOthers) {
+        emitToAll(room, 'turn_resolved', pid => ({ ...result, state: getStateView(room.game, pid) }));
+      }
+    }
+  }
+
+  emitToAll(room, 'opponent_disconnected', { disconnectedId: playerId });
+  emitStateToAll(room);
+}
+
 function getRoom(sid) {
   const rid = socketToRoom.get(sid);
   return rid ? rooms.get(rid) : null;
@@ -715,7 +1052,7 @@ function getRoom(sid) {
 function broadcastToOpponent(room, mySid, event, data = {}) {
   if (!room.game.players) return;
   for (const op of room.game.players) {
-    if (op.id !== mySid && !op.id.startsWith('AI_')) {
+    if (op.id !== mySid && !op.id.startsWith('AI_') && !room.departedPlayers?.has(op.id)) {
       io.to(op.id).emit(event, data);
     }
   }
@@ -728,7 +1065,7 @@ function emitStateToAll(room) {
 function emitToAll(room, event, buildData) {
   if (!room.game.players) return;
   for (const p of room.game.players) {
-    if (p.id.startsWith('AI_')) continue;
+    if (p.id.startsWith('AI_') || room.departedPlayers?.has(p.id)) continue;
     const data = typeof buildData === 'function' ? buildData(p.id) : buildData;
     io.to(p.id).emit(event, data);
   }
@@ -738,6 +1075,11 @@ function cleanupRoom(roomOrId) {
   const rid = typeof roomOrId === 'string' ? roomOrId : [...rooms.entries()].find(([k, v]) => v === roomOrId)?.[0];
   if (!rid) return;
   const room = rooms.get(rid);
+  if (room?.cleanupTimer) clearTimeout(room.cleanupTimer);
+  if (room?.aiActionTimer) clearTimeout(room.aiActionTimer);
+  if (room?.disconnectTimers) {
+    for (const timer of room.disconnectTimers.values()) clearTimeout(timer);
+  }
   if (room && room.playerSockets) {
     for (const sid of room.playerSockets) {
       if (sid) socketToRoom.delete(sid);

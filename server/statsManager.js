@@ -29,6 +29,7 @@ function saveStats(stats) {
 }
 
 export function recordMatch(winnerId, loserId, isPvE) {
+  if (process.env.DISABLE_STATS_WRITE === '1') return;
   if (!winnerId || !loserId || winnerId === loserId) return;
   const stats = loadStats();
   const category = isPvE ? 'pve' : 'pvp';

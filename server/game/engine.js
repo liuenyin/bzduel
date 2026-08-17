@@ -29,6 +29,41 @@ function shuffle(a) {
 }
 function pickRandom(arr, n) { return shuffle(arr).slice(0, n); }
 
+function areValidDiceIndices(indices, rollCount, expectedCount = null) {
+  if (!Array.isArray(indices) || indices.length === 0) return false;
+  if (expectedCount !== null && indices.length !== expectedCount) return false;
+  if (!Number.isInteger(rollCount) || rollCount <= 0) return false;
+
+  const unique = new Set(indices);
+  return unique.size === indices.length && indices.every(i => Number.isInteger(i) && i >= 0 && i < rollCount);
+}
+
+const MAX_BATTLE_LOG_ENTRIES = 120;
+
+function appendBattleLog(state, entry) {
+  if (!Array.isArray(state.log)) state.log = [];
+  state.logSequence = (state.logSequence || 0) + 1;
+  const classIndex = Number.isInteger(state.currentClassIndex) ? state.currentClassIndex : null;
+  const subject = classIndex !== null ? (state.schedule?.[classIndex] || null) : null;
+
+  state.log.push({
+    id: `battle-log-${state.logSequence}`,
+    totalRound: Number.isInteger(state.totalRound) ? state.totalRound : null,
+    classIndex,
+    subRound: Number.isInteger(state.currentSubRound) ? state.currentSubRound : null,
+    subject,
+    type: 'system',
+    actorId: null,
+    targetId: null,
+    details: null,
+    ...entry,
+  });
+
+  if (state.log.length > MAX_BATTLE_LOG_ENTRIES) {
+    state.log.splice(0, state.log.length - MAX_BATTLE_LOG_ENTRIES);
+  }
+}
+
 export function generateSchedule() {
   return shuffle([
     ...pickRandom(CORE_SUBJECTS, 2),
@@ -51,6 +86,7 @@ export function createGame(playerList, gameMode = GAME_MODE.MODE_1V1) {
     turnPhase: gameMode === GAME_MODE.MODE_FFA ? TURN.CHOOSE_TARGET : TURN.WAITING_ATK,
     turnData: { attackerIdx: 0, defenderIdx: gameMode === GAME_MODE.MODE_FFA ? null : 1, attackRolls: null, defenseRolls: null, hasAttackerRerolled: false, hasDefenderRerolled: false },
     log: [],
+    logSequence: 0,
     winner: null,
   };
 }
@@ -90,9 +126,98 @@ function makePlayer(id, name) {
     dreamTargetChoice: null,  // 对手本节课盲选的目标 (0, 1, 2)
     realTargetIdx: null,      // 本节课哪个是本体 (0, 1, 2)
     lgpyForm: false,          // 是否处于 lgpy 斩杀形态
-    lgpyTurnsLeft: 0,         // lgpy 形态剩余课时
+    lgpyTurnsLeft: 0,         // lgpy 形态剩余攻击回合
+    lgpyActivatedAtRound: null,
     lgpyTriggered: false,     // 是否已触发过 lgpy 形态
+    skillsSealed: false,
+    skillsSealedTurnsLeft: 0,
+    skillsSealedAtRound: null,
+    sealedSkills: null,
   };
+}
+
+function sealPlayerSkills(player, state) {
+  if (!player?.card) return;
+  if (!player.skillsSealed) {
+    player.sealedSkills = {
+      positiveSkill: player.card.positiveSkill || null,
+      neutralSkill: player.card.neutralSkill || null,
+      negativeSkill: player.card.negativeSkill || null,
+    };
+    player.card.positiveSkill = null;
+    player.card.neutralSkill = null;
+    player.card.negativeSkill = null;
+  }
+  player.skillsSealed = true;
+  player.skillsSealedTurnsLeft = 1;
+  player.skillsSealedAtRound = state.totalRound;
+}
+
+function restorePlayerSkills(player) {
+  if (!player?.skillsSealed) return;
+  if (player.card && player.sealedSkills) {
+    player.card.positiveSkill = player.sealedSkills.positiveSkill;
+    player.card.neutralSkill = player.sealedSkills.neutralSkill;
+    player.card.negativeSkill = player.sealedSkills.negativeSkill;
+  }
+  player.skillsSealed = false;
+  player.skillsSealedTurnsLeft = 0;
+  player.skillsSealedAtRound = null;
+  player.sealedSkills = null;
+}
+
+function removePositiveSkill(player) {
+  if (!player?.card) return;
+  player.card.positiveSkill = null;
+  if (player.sealedSkills) player.sealedSkills.positiveSkill = null;
+}
+
+function advanceAttackerTimedStates(state, attacker) {
+  if (!attacker) return;
+
+  if (attacker.lgpyForm && attacker.lgpyActivatedAtRound !== state.totalRound) {
+    attacker.lgpyTurnsLeft = Math.max(0, (attacker.lgpyTurnsLeft || 0) - 1);
+    if (attacker.lgpyTurnsLeft === 0) {
+      attacker.lgpyForm = false;
+      attacker.lgpyActivatedAtRound = null;
+    }
+  }
+
+  if (attacker.skillsSealed && attacker.skillsSealedAtRound !== state.totalRound) {
+    attacker.skillsSealedTurnsLeft = Math.max(0, (attacker.skillsSealedTurnsLeft || 0) - 1);
+    if (attacker.skillsSealedTurnsLeft === 0) restorePlayerSkills(attacker);
+  }
+}
+
+function clearResolvedTurnState(state) {
+  state.players.forEach(player => {
+    player.playedTurnCard = null;
+    player.playedTurnCards = [];
+    player.stealthActive = false;
+    player.prevUnusedDiceSum = player.unusedDiceSum || 0;
+  });
+}
+
+function checkElephantCondemn(state, player, opponent) {
+  if (player?.card?.negativeSkill?.id !== SKILL.ELEPHANT_CONDEMN || player.lgpyTriggered) return false;
+  if (!opponent || opponent.hp <= 0 || opponent.hp >= opponent.maxHp * 0.2) return false;
+
+  player.lgpyTriggered = true;
+  opponent.lgpyForm = true;
+  opponent.lgpyTurnsLeft = 1;
+  opponent.lgpyActivatedAtRound = state.totalRound;
+  player.inDreamState = false;
+  player.pendingDreamState = false;
+  player.dreamTargetChoice = null;
+  sealPlayerSkills(opponent, state);
+  sealPlayerSkills(player, state);
+  appendBattleLog(state, {
+    text: `【小象的谴责】${opponent.nickname} 被迫进入 gpy 斩杀形态！${player.nickname} 的技能同时被封印！`,
+    type: 'skill',
+    actorId: player.id,
+    targetId: opponent.id,
+  });
+  return true;
 }
 
 // ── 准备阶段 ──
@@ -110,6 +235,7 @@ export function selectCard(state, playerId, cardId) {
 
 export function setReady(state, playerId) {
   const p = findPlayer(state, playerId);
+  if (state.phase !== PHASE.PREPARATION) return { ok: false, error: 'invalid_phase' };
   if (!p || !p.cardId) return { ok: false };
   p.ready = true;
   if (state.players.every(pl => pl.ready)) {
@@ -195,6 +321,23 @@ function getRollingPool(player, state = null) {
 
   return pool;
 }
+
+export function getEffectiveDicePool(state, playerId) {
+  const player = findPlayer(state, playerId);
+  if (!player?.card) return [];
+  return getRollingPool(player, state);
+}
+
+export function getAllowedSlotCount(state, playerId, kind) {
+  const player = findPlayer(state, playerId);
+  if (!player?.card) return 0;
+  let slots = kind === 'defense' ? player.card.defSlots : player.card.atkSlots;
+  if (slots === -1) return -1;
+  const subject = state.schedule[state.currentClassIndex];
+  if (subject === 'art' && (player.activeBlessings || []).some(card => card.id === 'card_art_1')) slots += 1;
+  slots += player.tempSlotBonus || 0;
+  return slots;
+}
 // ── 阶段1: 攻击方掷骰 ──
 export function rollAttack(state) {
   if (state.phase !== PHASE.BATTLE || state.turnPhase !== TURN.WAITING_ATK) return { ok: false };
@@ -274,7 +417,7 @@ export function rollAttack(state) {
   }
 
   // 张楚唯: 额外回合重投+2, 所有骰子面数临时+2
-  let rollingPool = getRollingPool(atk);
+  let rollingPool = getRollingPool(atk, state);
   if (state.turnData.isExtraTurn && atk.card.positiveSkill?.id === SKILL.EXTRA_TURN) {
     atk.rerolls += 2;
     rollingPool = rollingPool.map(f => f + 2);
@@ -338,12 +481,11 @@ export function rollAttack(state) {
 export function rerollDice(state, playerId, indices) {
   if (state.phase !== PHASE.BATTLE) return { ok: false, error: '非战斗阶段' };
   const p = findPlayer(state, playerId);
+  if (!p || p.rerolls <= 0) return { ok: false };
   const opp = state.players.find(x => x.id !== playerId && !x.isDead);
   const oppTurnCards = opp ? (opp.playedTurnCards || (opp.playedTurnCard ? [opp.playedTurnCard] : [])) : [];
   if (oppTurnCards.some(c => c.id === 'card_gen_09')) return { ok: false, error: '对方使用了【重投锁死】，无法重投！' };
   if (oppTurnCards.some(c => c.id === 'card_mat_3')) return { ok: false, error: '对方使用了【数学-减益】，无法重投！' };
-  if (!p || p.rerolls <= 0) return { ok: false };
-  if (!indices || indices.length === 0) return { ok: false };
 
   // 检查是否被禁锢重投 (需校验 buff 是否过期)
   if (p.buffs) {
@@ -367,7 +509,9 @@ export function rerollDice(state, playerId, indices) {
     return { ok: false };
   }
 
-  const faces = getRollingPool(p);
+  if (!areValidDiceIndices(indices, rolls.length)) return { ok: false, error: 'invalid_indices' };
+
+  const faces = getRollingPool(p, state);
 
   // 王鹤迪 rerollAll: 重投时所有骰子均重投
   if (p.card.rerollAll) {
@@ -380,7 +524,6 @@ export function rerollDice(state, playerId, indices) {
     }
   } else {
     for (const i of indices) {
-      if (i < 0 || i >= rolls.length) return { ok: false };
       let face = faces[i];
       if (state.turnData.isExtraTurn && p.card.positiveSkill?.id === SKILL.EXTRA_TURN && state.turnData.extraTurnFaceBoost) {
         face += state.turnData.extraTurnFaceBoost;
@@ -463,22 +606,21 @@ export function rerollDice(state, playerId, indices) {
 
 // ── 阶段3: 攻击方确认 → 结算攻击技能 → 自动掷防御骰 ──
 export function confirmAttack(state, keepIndices) {
-  if (state.turnPhase !== TURN.ATK_ROLLED) return { ok: false };
+  if (state.phase !== PHASE.BATTLE || state.turnPhase !== TURN.ATK_ROLLED) return { ok: false };
   const atk = state.players[state.turnData.attackerIdx];
-
-  if (!keepIndices || keepIndices.length === 0) return { ok: false, error: 'invalid_slots' };
   
   const def = state.players[state.turnData.defenderIdx];
   const subj = state.schedule[state.currentClassIndex];
   const multi = getSkillMultiplier(atk.card.subjects, subj);
 
-  let allowedAtkSlots = atk.card.atkSlots;
-  if (subj === 'art' && (atk.activeBlessings || []).some(c => c.id === 'card_art_1')) allowedAtkSlots += 1;
-  if (atk.tempSlotBonus) allowedAtkSlots += atk.tempSlotBonus;
+  const allowedAtkSlots = getAllowedSlotCount(state, atk.id, 'attack');
 
-  if (atk.card.atkSlots !== -1 && keepIndices.length !== allowedAtkSlots) return { ok: false, error: 'invalid_slots' };
-  
   const atkRolls = state.turnData.attackRolls;
+  const expectedSlots = atk.card.atkSlots === -1 ? null : allowedAtkSlots;
+  if (!areValidDiceIndices(keepIndices, atkRolls?.length, expectedSlots)) {
+    return { ok: false, error: 'invalid_slots' };
+  }
+
   let keptRolls = keepIndices.map(i => atkRolls[i]);
 
   atk.lastMaxRoll = Math.max(...atkRolls);
@@ -505,7 +647,7 @@ export function confirmAttack(state, keepIndices) {
         mat1.usedInClass = true;
         if (!state.extraTurnQueue) state.extraTurnQueue = [];
         state.extraTurnQueue.push({ attackerId: atk.id, targetId: def?.id });
-        state.log.push({ text: `【数学-祝福】${atk.nickname} 选中的骰点全为质数，触发额外攻击回合！`, type: 'skill' });
+        appendBattleLog(state, { text: `【数学-祝福】${atk.nickname} 选中的骰点全为质数，触发额外攻击回合！`, type: 'skill', actorId: atk.id, targetId: def?.id });
       }
     }
   }
@@ -519,7 +661,7 @@ export function confirmAttack(state, keepIndices) {
         pe1.usedInClass = true;
         if (!state.extraTurnQueue) state.extraTurnQueue = [];
         state.extraTurnQueue.push({ attackerId: atk.id, targetId: def?.id });
-        state.log.push({ text: `【体育-祝福】${atk.nickname} 选中3个奇数，触发额外攻击回合！`, type: 'skill' });
+        appendBattleLog(state, { text: `【体育-祝福】${atk.nickname} 选中3个奇数，触发额外攻击回合！`, type: 'skill', actorId: atk.id, targetId: def?.id });
       }
     }
   }
@@ -629,7 +771,7 @@ export function confirmAttack(state, keepIndices) {
     let defenseRollsRecord = {};
     state.players.forEach(p => {
       if (!p.isDead && p.id !== atk.id) {
-        const rolls = rollDiceGroup(getRollingPool(p));
+        const rolls = rollDiceGroup(getRollingPool(p, state));
         
         // 闫紫铭负面: Inelegant! AoE防守时
         if (p.card.negativeSkill?.id === SKILL.ROYAL_ETIQUETTE) {
@@ -654,7 +796,7 @@ export function confirmAttack(state, keepIndices) {
     return { ok: true, atkResult: state.turnData.atkResult, aoeDefenseRolls: defenseRollsRecord };
   } else {
     state.turnData.isAoE = false;
-    const defRolls = rollDiceGroup(getRollingPool(def));
+    const defRolls = rollDiceGroup(getRollingPool(def, state));
 
     // 闫紫铭负面: Inelegant! 1v1防守时
     if (def.card.negativeSkill?.id === SKILL.ROYAL_ETIQUETTE) {
@@ -702,7 +844,8 @@ export function confirmAttack(state, keepIndices) {
 
 // ── 阶段4: 防守方确认 → 结算 → 伤害 → 推进回合 ──
 export function confirmDefense(state, playerId, keepIndices, options = {}) {
-  if (state.turnPhase !== TURN.DEF_ROLLED) return { ok: false };
+  if (state.phase !== PHASE.BATTLE || state.turnPhase !== TURN.DEF_ROLLED) return { ok: false };
+  if (!options || typeof options !== 'object' || Array.isArray(options)) options = {};
   
   const atk = state.players[state.turnData.attackerIdx];
   const subj = state.schedule[state.currentClassIndex];
@@ -716,7 +859,10 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
     if (defState.confirmed) return { ok: false };
     
     const def = findPlayer(state, playerId);
-    if (!keepIndices || keepIndices.length !== def.card.defSlots) return { ok: false, error: 'invalid_slots' };
+    const allowedDefSlots = getAllowedSlotCount(state, def.id, 'defense');
+    if (!areValidDiceIndices(keepIndices, defState.rolls?.length, allowedDefSlots)) {
+      return { ok: false, error: 'invalid_slots' };
+    }
 
     defState.confirmed = true;
     defState.keepIndices = keepIndices;
@@ -945,7 +1091,7 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
       const pTurnCards = p.playedTurnCards || (p.playedTurnCard ? [p.playedTurnCard] : []);
       if (pTurnCards.some(c => c.id === 'card_gen_14') && damage === 0) {
         p.tp = Math.min(10, (p.tp || 0) + 2);
-        state.log.push({ text: `【通用-其他】${p.nickname} 防守无伤，获得 2 TP！`, type: 'skill' });
+        appendBattleLog(state, { text: `【通用-其他】${p.nickname} 防守无伤，获得 2 TP！`, type: 'skill', actorId: p.id, targetId: atk.id });
       }
 
       // 通用-其他 (card_gen_15): 本轮如果攻击造成伤害，抽 1 张学科战术卡
@@ -954,7 +1100,7 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
         state.turnData.gen15Drawn = true;
         if ((atk.handCards || []).length < 3) {
           atk.handCards.push(getRandomCard(subj, atk.card?.subjects || []));
-          state.log.push({ text: `【通用-其他】${atk.nickname} 攻击造成伤害，抽 1 张战术卡！`, type: 'skill' });
+          appendBattleLog(state, { text: `【通用-其他】${atk.nickname} 攻击造成伤害，抽 1 张战术卡！`, type: 'skill', actorId: atk.id, targetId: p.id });
         }
       }
 
@@ -994,6 +1140,9 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
         if (p.card.negativeSkill?.id === SKILL.BACK_PAIN && p.card.defSlots > 1) p.card.defSlots -= 1;
       }
 
+      checkElephantCondemn(state, atk, p);
+      checkElephantCondemn(state, p, atk);
+
       let pEatTriggered = eatTriggeredBy === pid;
 
       aoeResults.push({
@@ -1031,6 +1180,28 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
       });
     }
 
+    appendBattleLog(state, {
+      type: 'turn',
+      actorId: atk.id,
+      text: `${atk.nickname} 发动群体攻击，结算 ${aoeResults.length} 名目标`,
+      details: {
+        actorName: atk.nickname,
+        pierce: !!ar.pierce,
+        selfDamage,
+        targets: aoeResults.map(result => {
+          const target = findPlayer(state, result.playerId);
+          return {
+            playerId: result.playerId,
+            targetName: target?.nickname || '未知目标',
+            damage: result.damage || 0,
+            counterDamage: result.lcCounterDamage || 0,
+            healAmount: result.healAmount || 0,
+          };
+        }),
+      },
+    });
+    advanceAttackerTimedStates(state, atk);
+
     const { gameOver, winner, classChanged, nextSubject } = resolvePhaseEnd(state);
     
     return {
@@ -1051,11 +1222,12 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
     if (state.players[defIdx].id !== playerId) return { ok: false };
     const def = state.players[defIdx];
     
-    let allowedDefSlots = def.card.defSlots;
-    if (subj === 'art' && (def.activeBlessings || []).some(c => c.id === 'card_art_1')) allowedDefSlots += 1;
-    if (def.tempSlotBonus) allowedDefSlots += def.tempSlotBonus;
+    const allowedDefSlots = getAllowedSlotCount(state, def.id, 'defense');
 
-    if (!keepIndices || keepIndices.length !== allowedDefSlots) return { ok: false, error: 'invalid_slots' };
+    const defRolls = state.turnData.defenseRolls;
+    if (!areValidDiceIndices(keepIndices, defRolls?.length, allowedDefSlots)) {
+      return { ok: false, error: 'invalid_slots' };
+    }
 
     // 曾无畏负面: 防御时只能选中一个 D10
     if (def.card.neutralSkill?.id === SKILL.D10_LIMIT) {
@@ -1065,7 +1237,6 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
     
     let defMulti = getSkillMultiplier(def.card.subjects, subj);
 
-    const defRolls = state.turnData.defenseRolls;
     def.lastMaxRoll = Math.max(...defRolls);
     def.unusedDiceSum = defRolls.filter((_, i) => !keepIndices.includes(i)).reduce((a, b) => a + b, 0);
 
@@ -1200,14 +1371,14 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
     // 通用-其他 (card_gen_14): 本轮如果防守无伤，获得 2 TP
     if (defTurnCards.some(c => c.id === 'card_gen_14') && damage === 0) {
       def.tp = Math.min(10, (def.tp || 0) + 2);
-      state.log.push({ text: `【通用-其他】${def.nickname} 防守无伤，获得 2 TP！`, type: 'skill' });
+      appendBattleLog(state, { text: `【通用-其他】${def.nickname} 防守无伤，获得 2 TP！`, type: 'skill', actorId: def.id, targetId: atk.id });
     }
 
     // 通用-其他 (card_gen_15): 本轮如果攻击造成伤害，抽 1 张学科战术卡
     if (atkTurnCards.some(c => c.id === 'card_gen_15') && damage > 0) {
       if ((atk.handCards || []).length < 3) {
         atk.handCards.push(getRandomCard(subj, atk.card?.subjects || []));
-        state.log.push({ text: `【通用-其他】${atk.nickname} 攻击造成伤害，抽 1 张战术卡！`, type: 'skill' });
+        appendBattleLog(state, { text: `【通用-其他】${atk.nickname} 攻击造成伤害，抽 1 张战术卡！`, type: 'skill', actorId: atk.id, targetId: def.id });
       }
     }
 
@@ -1291,26 +1462,9 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
   def.hp = Math.max(0, def.hp - damage);
   atk.hp = Math.max(0, atk.hp - ar.selfDamage);
 
-  // 付修然负面: 小象的谴责 (对手血量 < 20% 触发 lgpy 斩杀形态)
-  const checkLgpy = (p, op) => {
-    if (p.card.negativeSkill?.id === SKILL.ELEPHANT_CONDEMN && !p.lgpyTriggered) {
-      if (op.hp > 0 && op.hp < op.maxHp * 0.2) {
-        p.lgpyTriggered = true;
-        op.lgpyForm = true;
-        op.lgpyTurnsLeft = 1;
-        op.skillsSealed = true;
-        op.skillsSealedTurnsLeft = 1;
-        p.skillsSealed = true;
-        p.skillsSealedTurnsLeft = 1;
-        p.inDreamState = false;
-        p.pendingDreamState = false;
-        p.dreamTargetChoice = null;
-        state.log.push({ text: `【小象的谴责】${op.nickname} 被迫进入 gpy 斩杀形态！${p.nickname} 的技能同时被封印！`, type: 'skill' });
-      }
-    }
-  };
-  checkLgpy(atk, def);
-  checkLgpy(def, atk);
+  // 付修然负面: 小象的谴责
+  checkElephantCondemn(state, atk, def);
+  checkElephantCondemn(state, def, atk);
 
   // 余汉正面: 妈! — 防御溢出回血
   let mamaHealTriggered = false;
@@ -1433,8 +1587,8 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
       def.isDead = true;
       // Lord kills Loyalist penalty
       if (state.gameMode === GAME_MODE.MODE_FFA && atk.identity === IDENTITY.LORD && def.identity === IDENTITY.LOYALIST) {
-        atk.card.positiveSkill = null; // 主公误杀忠臣，失去正面技能
-        state.log.push({ text: `【系统】主公 ${atk.nickname} 误杀忠臣，失去了正面技能！`, type: 'skill' });
+        removePositiveSkill(atk); // 主公误杀忠臣，失去正面技能
+        appendBattleLog(state, { text: `【系统】主公 ${atk.nickname} 误杀忠臣，失去了正面技能！`, type: 'system', actorId: atk.id, targetId: def.id });
       }
     }
   }
@@ -1485,6 +1639,25 @@ export function confirmDefense(state, playerId, keepIndices, options = {}) {
       def.card.defSlots -= 1;
     }
   }
+
+  appendBattleLog(state, {
+    type: 'turn',
+    actorId: atk.id,
+    targetId: def.id,
+    text: damage > 0
+      ? `${atk.nickname} 对 ${def.nickname} 造成 ${damage} 点伤害`
+      : `${def.nickname} 完成防守，未受到伤害`,
+    details: {
+      actorName: atk.nickname,
+      targetName: def.nickname,
+      damage,
+      selfDamage: ar.selfDamage || 0,
+      pierce: !!isPierce,
+      counterDamage: lcCounterDamage || 0,
+      healAmount: healAmount || 0,
+    },
+  });
+  advanceAttackerTimedStates(state, atk);
 
   const chargeConsumed = state.turnData?.chargeConsumed || 0;
   const resPhase = resolvePhaseEnd(state);
@@ -1599,6 +1772,11 @@ export function selectTarget(state, playerId, targetId) {
 export function getStateView(state, playerId) {
   const myIdx = state.players.findIndex(p => p.id === playerId);
   const isAtk = state.turnData?.attackerIdx === myIdx;
+  const shouldHideRolls = (p, pIdx) => (
+    pIdx !== myIdx &&
+    state.phase !== PHASE.GAME_OVER &&
+    (p?.cardId === 'char_10' || p?.stealthActive)
+  );
 
   const mapPlayerView = (p, pIdx) => {
     // 殷泽轩 (char_10) 技能：对方无法查看你的 HP 与掷骰点数
@@ -1626,8 +1804,14 @@ export function getStateView(state, playerId) {
       selfStickers: p.selfStickers || 0,
       invertReduction: p.invertReduction || 0,
       nineLivesUsed: !!p.nineLivesUsed,
-      effectiveDicePool: (state.phase === PHASE.BATTLE || state.phase === PHASE.GAME_OVER) ? getRollingPool(p) : null,
+      effectiveDicePool: (state.phase === PHASE.BATTLE || state.phase === PHASE.GAME_OVER) ? getRollingPool(p, state) : null,
+      effectiveAtkSlots: getAllowedSlotCount(state, p.id, 'attack'),
+      effectiveDefSlots: getAllowedSlotCount(state, p.id, 'defense'),
       pendingDreamState: !!p.pendingDreamState,
+      stealthActive: !!p.stealthActive,
+      tempSlotBonus: p.tempSlotBonus || 0,
+      skillsSealed: !!p.skillsSealed,
+      skillsSealedTurnsLeft: p.skillsSealedTurnsLeft || 0,
       // 战术卡与 TP
       tp: p.tp || 0,
       handCards: isMe ? (p.handCards || []) : Array((p.handCards || []).length).fill({ hidden: true }),
@@ -1640,10 +1824,23 @@ export function getStateView(state, playerId) {
       dreamTargetChoice: p.dreamTargetChoice,
       realTargetIdx: isMe ? p.realTargetIdx : (p.dreamTargetChoice !== null ? p.realTargetIdx : null),
       lgpyForm: !!p.lgpyForm,
+      lgpyTurnsLeft: p.lgpyTurnsLeft || 0,
     };
   };
 
   const playersView = state.players.map(mapPlayerView);
+  const logView = (state.log || []).map((entry, index) => ({
+    id: entry.id || `legacy-log-${index}`,
+    totalRound: Number.isInteger(entry.totalRound) ? entry.totalRound : null,
+    classIndex: Number.isInteger(entry.classIndex) ? entry.classIndex : null,
+    subRound: Number.isInteger(entry.subRound) ? entry.subRound : null,
+    subject: entry.subject || null,
+    type: entry.type || 'system',
+    actorId: entry.actorId || null,
+    targetId: entry.targetId || null,
+    text: entry.text || '',
+    details: entry.details ? JSON.parse(JSON.stringify(entry.details)) : null,
+  }));
 
   return {
     gameMode: state.gameMode,
@@ -1659,20 +1856,19 @@ export function getStateView(state, playerId) {
     isMyDefendTurn: !isAtk && state.turnPhase === TURN.DEF_ROLLED && (state.turnData?.isAoE ? !!state.turnData?.aoeDefenses[playerId] : state.turnData?.defenderIdx === myIdx),
     // 殷泽轩屏蔽点数逻辑：如果是 YZX 在掷骰且不是我，点数显示为 null
     attackRolls: (state.turnData?.attackRolls) ? (
-      (state.players[state.turnData.attackerIdx].cardId === 'char_10' && state.turnData.attackerIdx !== myIdx && state.phase !== PHASE.GAME_OVER) 
+      shouldHideRolls(state.players[state.turnData.attackerIdx], state.turnData.attackerIdx)
       ? state.turnData.attackRolls.map(() => -1) 
       : [...state.turnData.attackRolls]
     ) : null,
     defenseRolls: state.turnData?.defenseRolls ? (
-       (state.players[state.turnData.defenderIdx]?.cardId === 'char_10' && state.turnData.defenderIdx !== myIdx && state.phase !== PHASE.GAME_OVER)
+       shouldHideRolls(state.players[state.turnData.defenderIdx], state.turnData.defenderIdx)
        ? state.turnData.defenseRolls.map(() => -1)
        : [...state.turnData.defenseRolls]
     ) : null,
     aoeDefenses: state.turnData?.isAoE ? (
       Object.fromEntries(Object.entries(state.turnData.aoeDefenses).map(([pid, d]) => {
         const pIdx = state.players.findIndex(x => x.id === pid);
-        const isTargetYZX = state.players[pIdx].cardId === 'char_10';
-        const hideRolls = isTargetYZX && pid !== playerId && state.phase !== PHASE.GAME_OVER;
+        const hideRolls = shouldHideRolls(state.players[pIdx], pIdx);
         return [
           pid, {
             confirmed: d.confirmed,
@@ -1683,7 +1879,7 @@ export function getStateView(state, playerId) {
       }))
     ) : null,
     atkResult: (state.turnData?.atkResult) ? (
-      (state.players[state.turnData.attackerIdx].cardId === 'char_10' && state.turnData.attackerIdx !== myIdx && state.phase !== PHASE.GAME_OVER)
+      shouldHideRolls(state.players[state.turnData.attackerIdx], state.turnData.attackerIdx)
       ? { ...state.turnData.atkResult, baseAtk: '??', finalAtk: '??' }
       : state.turnData.atkResult
     ) : null,
@@ -1693,8 +1889,11 @@ export function getStateView(state, playerId) {
     hasAttackerRerolled: state.turnData?.hasAttackerRerolled || false,
     hasDefenderRerolled: state.turnData?.hasDefenderRerolled || false,
     draftShop: state.draftShop || null,
+    log: logView,
     players: playersView,
     winner: state.winner,
+    endReason: state.endReason || null,
+    surrenderedId: state.surrenderedId || null,
     me: playersView[myIdx],
     opponent: state.gameMode === GAME_MODE.MODE_1V1 ? playersView[1 - myIdx] : null,
   };
@@ -1711,8 +1910,13 @@ export function resolvePhaseEnd(state) {
         p.isDead = true;
         // Lord kills Loyalist penalty
         if (state.gameMode === GAME_MODE.MODE_FFA && state.players[state.turnData.attackerIdx].identity === IDENTITY.LORD && p.identity === IDENTITY.LOYALIST) {
-          state.players[state.turnData.attackerIdx].card.positiveSkill = null;
-          state.log.push({ text: `【系统】主公 ${state.players[state.turnData.attackerIdx].nickname} 误杀忠臣，失去了正面技能！`, type: 'system' });
+          removePositiveSkill(state.players[state.turnData.attackerIdx]);
+          appendBattleLog(state, {
+            text: `【系统】主公 ${state.players[state.turnData.attackerIdx].nickname} 误杀忠臣，失去了正面技能！`,
+            type: 'system',
+            actorId: state.players[state.turnData.attackerIdx].id,
+            targetId: p.id,
+          });
         }
       }
     }
@@ -1752,6 +1956,7 @@ export function resolvePhaseEnd(state) {
   }
 
   if (!gameOver) {
+    clearResolvedTurnState(state);
     let extraTurnSet = false;
     while (state.extraTurnQueue && state.extraTurnQueue.length > 0) {
       const nextExtra = state.extraTurnQueue.shift();
@@ -1774,14 +1979,8 @@ export function resolvePhaseEnd(state) {
       state.totalRound++;
       state.currentSubRound++;
       
-      // 清理每回合单轮战术卡与更新上轮未选骰子点数
-      state.players.forEach(p => {
-        p.playedTurnCard = null;
-        p.playedTurnCards = [];
-        p.prevUnusedDiceSum = p.unusedDiceSum || 0;
-      });
-
       if (state.currentSubRound >= GAME_CONFIG.SUBROUNDS_PER_CLASS) {
+        const completedSubject = state.schedule[state.currentClassIndex];
         state.currentSubRound = 0;
         state.currentClassIndex++;
         
@@ -1800,21 +1999,14 @@ export function resolvePhaseEnd(state) {
           p.tempSlotBonus = 0;
           p.stealthActive = false;
           p.hpLastRound = p.hp;
-
-          // lgpyForm 计时器：可以出现在任何角色上（由对手的小象谴责触发）
-          if (p.lgpyForm) {
-            p.lgpyTurnsLeft--;
-            if (p.lgpyTurnsLeft <= 0) {
-              p.lgpyForm = false;
-            }
-          }
+          p.activeBlessings = (p.activeBlessings || []).filter(card => card.subject !== completedSubject);
           if (p.card?.positiveSkill?.id === SKILL.DREAM_KING) {
             if (p.pendingDreamState && !p.lgpyForm) {
               p.inDreamState = true;
               p.pendingDreamState = false;
               p.dreamTargetChoice = null;
               p.realTargetIdx = Math.floor(Math.random() * 3);
-              state.log.push({ text: `【梦境之王】${p.nickname} 展开梦境领域！`, type: 'skill' });
+              appendBattleLog(state, { text: `【梦境之王】${p.nickname} 展开梦境领域！`, type: 'skill', actorId: p.id });
             } else if (p.inDreamState && !p.lgpyForm) {
               p.dreamTargetChoice = null;
               p.realTargetIdx = Math.floor(Math.random() * 3);
@@ -2011,7 +2203,12 @@ export function playTacticalCard(state, playerId, cardId) {
   if (card.type === CARD_TYPE.BLESSING) {
     if (!p.activeBlessings) p.activeBlessings = [];
     p.activeBlessings.push(card);
-    state.log.push({ text: `【祝福】${p.nickname} 激活了【${card.name}】！`, type: 'skill' });
+    appendBattleLog(state, {
+      text: `【祝福】${p.nickname} 激活了【${card.name}】！`,
+      type: 'tactical',
+      actorId: p.id,
+      details: { cardId: card.id, cardName: card.name, cardType: card.type },
+    });
     if (card.id === 'card_eng_1') {
       p.rerolls += 2;
     } else if (card.id === 'card_it_1') {
@@ -2029,7 +2226,12 @@ export function playTacticalCard(state, playerId, cardId) {
     if (!p.playedTurnCards) p.playedTurnCards = [];
     p.playedTurnCards.push(card);
     p.playedTurnCard = card;
-    state.log.push({ text: `【战术】${p.nickname} 使用了【${card.name}】！`, type: 'skill' });
+    appendBattleLog(state, {
+      text: `【战术】${p.nickname} 使用了【${card.name}】！`,
+      type: 'tactical',
+      actorId: p.id,
+      details: { cardId: card.id, cardName: card.name, cardType: card.type },
+    });
     applyInstantCardEffect(state, p, card);
   }
 

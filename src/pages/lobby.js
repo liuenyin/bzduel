@@ -5,7 +5,7 @@ import { gameSocket } from '../net/socket.js';
 import { navigate, showGlobalChat } from '../main.js';
 import { characters } from '../../shared/characters.js';
 
-export function renderLobby(container) {
+export function renderLobby(container, data = {}) {
   container.innerHTML = `
     <div class="lobby">
       <h1 class="title-main">校园战力党</h1>
@@ -16,6 +16,7 @@ export function renderLobby(container) {
         
         <div class="btn-group">
           <button id="btn-pve" class="btn btn-primary btn-lg">单人对战</button>
+          <button id="btn-pve-custom" class="btn btn-secondary btn-lg">自选人机对手</button>
           <button id="btn-match" class="btn btn-success btn-lg">随机匹配</button>
         </div>
 
@@ -48,6 +49,28 @@ export function renderLobby(container) {
         <div style="margin-top:12px; text-align:center;">
           <button id="btn-stats" class="btn btn-secondary" style="width:100%;">📊 查看全服角色胜率数据</button>
         </div>
+      </div>
+
+      <div id="pve-opponent-modal" class="modal-overlay pve-opponent-modal" role="dialog" aria-modal="true" aria-labelledby="pve-opponent-title">
+        <section class="pve-opponent-panel">
+          <header class="pve-opponent-header">
+            <h2 id="pve-opponent-title">选择电脑角色</h2>
+            <button id="btn-close-pve-opponent" class="pve-opponent-close" type="button" aria-label="关闭">&times;</button>
+          </header>
+          <div class="pve-opponent-grid">
+            ${characters.filter(character => !character.ffaOnly).map(character => `
+              <button class="pve-opponent-option" type="button" data-character-id="${character.id}" aria-pressed="false">
+                <img src="${character.image || ''}" alt="" loading="lazy">
+                <span>${character.name}</span>
+                <small>${character.hp} HP</small>
+              </button>
+            `).join('')}
+          </div>
+          <footer class="pve-opponent-footer">
+            <span id="pve-opponent-selection">尚未选择</span>
+            <button id="btn-start-custom-pve" class="btn btn-primary" type="button" disabled>开始对战</button>
+          </footer>
+        </section>
       </div>
 
       <div id="stats-modal" class="modal-overlay stats-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; z-index:999; align-items:center; justify-content:center;">
@@ -113,6 +136,15 @@ export function renderLobby(container) {
   const saved = localStorage.getItem('dice_duel_nickname');
   if (saved) nicknameInput.value = saved;
 
+  const inviteParams = new URLSearchParams(window.location.search);
+  const invitedRoomId = inviteParams.get('room');
+  const invitedMode = inviteParams.get('mode') === 'sanguosha' ? 'sanguosha' : '1v1';
+  if (invitedRoomId) {
+    const inputId = invitedMode === 'sanguosha' ? 'room-input-ffa' : 'room-input';
+    document.getElementById(inputId).value = invitedRoomId;
+    statusDiv.innerHTML = `<p class="status-msg">邀请房间 ${invitedRoomId} 已填入，输入昵称后即可加入。</p>`;
+  }
+
   function getNick() {
     const n = nicknameInput.value.trim();
     if (!n) {
@@ -124,9 +156,58 @@ export function renderLobby(container) {
     return n;
   }
 
+  const pveOpponentModal = document.getElementById('pve-opponent-modal');
+  const customPveStartButton = document.getElementById('btn-start-custom-pve');
+  const pveOpponentSelection = document.getElementById('pve-opponent-selection');
+  const pveOpponentOptions = [...document.querySelectorAll('.pve-opponent-option')];
+  let customPveNickname = null;
+  let selectedAiCardId = null;
+
+  const closePveOpponentModal = () => {
+    pveOpponentModal.classList.remove('is-open');
+  };
+
+  const handleLobbyKeydown = (event) => {
+    if (event.key === 'Escape' && pveOpponentModal.classList.contains('is-open')) {
+      closePveOpponentModal();
+    }
+  };
+  document.addEventListener('keydown', handleLobbyKeydown);
+
   document.getElementById('btn-pve').addEventListener('click', () => {
     const n = getNick(); if (!n) return;
     gameSocket.startPVE(n);
+  });
+
+  document.getElementById('btn-pve-custom').addEventListener('click', () => {
+    const n = getNick(); if (!n) return;
+    customPveNickname = n;
+    pveOpponentModal.classList.add('is-open');
+    pveOpponentOptions[0]?.focus();
+  });
+
+  document.getElementById('btn-close-pve-opponent').addEventListener('click', closePveOpponentModal);
+  pveOpponentModal.addEventListener('click', event => {
+    if (event.target === pveOpponentModal) closePveOpponentModal();
+  });
+  pveOpponentOptions.forEach(option => {
+    option.addEventListener('click', () => {
+      selectedAiCardId = option.dataset.characterId;
+      pveOpponentOptions.forEach(candidate => {
+        const isSelected = candidate === option;
+        candidate.classList.toggle('selected', isSelected);
+        candidate.setAttribute('aria-pressed', String(isSelected));
+      });
+      const selectedCharacter = characters.find(character => character.id === selectedAiCardId);
+      pveOpponentSelection.textContent = selectedCharacter ? `已选择：${selectedCharacter.name}` : '尚未选择';
+      customPveStartButton.disabled = !selectedCharacter;
+    });
+  });
+  customPveStartButton.addEventListener('click', () => {
+    if (!customPveNickname || !selectedAiCardId) return;
+    customPveStartButton.disabled = true;
+    customPveStartButton.textContent = '正在创建对局…';
+    gameSocket.startPVE(customPveNickname, selectedAiCardId);
   });
 
   document.getElementById('btn-match').addEventListener('click', () => {
@@ -240,24 +321,67 @@ export function renderLobby(container) {
   }
 
   // ── 服务端事件 ──
-  gameSocket.on('room_created', ({ roomId, mode }) => {
+  const copyText = async (text, successMessage) => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const input = document.createElement('textarea');
+      input.value = text;
+      input.style.position = 'fixed';
+      input.style.opacity = '0';
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand('copy');
+      input.remove();
+    }
+    const message = document.querySelector('#status .status-msg');
+    if (message) message.textContent = successMessage;
+  };
+
+  const showWaitingRoom = ({ roomId, mode, isOwner = true, players = [] }) => {
     gameSocket.currentRoomId = roomId;
-    showGlobalChat('房间已创建，等待对手加入...');
+    showGlobalChat(isOwner ? '房间已创建，等待对手加入...' : '已重新加入等待中的房间。');
     const modeName = mode === 'sanguosha' ? '大乱斗' : '1v1';
+    const playerList = mode === 'sanguosha'
+      ? `<div id="ffa-player-list">已加入: <ul>${players.map(p => `<li>${p.nickname}</li>`).join('')}</ul></div>`
+      : '';
+    const inviteUrl = new URL(window.location.href);
+    inviteUrl.search = '';
+    inviteUrl.searchParams.set('room', roomId);
+    inviteUrl.searchParams.set('mode', mode);
     statusDiv.innerHTML = `
       <div class="panel" style="text-align:center; padding:16px;">
-        <p style="color:var(--text-secondary);">${modeName} 房间已创建，将房间号发给好友：</p>
+        <p style="color:var(--text-secondary);">${modeName} 房间号：</p>
         <p style="font-family:var(--font-display); font-size:2rem; font-weight:900; color:var(--accent); margin:8px 0;">${roomId}</p>
         <p class="status-msg">等待好友加入…</p>
-        ${mode === 'sanguosha' ? `<button id="btn-start-ffa" class="btn btn-primary" style="margin-top:12px; width:100%;">全员准备完毕，开始游戏</button>` : ''}
+        ${playerList}
+        ${mode === 'sanguosha' && isOwner ? `<button id="btn-start-ffa" class="btn btn-primary" style="margin-top:12px; width:100%;">全员准备完毕，开始游戏</button>` : ''}
+        <div class="waiting-room-actions">
+          <button id="btn-copy-room" class="btn btn-secondary">复制房间号</button>
+          <button id="btn-copy-invite" class="btn btn-secondary">复制邀请链接</button>
+          <button id="btn-leave-waiting" class="btn btn-secondary">离开房间</button>
+        </div>
       </div>
     `;
 
-    if (mode === 'sanguosha') {
+    if (mode === 'sanguosha' && isOwner) {
       document.getElementById('btn-start-ffa').addEventListener('click', () => {
         gameSocket.startFfaGame();
       });
     }
+    document.getElementById('btn-copy-room').addEventListener('click', () => {
+      copyText(roomId, '房间号已复制');
+    });
+    document.getElementById('btn-copy-invite').addEventListener('click', () => {
+      copyText(inviteUrl.toString(), '邀请链接已复制');
+    });
+    document.getElementById('btn-leave-waiting').addEventListener('click', () => {
+      gameSocket.leaveRoom(() => navigate('lobby'));
+    });
+  };
+
+  gameSocket.on('room_created', ({ roomId, mode }) => {
+    showWaitingRoom({ roomId, mode, isOwner: true });
   });
 
   gameSocket.on('ffa_room_update', ({ players }) => {
@@ -291,5 +415,14 @@ export function renderLobby(container) {
     statusDiv.innerHTML = `<p style="color:var(--red);">✗ ${message}</p>`;
   });
 
-  return () => {};
+  gameSocket.on('room_closed', ({ reason }) => {
+    gameSocket.currentRoomId = null;
+    statusDiv.innerHTML = `<p style="color:var(--text-secondary);">${reason || '房间已关闭'}</p>`;
+  });
+
+  if (data.resumedRoom) showWaitingRoom(data.resumedRoom);
+
+  return () => {
+    document.removeEventListener('keydown', handleLobbyKeydown);
+  };
 }

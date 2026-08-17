@@ -7,15 +7,19 @@ import { characters } from '../../shared/characters.js';
 import { SUBJECTS, getSubjectLabel, getSubjectIcon, getSkillMultiplier, DICE_COLORS } from '../../shared/rules.js';
 
 export function renderPreparation(container, data) {
-  const { schedule, state, opponent } = data;
+  const { schedule, state, opponent, aiOpponentCardId } = data;
   let selectedCardId = null;
+  const selectedAiOpponent = aiOpponentCardId ? characters.find(character => character.id === aiOpponentCardId) : null;
 
   container.innerHTML = `
     <div style="flex:1; display:flex; flex-direction:column; gap:16px; padding:8px 0;">
-      <div class="panel" style="text-align:center; padding:16px 20px;">
-        <p style="color:var(--text-secondary);">
-          对手：<strong style="color:var(--accent);">${opponent || state.opponent.nickname}</strong>
-        </p>
+      <div class="panel prep-opponent-summary">
+        ${selectedAiOpponent ? `<img src="${selectedAiOpponent.image || ''}" alt="" class="prep-opponent-avatar">` : ''}
+        <div>
+          <span>对手</span>
+          <strong>${opponent || state.opponent.nickname}</strong>
+          ${selectedAiOpponent ? `<small>指定角色：${selectedAiOpponent.name}</small>` : ''}
+        </div>
       </div>
 
       <p class="section-title">📋 今日课程表</p>
@@ -32,8 +36,9 @@ export function renderPreparation(container, data) {
         <p style="color:var(--text-muted); font-size:0.88rem;">点击头像查看角色并确认选择</p>
       </div>
 
-      <div style="text-align:center; padding-bottom:20px;">
+      <div style="display:flex; justify-content:center; gap:10px; padding-bottom:20px;">
         <button id="btn-ready" class="btn btn-primary btn-lg" disabled>准备完毕</button>
+        <button id="btn-leave-room" class="btn btn-secondary">离开房间</button>
       </div>
     </div>
   `;
@@ -139,6 +144,11 @@ export function renderPreparation(container, data) {
       '<p class="status-msg">等待对手准备…</p>';
   });
 
+  document.getElementById('btn-leave-room').addEventListener('click', () => {
+    if (!window.confirm('确定要离开当前房间吗？')) return;
+    gameSocket.leaveRoom(() => navigate('lobby'));
+  });
+
   // ── 服务端事件 ──
   gameSocket.on('opponent_selected', () => {
     document.getElementById('prep-status').innerHTML =
@@ -148,6 +158,23 @@ export function renderPreparation(container, data) {
   gameSocket.on('opponent_ready', () => {
     document.getElementById('prep-status').innerHTML =
       '<p style="color:var(--green);">✓ 对手已准备</p>';
+  });
+
+  gameSocket.on('opponent_connection_lost', ({ graceMs }) => {
+    const seconds = Math.ceil((graceMs || 60000) / 1000);
+    document.getElementById('prep-status').innerHTML =
+      `<p style="color:var(--accent);">对手暂时掉线，等待重连（${seconds} 秒）</p>`;
+  });
+
+  gameSocket.on('opponent_reconnected', () => {
+    document.getElementById('prep-status').innerHTML =
+      '<p style="color:var(--green);">✓ 对手已重新连接</p>';
+  });
+
+  gameSocket.on('room_closed', ({ reason }) => {
+    window.alert(reason || '房间已关闭');
+    gameSocket.currentRoomId = null;
+    navigate('lobby');
   });
 
   gameSocket.on('state_update', (newState) => {
@@ -163,7 +190,21 @@ export function renderPreparation(container, data) {
     }
   });
 
+  let localConnectionLost = false;
+  const stopConnectionStatus = gameSocket.onConnectionStatus(({ connected }) => {
+    const status = document.getElementById('prep-status');
+    if (!status) return;
+    if (!connected) {
+      localConnectionLost = true;
+      status.innerHTML = '<p style="color:var(--accent);">连接中断，正在自动重连…</p>';
+    } else if (localConnectionLost) {
+      localConnectionLost = false;
+      status.innerHTML = '<p style="color:var(--green);">✓ 连接已恢复</p>';
+    }
+  });
+
   return () => {
+    stopConnectionStatus();
     if(document.getElementById('char-modal-container')) {
       document.getElementById('char-modal-container').remove();
     }

@@ -9,6 +9,19 @@ const AURA_CLASSES = [
   'aura-whd-sugar'
 ];
 
+function prefersReducedMotion() {
+  return typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+}
+
+const EFFECT_COLORS = {
+  buff: '#4f8f57',
+  debuff: '#c45c5c',
+  blessing: '#c09a50',
+  neutral: '#5b8fb9',
+  tactical: '#b06f79',
+  counter: '#7c5fb3',
+};
+
 /**
  * GSAP Visual Effects Manager Singleton
  */
@@ -24,6 +37,12 @@ export const vfxManager = {
     if (validEls.length === 0) {
       if (typeof onComplete === 'function') onComplete();
       return;
+    }
+
+    if (prefersReducedMotion()) {
+      gsap.set(validEls, { clearProps: 'transform,opacity', opacity: 1, scale: 1 });
+      if (typeof onComplete === 'function') onComplete();
+      return null;
     }
 
     // Disable CSS animation keyframe interference on dice elements
@@ -82,16 +101,28 @@ export const vfxManager = {
     const isCrit = opts.isCrit || safeDmg >= 8;
     const isHeavy = opts.isHeavy || safeDmg >= 15;
 
+    const reducedMotion = prefersReducedMotion();
+    const tone = opts.nineLivesTriggered
+      ? 'revival'
+      : (opts.counter ? 'counter' : (opts.pierce ? 'pierce' : (safeDmg === 0 ? 'blocked' : (isHeavy ? 'heavy' : 'normal'))));
+
     // 1. Camera Impulse
-    const impulseScale = isHeavy ? 2.5 : (isCrit ? 1.8 : 1.0);
-    this.triggerCameraImpulse(impulseScale);
+    if (!reducedMotion && safeDmg > 0) {
+      const impulseScale = isHeavy ? 2.5 : (isCrit ? 1.8 : 1.0);
+      this.triggerCameraImpulse(impulseScale);
+    }
 
     // 2. Floating Damage Text & Flash
     if (targetCardElement && document.body.contains(targetCardElement)) {
-      this.spawnFloatingDamage(targetCardElement, safeDmg, isCrit);
+      this.spawnFloatingDamage(targetCardElement, safeDmg, isCrit, { tone });
 
       // 3. Hit Flash on Target Card
-      if (isHeavy) {
+      if (opts.nineLivesTriggered) {
+        gsap.fromTo(targetCardElement,
+          { filter: 'brightness(1.7) saturate(1.5)', scale: 0.97 },
+          { filter: 'none', scale: 1.0, duration: reducedMotion ? 0.12 : 0.55, ease: 'power2.out' }
+        );
+      } else if (isHeavy) {
         gsap.fromTo(targetCardElement,
           { filter: 'brightness(2) sepia(0.8) hue-rotate(-50deg) saturate(4)', scale: 0.95 },
           { filter: 'none', scale: 1.0, duration: 0.5, ease: 'power2.out' }
@@ -112,8 +143,10 @@ export const vfxManager = {
       const rect = targetCardElement.getBoundingClientRect();
       const cx = rect.width > 0 ? (rect.left + rect.width / 2) : (window.innerWidth / 2);
       const cy = rect.height > 0 ? (rect.top + rect.height / 2) : (window.innerHeight / 2);
-      const particleColor = safeDmg === 0 ? '#a0a0a0' : (isCrit ? '#c09a50' : '#c45c5c');
-      this.spawnParticles(cx, cy, isCrit ? 20 : 10, particleColor);
+      const particleColor = tone === 'revival'
+        ? '#c09a50'
+        : (tone === 'pierce' ? '#5b8fb9' : (tone === 'counter' ? EFFECT_COLORS.counter : (safeDmg === 0 ? '#6a9e6d' : (isCrit ? '#c09a50' : '#c45c5c'))));
+      if (!reducedMotion) this.spawnParticles(cx, cy, isCrit ? 20 : 10, particleColor);
     }
 
     if (typeof onComplete === 'function') {
@@ -126,6 +159,7 @@ export const vfxManager = {
    * @param {number} [intensity=1.0] - Impulse scale
    */
   triggerCameraImpulse(intensity = 1.0) {
+    if (prefersReducedMotion()) return null;
     const target = document.querySelector('.arena') || document.querySelector('#app') || document.body;
     const safeIntensity = Number.isFinite(intensity) ? intensity : 1.0;
     const range = Math.min(14, Math.max(0, 6 * safeIntensity));
@@ -145,13 +179,14 @@ export const vfxManager = {
    * @param {number} damageAmount - Value to display (or 0 for MISS)
    * @param {boolean} [isCrit=false] - Critical hit flag
    */
-  spawnFloatingDamage(targetElement, damageAmount, isCrit = false) {
+  spawnFloatingDamage(targetElement, damageAmount, isCrit = false, options = {}) {
     if (!targetElement || !document.body.contains(targetElement)) return null;
 
     const validDmg = Number.isFinite(damageAmount) ? damageAmount : 0;
+    const tone = options?.tone || (validDmg === 0 ? 'blocked' : 'normal');
     const dmgEl = document.createElement('div');
-    dmgEl.className = `floating-damage ${validDmg === 0 ? 'miss' : ''} ${isCrit ? 'crit' : ''}`;
-    dmgEl.textContent = validDmg > 0 ? `−${validDmg}` : 'MISS';
+    dmgEl.className = `floating-damage ${validDmg === 0 ? 'miss' : ''} ${isCrit ? 'crit' : ''} tone-${tone}`;
+    dmgEl.textContent = validDmg > 0 ? `−${validDmg}` : '格挡';
     dmgEl.style.animation = 'none';
 
     targetElement.appendChild(dmgEl);
@@ -190,6 +225,7 @@ export const vfxManager = {
     const container = document.querySelector('.arena-center') || document.body;
     container.appendChild(banner);
 
+    const reducedMotion = prefersReducedMotion();
     const tl = gsap.timeline({
       onComplete: () => {
         banner.remove();
@@ -198,9 +234,9 @@ export const vfxManager = {
 
     tl.fromTo(banner,
       { y: -40, opacity: 0, scale: 0.82 },
-      { y: 0, opacity: 1, scale: 1.0, duration: 0.5, ease: 'back.out(1.8)' }
+      { y: 0, opacity: 1, scale: 1.0, duration: reducedMotion ? 0.12 : 0.5, ease: reducedMotion ? 'none' : 'back.out(1.8)' }
     ).to(banner,
-      { y: -20, opacity: 0, scale: 0.9, duration: 0.4, ease: 'power2.in', delay: 1.8 }
+      { y: reducedMotion ? 0 : -20, opacity: 0, scale: reducedMotion ? 1 : 0.9, duration: reducedMotion ? 0.12 : 0.4, ease: 'power2.in', delay: reducedMotion ? 0.8 : 1.8 }
     );
 
     return banner;
@@ -216,6 +252,19 @@ export const vfxManager = {
     this.triggerCameraImpulse(2.2);
 
     const targetContainer = (containerElement && document.body.contains(containerElement)) ? containerElement : document.body;
+
+    if (prefersReducedMotion()) {
+      const reducedTitles = {
+        DREAM_KING: '梦境领域 · 展开',
+        FXR_DOMAIN: '梦境领域 · 展开',
+        DREAM_KING_RAGE: 'gpy 狂暴斩杀形态',
+        TIMELESS_GRACE: '亘古不变之优雅',
+        STAR_SHOWOFF: '观星 · 显眼包',
+        BUY_WATER: '蓄势爆发',
+      };
+      this.showSkillBanner(reducedTitles[ultimateName] || ultimateName || '技能发动', '', 'neu');
+      return null;
+    }
 
     if (characterId === 'char_fxr' || ultimateName === 'DREAM_KING' || ultimateName === 'FXR_DOMAIN') {
       // 1. Fu Xiuran Domain Expansion ("梦境领域")
@@ -402,12 +451,102 @@ export const vfxManager = {
   },
 
   /**
+   * Briefly marks the active attacker without blocking controls.
+   */
+  playTurnTransition(cardElement, options = {}) {
+    if (!cardElement || !document.body.contains(cardElement)) return null;
+    const extraTurn = !!options.extraTurn;
+    const ring = document.createElement('div');
+    ring.className = `turn-transition-ring ${extraTurn ? 'extra' : 'normal'}`;
+    ring.innerHTML = `<span>${options.label || (extraTurn ? '额外回合' : '攻击回合')}</span>`;
+    cardElement.appendChild(ring);
+
+    const reducedMotion = prefersReducedMotion();
+    const tl = gsap.timeline({ onComplete: () => ring.remove() });
+    tl.fromTo(ring,
+      { opacity: 0, scale: reducedMotion ? 1 : 0.88 },
+      { opacity: 1, scale: 1, duration: reducedMotion ? 0.1 : 0.28, ease: 'power2.out' }
+    ).to(ring, {
+      opacity: 0,
+      scale: reducedMotion ? 1 : 1.05,
+      duration: reducedMotion ? 0.12 : 0.42,
+      delay: reducedMotion ? 0.35 : 0.65,
+      ease: 'power2.in',
+    });
+
+    if (!reducedMotion) {
+      gsap.fromTo(cardElement, { scale: 0.985 }, { scale: 1, duration: 0.45, ease: 'back.out(1.5)' });
+    }
+    return tl;
+  },
+
+  /**
+   * Animates status additions and removals in the compact status row.
+   */
+  playStatusChange(element, options = {}) {
+    if (!element || !document.body.contains(element)) return null;
+    const added = options.added !== false;
+    const color = EFFECT_COLORS[options.category] || EFFECT_COLORS.neutral;
+    if (prefersReducedMotion()) {
+      gsap.fromTo(element, { opacity: 0.75 }, { opacity: 1, duration: 0.12 });
+      return null;
+    }
+    return added
+      ? gsap.fromTo(element,
+          { opacity: 0, scale: 0.78, y: 5, boxShadow: `0 0 0 ${color}` },
+          { opacity: 1, scale: 1, y: 0, boxShadow: `0 0 12px ${color}55`, duration: 0.42, ease: 'back.out(1.8)', clearProps: 'boxShadow' }
+        )
+      : gsap.fromTo(element,
+          { opacity: 0.78, boxShadow: `inset 0 0 0 1px ${color}66` },
+          { opacity: 1, boxShadow: 'none', duration: 0.3, ease: 'power2.out' }
+        );
+  },
+
+  /**
+   * Small local flash for a skill, tactical log entry, counter, or state trigger.
+   */
+  playSkillTrigger(element, type = 'neutral') {
+    if (!element || !document.body.contains(element)) return null;
+    const color = EFFECT_COLORS[type] || EFFECT_COLORS.neutral;
+    const flash = document.createElement('span');
+    flash.className = `skill-trigger-flash trigger-${type}`;
+    flash.style.setProperty('--skill-trigger-color', color);
+    element.appendChild(flash);
+
+    const reducedMotion = prefersReducedMotion();
+    const tl = gsap.timeline({ onComplete: () => flash.remove() });
+    tl.fromTo(flash,
+      { opacity: 0, scale: reducedMotion ? 1 : 0.7 },
+      { opacity: 0.8, scale: 1, duration: reducedMotion ? 0.08 : 0.2, ease: 'power2.out' }
+    ).to(flash, {
+      opacity: 0,
+      scale: reducedMotion ? 1 : 1.08,
+      duration: reducedMotion ? 0.1 : 0.32,
+      ease: 'power2.in',
+    });
+    return tl;
+  },
+
+  /**
+   * Tactical card feedback with type-aware color and target resolution.
+   */
+  playTacticalCardResolved(sourceCardEl, targetCardEl, options = {}, onComplete = null) {
+    const color = EFFECT_COLORS[options.cardType] || EFFECT_COLORS.tactical;
+    if (prefersReducedMotion()) {
+      if (targetCardEl) this.playSkillTrigger(targetCardEl, options.cardType || 'tactical');
+      if (typeof onComplete === 'function') onComplete();
+      return null;
+    }
+    return this.playTacticalCardVFX(sourceCardEl, targetCardEl, onComplete, { color });
+  },
+
+  /**
    * Tactical Card Play Feedback (Card elevation, sheen, traveling particles to target)
    * @param {HTMLElement} sourceCardEl - Source card DOM element
    * @param {HTMLElement} targetCardEl - Target card DOM element
    * @param {Function} [onComplete=null] - Optional callback
    */
-  playTacticalCardVFX(sourceCardEl, targetCardEl, onComplete = null) {
+  playTacticalCardVFX(sourceCardEl, targetCardEl, onComplete = null, options = {}) {
     const isSourceValid = sourceCardEl && document.body.contains(sourceCardEl);
     const isTargetValid = targetCardEl && document.body.contains(targetCardEl);
 
@@ -466,8 +605,9 @@ export const vfxManager = {
       p.style.width = '6px';
       p.style.height = '6px';
       p.style.borderRadius = '50%';
-      p.style.backgroundColor = '#0ea5e9';
-      p.style.boxShadow = '0 0 8px #0ea5e9';
+      const particleColor = options.color || '#0ea5e9';
+      p.style.backgroundColor = particleColor;
+      p.style.boxShadow = `0 0 8px ${particleColor}`;
       particleContainer.appendChild(p);
 
       const delay = i * 0.02;
@@ -573,6 +713,10 @@ export const triggerUltimateVFX = vfxManager.triggerUltimateVFX.bind(vfxManager)
 export const showSkillBanner = vfxManager.showSkillBanner.bind(vfxManager);
 export const triggerRevivalHalo = vfxManager.triggerRevivalHalo.bind(vfxManager);
 export const playTacticalCardVFX = vfxManager.playTacticalCardVFX.bind(vfxManager);
+export const playTacticalCardResolved = vfxManager.playTacticalCardResolved.bind(vfxManager);
+export const playTurnTransition = vfxManager.playTurnTransition.bind(vfxManager);
+export const playStatusChange = vfxManager.playStatusChange.bind(vfxManager);
+export const playSkillTrigger = vfxManager.playSkillTrigger.bind(vfxManager);
 export const triggerAuraEffect = vfxManager.triggerAuraEffect.bind(vfxManager);
 export const spawnParticles = vfxManager.spawnParticles.bind(vfxManager);
 

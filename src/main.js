@@ -9,6 +9,7 @@ import { renderAutochess } from './pages/autochess.js';
 
 const app = document.getElementById('app');
 let currentCleanup = null;
+let currentPage = 'lobby';
 let chatWidgetEl = null;
 let chatMessagesEl = null;
 
@@ -22,6 +23,7 @@ export function navigate(page, data = {}) {
   if (currentCleanup) currentCleanup();
   gameSocket.removeAllGameListeners();
   app.innerHTML = '';
+  currentPage = page;
 
   switch (page) {
     case 'lobby':
@@ -110,6 +112,21 @@ function initGlobalChat() {
 }
 
 initGlobalChat();
+
+gameSocket.onSessionResumed((data) => {
+  gameSocket.currentRoomId = data.roomId;
+
+  if (data.pending) {
+    showGlobalChat('已重新连接到等待中的房间。');
+    navigate('lobby', { resumedRoom: data });
+    return;
+  }
+
+  if (!data.state) return;
+  const targetPage = data.state.phase === 'preparation' ? 'preparation' : 'battle';
+  showGlobalChat('已恢复原对局。');
+  if (currentPage !== targetPage) navigate(targetPage, data);
+});
 
 export function showGlobalChat(message) {
   if (chatWidgetEl) {
