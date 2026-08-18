@@ -10,6 +10,9 @@ import { vfxManager } from '../utils/vfx.js';
 let S; // module-level state ref
 let animLock = false; // prevent state_update during animations
 let pendingState = null;
+let battleViewEpoch = 0;
+let activeBattleViewEpoch = 0;
+let animationEpoch = 0;
 let lastRenderedStatusIds = new Map();
 let lastTurnSignature = null;
 let pendingTacticalFeedback = null;
@@ -280,6 +283,32 @@ function getTurnSignature(state) {
   return `${state.totalRound ?? 0}:${attackerId ?? 'none'}:${state.isExtraTurn ? 'extra' : 'normal'}`;
 }
 
+function isBattleViewActive(viewEpoch) {
+  return activeBattleViewEpoch === viewEpoch;
+}
+
+function isAnimationActive(viewEpoch, animationId) {
+  return isBattleViewActive(viewEpoch) && animationEpoch === animationId;
+}
+
+function cancelBattleAnimations() {
+  animationEpoch += 1;
+  animLock = false;
+  pendingState = null;
+}
+
+function commitAnimatedState(newState, viewEpoch, animationId, shouldShowGameOver = false) {
+  if (!isAnimationActive(viewEpoch, animationId)) return false;
+  S = pendingState || newState;
+  pendingState = null;
+  animLock = false;
+  refreshAll();
+  if (shouldShowGameOver || S?.phase === 'game_over') {
+    showGameOver(S);
+  }
+  return true;
+}
+
 function hasRenderedDice(state) {
   return !!(state?.attackRolls || state?.defenseRolls || state?.aoeDefenses?.[state?.me?.id]?.rolls);
 }
@@ -348,13 +377,23 @@ function seedBattleFeedbackState(state) {
 }
 
 export function renderBattle(container, data) {
+  const viewEpoch = ++battleViewEpoch;
+  activeBattleViewEpoch = viewEpoch;
+  cancelBattleAnimations();
   S = data.state;
-  animLock = false; // 重置动画锁
-  pendingState = null;
   tacticalHandOpen = false;
   draftInteraction = null;
   document.body.classList.remove('tactical-hand-open');
   let localConnectionLost = false;
+  const socketListeners = [];
+  const listen = (event, handler) => {
+    const guardedHandler = (...args) => {
+      if (!isBattleViewActive(viewEpoch)) return;
+      handler(...args);
+    };
+    socketListeners.push([event, guardedHandler]);
+    gameSocket.on(event, guardedHandler);
+  };
 
   window._refreshDraftSlot = (idx) => {
     if (draftInteraction) return;
@@ -413,7 +452,14 @@ export function renderBattle(container, data) {
   updateTurnFlow(S);
   queueMicrotask(revealCurrentClass);
 
-  gameSocket.on('state_update', (s) => {
+  listen('state_update', (s) => {
+    if (s?.phase === 'game_over') {
+      cancelBattleAnimations();
+      S = s;
+      refreshAll();
+      showGameOver(s);
+      return;
+    }
     if (animLock) {
       pendingState = s;
     } else {
@@ -422,41 +468,40 @@ export function renderBattle(container, data) {
       refreshAll();
     }
   });
-  gameSocket.on('atk_confirmed', (d) => { S = d.state; onAtkConfirmed(d); });
-  gameSocket.on('turn_resolved', (d) => { S = d.state; onTurnResolved(d); });
-  gameSocket.on('class_change', (d) => showClassChange(d));
-  gameSocket.on('opponent_connection_lost', ({ graceMs }) => {
+  listen('atk_confirmed', (d) => { S = d.state; onAtkConfirmed(d); });
+  listen('turn_resolved', (d) => { S = d.state; onTurnResolved(d); });
+  listen('class_change', (d) => showClassChange(d));
+  listen('opponent_connection_lost', ({ graceMs }) => {
     const seconds = Math.ceil((graceMs || 60000) / 1000);
     const el = document.getElementById('phase-text');
     if (el) el.innerHTML = `<span style="color:var(--accent)">对手暂时掉线，等待重连（${seconds} 秒）</span>`;
   });
-  gameSocket.on('opponent_reconnected', () => {
+  listen('opponent_reconnected', () => {
     window._showToast('对手已重新连接');
     const el = document.getElementById('phase-text');
     if (el) el.innerHTML = '<span style="color:var(--green)">对手已重新连接</span>';
   });
-  gameSocket.on('opponent_disconnected', () => {
+  listen('opponent_disconnected', () => {
     const el = document.getElementById('phase-text');
     if (el) el.innerHTML = '<span style="color:var(--red)">对手离线超时，已退出本局</span>';
   });
-  gameSocket.on('game_over', ({ state, reason, surrenderedId }) => {
+  listen('game_over', ({ state, reason, surrenderedId }) => {
     S = state;
-    animLock = false;
-    pendingState = null;
+    cancelBattleAnimations();
     refreshAll();
     showGameOver(state, { reason, surrenderedId });
   });
-  gameSocket.on('rematch_status', ({ readyCount, required, isReady }) => {
+  listen('rematch_status', ({ readyCount, required, isReady }) => {
     const button = document.getElementById('btn-rematch');
     if (!button) return;
     button.disabled = isReady;
     button.textContent = isReady ? `等待对手（${readyCount}/${required}）` : `申请重赛（${readyCount}/${required}）`;
   });
-  gameSocket.on('rematch_started', (nextGame) => {
+  listen('rematch_started', (nextGame) => {
     document.querySelector('.game-over-screen')?.remove();
     navigate('preparation', nextGame);
   });
-  gameSocket.on('opponent_left_room', () => {
+  listen('opponent_left_room', () => {
     const button = document.getElementById('btn-rematch');
     if (button) {
       button.disabled = true;
@@ -464,21 +509,21 @@ export function renderBattle(container, data) {
     }
     window._showToast('对手已离开房间');
   });
-  gameSocket.on('room_closed', ({ reason }) => {
+  listen('room_closed', ({ reason }) => {
     window.alert(reason || '房间已关闭');
     gameSocket.currentRoomId = null;
     navigate('lobby');
   });
-  gameSocket.on('error_msg', (d) => {
+  listen('error_msg', (d) => {
     alert(d.message);
     refreshAll();
   });
-  gameSocket.on('buy_water_result', (d) => {
+  listen('buy_water_result', (d) => {
     S = d.state;
     refreshAll();
     showBanner(`买水成功！当前蓄势: ${d.chargeStacks} 层`);
   });
-  gameSocket.on('tactical_card_played', ({ playerId, card }) => {
+  listen('tactical_card_played', ({ playerId, card }) => {
     const isMe = playerId === S.me.id;
     const sourceCardEl = isMe
       ? document.querySelector(`.hand-card-kards[data-card-id="${card.id}"]`)
@@ -496,6 +541,7 @@ export function renderBattle(container, data) {
   });
 
   const stopConnectionStatus = gameSocket.onConnectionStatus(({ connected }) => {
+    if (!isBattleViewActive(viewEpoch)) return;
     const el = document.getElementById('phase-text');
     if (!connected) {
       localConnectionLost = true;
@@ -509,7 +555,15 @@ export function renderBattle(container, data) {
 
   if (S.phase === 'game_over') queueMicrotask(() => showGameOver(S));
 
-  return () => stopConnectionStatus();
+  return () => {
+    for (const [event, handler] of socketListeners) gameSocket.off(event, handler);
+    stopConnectionStatus();
+    if (activeBattleViewEpoch === viewEpoch) {
+      activeBattleViewEpoch = 0;
+      cancelBattleAnimations();
+      document.body.classList.remove('tactical-hand-open');
+    }
+  };
 }
 
 // ── HTML 骨架 ──
@@ -1410,6 +1464,8 @@ function playResolvedSkillFeedback(data, state) {
 
 // ── 回合结算回调 (含攻击动画) ──
 export function onTurnResolved(data) {
+  const viewEpoch = activeBattleViewEpoch;
+  const animationId = ++animationEpoch;
   animLock = true;
   const newState = data.state;
   const { damage, finalDef, penalty, gameOver, attackerIdx } = data;
@@ -1430,7 +1486,11 @@ export function onTurnResolved(data) {
   if (isAoE) {
     // FFA 群伤效果动画
     setTimeout(() => {
-      if (!S || typeof S.myIndex === 'undefined') return;
+      if (!isAnimationActive(viewEpoch, animationId)) return;
+      if (!S || typeof S.myIndex === 'undefined') {
+        commitAnimatedState(newState, viewEpoch, animationId, gameOver);
+        return;
+      }
       const isMyAtk = S.myIndex === attackerIdx;
       const atkId = (S.players && S.players[attackerIdx]) ? S.players[attackerIdx].id : null;
       const getLiveAtkCard = () => (atkId && S.me && atkId === S.me.id) ? document.getElementById('card-me') : (atkId ? document.querySelector(`.ffa-micro-card[data-pid="${atkId}"]`) : null);
@@ -1463,11 +1523,13 @@ export function onTurnResolved(data) {
 
         const impactDelay = 260 + index * 150;
         setTimeout(() => {
+          if (!isAnimationActive(viewEpoch, animationId)) return;
           const liveDCard = getLiveDCard();
           if (liveDCard && document.body.contains(liveDCard)) liveDCard.classList.add('card-hit', 'aoe-target-hit');
         }, impactDelay);
 
         setTimeout(() => {
+          if (!isAnimationActive(viewEpoch, animationId)) return;
           const liveDCard = getLiveDCard();
           if (liveDCard && document.body.contains(liveDCard)) {
             vfxManager.playHitImpact(liveDCard, res.damage, {
@@ -1478,6 +1540,7 @@ export function onTurnResolved(data) {
             });
             if (res.lcCounterDamage > 0) {
               setTimeout(() => {
+                if (!isAnimationActive(viewEpoch, animationId)) return;
                 const liveAtkCard = getLiveAtkCard();
                 if (liveAtkCard && document.body.contains(liveAtkCard)) {
                   vfxManager.playHitImpact(liveAtkCard, res.lcCounterDamage, { counter: true });
@@ -1489,10 +1552,12 @@ export function onTurnResolved(data) {
       });
 
       setTimeout(() => {
+        if (!isAnimationActive(viewEpoch, animationId)) return;
         setHP('hp-me', newState.me.hp, newState.me.maxHp, 'hp-me-t');
       }, 400);
 
       setTimeout(() => {
+        if (!isAnimationActive(viewEpoch, animationId)) return;
         const liveAtkCard = getLiveAtkCard();
         if (liveAtkCard && document.body.contains(liveAtkCard)) liveAtkCard.classList.remove('card-attacking');
         ffaGrid?.classList.remove('aoe-resolving');
@@ -1503,22 +1568,18 @@ export function onTurnResolved(data) {
         });
         
         setTimeout(() => {
-          if (pendingState) {
-            S = pendingState;
-            pendingState = null;
-          } else {
-            S = newState;
-          }
-          animLock = false;
-          refreshAll();
-          if (data.gameOver) setTimeout(() => showGameOver(S), 800);
+          commitAnimatedState(newState, viewEpoch, animationId, gameOver);
         }, data.classChanged ? 1500 : 500);
       }, aoeHold);
     }, 800);
   } else {
     // 1v1 动画
     setTimeout(() => {
-      if (!S || typeof S.myIndex === 'undefined') return;
+      if (!isAnimationActive(viewEpoch, animationId)) return;
+      if (!S || typeof S.myIndex === 'undefined') {
+        commitAnimatedState(newState, viewEpoch, animationId, gameOver);
+        return;
+      }
       const isMyAtk = S.myIndex === attackerIdx;
 
       const getLiveAtkCard = () => {
@@ -1543,11 +1604,13 @@ export function onTurnResolved(data) {
       if (atkCard && document.body.contains(atkCard)) atkCard.classList.add('card-attacking');
 
       setTimeout(() => {
+        if (!isAnimationActive(viewEpoch, animationId)) return;
         const liveDefCard = getLiveDefCard();
         if (liveDefCard && document.body.contains(liveDefCard)) liveDefCard.classList.add('card-hit');
       }, 300);
 
       setTimeout(() => {
+        if (!isAnimationActive(viewEpoch, animationId)) return;
         // Trigger character ultimate VFX if conditions are met
         if (S && S.players && typeof attackerIdx === 'number' && S.players[attackerIdx]) {
           const atkP = S.players[attackerIdx];
@@ -1574,6 +1637,7 @@ export function onTurnResolved(data) {
         }
         if (data.lcCounterDamage > 0) {
           setTimeout(() => {
+            if (!isAnimationActive(viewEpoch, animationId)) return;
             const liveAtkCard = getLiveAtkCard();
             if (liveAtkCard && document.body.contains(liveAtkCard)) {
               vfxManager.playHitImpact(liveAtkCard, data.lcCounterDamage, { counter: true });
@@ -1581,28 +1645,25 @@ export function onTurnResolved(data) {
           }, 180);
         }
         playHit(damage >= 8);
-        setHP('hp-me', newState.me.hp, newState.me.maxHp, 'hp-me-t');
+        if (isAnimationActive(viewEpoch, animationId)) {
+          setHP('hp-me', newState.me.hp, newState.me.maxHp, 'hp-me-t');
+        }
         if (newState.gameMode === '1v1') {
-          setHP('hp-op', newState.opponent.hp, newState.opponent.maxHp, 'hp-op-t');
+          if (isAnimationActive(viewEpoch, animationId)) {
+            setHP('hp-op', newState.opponent.hp, newState.opponent.maxHp, 'hp-op-t');
+          }
         }
       }, 400);
 
       setTimeout(() => {
+        if (!isAnimationActive(viewEpoch, animationId)) return;
         const liveAtkCard = getLiveAtkCard();
         const liveDefCard = getLiveDefCard();
         if (liveAtkCard && document.body.contains(liveAtkCard)) liveAtkCard.classList.remove('card-attacking');
         if (liveDefCard && document.body.contains(liveDefCard)) liveDefCard.classList.remove('card-hit');
         
         setTimeout(() => {
-          if (pendingState) {
-            S = pendingState;
-            pendingState = null;
-          } else {
-            S = newState;
-          }
-          animLock = false;
-          refreshAll();
-          if (data.gameOver) setTimeout(() => showGameOver(S), 800);
+          commitAnimatedState(newState, viewEpoch, animationId, gameOver);
         }, data.classChanged ? 1500 : 500);
       }, 1500);
     }, 800);
