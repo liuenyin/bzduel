@@ -13,6 +13,8 @@ let pendingState = null;
 let lastRenderedStatusIds = new Map();
 let lastTurnSignature = null;
 let pendingTacticalFeedback = null;
+let tacticalHandOpen = false;
+let draftInteraction = null;
 
 const ATTACK_TACTICAL_CARDS = new Set([
   'card_phy_2', 'card_phy_3', 'card_his_2', 'card_art_2', 'card_it_3',
@@ -349,12 +351,46 @@ export function renderBattle(container, data) {
   S = data.state;
   animLock = false; // 重置动画锁
   pendingState = null;
+  tacticalHandOpen = false;
+  draftInteraction = null;
+  document.body.classList.remove('tactical-hand-open');
   let localConnectionLost = false;
 
-  window._refreshDraftSlot = (idx) => { gameSocket.refreshDraftSlot(idx); };
+  window._refreshDraftSlot = (idx) => {
+    if (draftInteraction) return;
+    const slot = document.querySelector(`.draft-slot-card[data-slot-index="${idx}"]`);
+    draftInteraction = {
+      type: 'refresh',
+      index: idx,
+      previousCardId: slot?.dataset.cardId || '',
+    };
+    slot?.classList.add('is-refreshing');
+    gameSocket.refreshDraftSlot(idx);
+    setTimeout(() => {
+      if (draftInteraction?.type === 'refresh' && draftInteraction.index === idx) {
+        draftInteraction = null;
+        slot?.classList.remove('is-refreshing');
+      }
+    }, 1400);
+  };
   window._buyDraftCard = (idx) => {
+    if (draftInteraction) return;
+    const slot = document.querySelector(`.draft-slot-card[data-slot-index="${idx}"]`);
+    draftInteraction = { type: 'buy', index: idx };
+    slot?.classList.add('is-buying');
+    slot?.setAttribute('aria-busy', 'true');
     gameSocket.buyDraftCard(idx, (result) => {
-      window._showToast(result?.ok ? '购买成功！' : (result?.error || '购买失败'));
+      if (result?.ok) {
+        window._showToast('已加入手牌');
+        setTimeout(() => {
+          if (draftInteraction?.type === 'buy' && draftInteraction.index === idx) draftInteraction = null;
+        }, 900);
+      } else {
+        draftInteraction = null;
+        slot?.classList.remove('is-buying');
+        slot?.removeAttribute('aria-busy');
+        window._showToast(result?.error || '购买失败');
+      }
     });
   };
   window._confirmDraftReady = () => { gameSocket.confirmDraftReady(); };
@@ -798,15 +834,26 @@ function checkDreamTargetModal(s) {
 }
 
 // ── 战术卡 & 补给站 Modal ──
-// ── KARDS Style Tactical Hand ──
-window._toggleHand = () => {
-  const fan = document.getElementById('hand-fan-container');
-  if (fan) {
-    fan.classList.toggle('expanded');
-    const fab = document.getElementById('hand-fab');
-    if (fab) fab.classList.toggle('active');
+window._toggleHand = (force) => {
+  tacticalHandOpen = typeof force === 'boolean' ? force : !tacticalHandOpen;
+  const tray = document.getElementById('hand-fan-container');
+  const backdrop = document.getElementById('hand-tray-backdrop');
+  const fab = document.getElementById('hand-fab');
+  tray?.classList.toggle('expanded', tacticalHandOpen);
+  backdrop?.classList.toggle('expanded', tacticalHandOpen);
+  fab?.classList.toggle('active', tacticalHandOpen);
+  fab?.setAttribute('aria-expanded', String(tacticalHandOpen));
+  tray?.setAttribute('aria-hidden', String(!tacticalHandOpen));
+  if (tray) {
+    if (tacticalHandOpen) tray.removeAttribute('inert');
+    else tray.setAttribute('inert', '');
   }
+  document.body.classList.toggle('tactical-hand-open', tacticalHandOpen);
 };
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && tacticalHandOpen) window._toggleHand(false);
+});
 
 function getTacticalCardMoment(card) {
   if (card.type === 'blessing') return { label: '持续强化', kind: 'blessing' };
@@ -863,9 +910,15 @@ function tacticalBarHTML(s) {
 
   let cardsHtml = '';
   if (handCards.length === 0) {
-    cardsHtml = `<div style="color:var(--text-secondary); text-align:center; margin-top:40px;">暂无战术卡</div>`;
+    cardsHtml = `
+      <div class="hand-empty-state">
+        <span class="hand-empty-icon" aria-hidden="true"></span>
+        <strong>当前没有战术卡</strong>
+        <span>可在课间补给站购入</span>
+      </div>
+    `;
   } else {
-    cardsHtml = handCards.map((c, i) => {
+    cardsHtml = handCards.map((c) => {
       if (c.hidden) return '';
       const typeClass = c.type || 'buff';
       const scopeLabel = c.subject === 'universal' ? '通用' : (SUBJECTS[c.subject]?.label || c.subject);
@@ -874,23 +927,21 @@ function tacticalBarHTML(s) {
       const canPlay = usability.canPlay;
       const disableReason = usability.reason;
 
-      // 扇形展开的角度计算 (-15deg, 0deg, 15deg)
-      const total = handCards.length;
-      const mid = (total - 1) / 2;
-      const rotateDeg = (i - mid) * 15;
-      const transY = Math.abs(i - mid) * 10;
-
       return `
-        <div class="hand-card-kards ${canPlay ? '' : 'disabled'}" data-card-id="${c.id}" style="--card-rotate: ${rotateDeg}deg; transform: rotate(${rotateDeg}deg) translateY(${transY}px)" ${canPlay ? `onclick="window._toggleHand(); window._playTacticalCard('${c.id}')"` : ''} title="${disableReason}">
+        <button type="button" class="hand-card-kards ${canPlay ? '' : 'disabled'}" data-card-id="${escapeHTML(c.id)}"
+                ${canPlay ? `onclick="window._playTacticalCard('${escapeHTML(c.id)}'); window._toggleHand(false)"` : 'disabled'}
+                aria-label="${escapeHTML(canPlay ? `打出${c.name}` : `${c.name}，${disableReason}`)}">
           <div class="card-tag-row">
-            <span class="card-tag-type ${typeClass}">${scopeLabel}</span>
-            <span class="card-timing">${moment.label}</span>
-            <span class="card-tp-cost" title="补给站购入费用">★${c.tpCost}</span>
+            <span class="card-tag-type ${escapeHTML(typeClass)}">${escapeHTML(scopeLabel)}</span>
+            <span class="card-timing">${escapeHTML(moment.label)}</span>
           </div>
-          <div class="card-title-text">${c.name}</div>
-          <div class="card-desc-text">${c.desc}</div>
-          ${!canPlay ? `<div class="card-disable-overlay"><span class="card-disable-badge">${disableReason}</span></div>` : ''}
-        </div>
+          <div class="card-title-text">${escapeHTML(c.name)}</div>
+          <div class="card-desc-text">${escapeHTML(c.desc)}</div>
+          <div class="hand-card-footer">
+            <span class="card-tp-cost" title="仅为补给站购入价格，打出不消耗 TP">补给价 ${c.tpCost} TP</span>
+            <span class="hand-card-action">${canPlay ? '打出' : escapeHTML(disableReason)}</span>
+          </div>
+        </button>
       `;
     }).join('');
   }
@@ -898,22 +949,37 @@ function tacticalBarHTML(s) {
   let blessingsHtml = '';
   if (me.activeBlessings && me.activeBlessings.length > 0) {
     blessingsHtml = `<div class="blessing-badges">
-      ${me.activeBlessings.map(b => `<div class="blessing-badge" title="${b.name}">✦</div>`).join('')}
+      ${me.activeBlessings.map(b => `<span class="blessing-badge" title="${escapeHTML(b.desc || b.name)}"><span aria-hidden="true">✦</span>${escapeHTML(b.name)}</span>`).join('')}
     </div>`;
   }
 
   return `
     <div class="hand-fab-container">
       ${blessingsHtml}
-      <button class="hand-fab" id="hand-fab" onclick="window._toggleHand()">
-        <span class="fab-icon">🃏</span> 
-        <span class="fab-count">${handCards.length}/3</span>
-        <span class="fab-tp">⚡${tp}</span>
+      <button type="button" class="hand-fab" id="hand-fab" onclick="window._toggleHand()"
+              aria-controls="hand-fan-container" aria-expanded="${tacticalHandOpen}" title="查看战术手牌">
+        <span class="fab-icon" aria-hidden="true"></span>
+        <span class="fab-count">${handCards.length}</span>
+        <span class="fab-tp">${tp} TP</span>
       </button>
-      <div class="hand-fan-container" id="hand-fan-container">
-        ${cardsHtml}
+      <button type="button" class="hand-tray-backdrop ${tacticalHandOpen ? 'expanded' : ''}" id="hand-tray-backdrop"
+              onclick="window._toggleHand(false)" aria-label="关闭战术手牌" tabindex="-1"></button>
+      <section class="hand-fan-container ${tacticalHandOpen ? 'expanded' : ''}" id="hand-fan-container"
+               aria-label="战术手牌" aria-hidden="${!tacticalHandOpen}" ${tacticalHandOpen ? '' : 'inert'}>
+        <header class="hand-tray-header">
+          <div>
+            <span class="hand-tray-eyebrow">战术准备</span>
+            <strong>手牌 ${handCards.length} / 3</strong>
+          </div>
+          <div class="hand-tray-meta">
+            <span>${tp} TP</span>
+            <button type="button" class="hand-tray-close" onclick="window._toggleHand(false)" aria-label="关闭战术手牌" title="关闭">×</button>
+          </div>
+        </header>
+        <div class="hand-tray-cards">${cardsHtml}</div>
+        <p class="hand-tray-note">打出战术卡不消耗 TP</p>
+      </section>
       </div>
-    </div>
   `;
 }
 
@@ -934,7 +1000,16 @@ function checkDraftShopModal(s) {
     const renderSlots = () => {
       return pDraft.slots.map((slot, idx) => {
         const c = slot.card;
-        if (!c) return `<div class="draft-slot-card empty"><p>已购买</p></div>`;
+        if (!c) {
+          const justPurchased = draftInteraction?.type === 'buy' && draftInteraction.index === idx;
+          return `
+            <div class="draft-slot-card empty ${justPurchased ? 'just-purchased' : ''}" data-slot-index="${idx}">
+              <span class="draft-purchased-mark" aria-hidden="true">✓</span>
+              <strong>已加入手牌</strong>
+              <small>此位置已购买</small>
+            </div>
+          `;
+        }
         const typeClass = c.type || 'buff';
         const scopeLabel = c.subject === 'universal' ? '通用' : (SUBJECTS[c.subject]?.label || c.subject);
         const isHandFull = (s.me.handCards || []).length >= 3;
@@ -945,27 +1020,50 @@ function checkDraftShopModal(s) {
         else if (!isAfford) disableReason = 'TP不足';
         
         const stars = '★'.repeat(c.tpCost) + '☆'.repeat(Math.max(0, 3 - c.tpCost));
+        const isRefreshing = draftInteraction?.type === 'refresh' && draftInteraction.index === idx;
+        const justRefreshed = isRefreshing && draftInteraction.previousCardId && draftInteraction.previousCardId !== c.id;
+        const cardState = justRefreshed ? 'just-refreshed' : (isRefreshing ? 'is-refreshing' : '');
+        const actionLabel = buyDisabled ? disableReason : `购买 · ${c.tpCost} TP`;
 
         return `
-          <div class="draft-slot-card ${buyDisabled ? 'disabled' : 'clickable'}" ${buyDisabled ? '' : `onclick="window._buyDraftCard(${idx})"`}>
-            <button class="btn-icon-refresh" ${slot.refreshesLeft > 0 ? '' : 'disabled'} onclick="event.stopPropagation(); window._refreshDraftSlot(${idx})" title="刷新 (${slot.refreshesLeft})">↻</button>
+          <div class="draft-slot-card ${buyDisabled ? 'disabled' : 'clickable'} ${cardState}" data-slot-index="${idx}" data-card-id="${escapeHTML(c.id)}"
+               ${buyDisabled ? '' : `role="button" tabindex="0" onclick="window._buyDraftCard(${idx})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window._buyDraftCard(${idx})}"`}
+               aria-label="${escapeHTML(`${c.name}，${actionLabel}`)}">
+            <button type="button" class="btn-icon-refresh" ${slot.refreshesLeft > 0 && !isRefreshing ? '' : 'disabled'}
+                    onclick="event.stopPropagation(); window._refreshDraftSlot(${idx})" title="刷新卡牌，剩余 ${slot.refreshesLeft} 次" aria-label="刷新卡牌，剩余 ${slot.refreshesLeft} 次">
+              <span aria-hidden="true">↻</span><small>${slot.refreshesLeft}</small>
+            </button>
             <div class="draft-card-header">
-              <span class="card-tag-type ${typeClass}">${scopeLabel}</span>
-              <span class="draft-card-star">${stars}</span>
+              <span class="card-tag-type ${escapeHTML(typeClass)}">${escapeHTML(scopeLabel)}</span>
+              <span class="draft-card-star" aria-label="${c.tpCost} 点战术点">${stars}</span>
             </div>
-            <div class="draft-card-title">${c.name}</div>
-            <div class="draft-card-desc">${c.desc}</div>
-            ${buyDisabled ? `<div class="card-disable-overlay"><span class="card-disable-badge">${disableReason}</span></div>` : ''}
+            <div class="draft-card-title">${escapeHTML(c.name)}</div>
+            <div class="draft-card-desc">${escapeHTML(c.desc)}</div>
+            <div class="draft-card-footer">
+              <span class="draft-card-cost">${c.tpCost} TP</span>
+              <span class="draft-card-action">${escapeHTML(actionLabel)}</span>
+            </div>
           </div>
         `;
       }).join('');
     };
 
+    const statusHTML = `
+      <div class="draft-shop-status-copy">
+        <span class="draft-shop-kicker">下一节课开始前</span>
+        <strong>选一张卡，或刷新你不需要的卡</strong>
+      </div>
+      <div class="draft-shop-metrics" aria-label="补给站资源">
+        <span class="draft-metric"><small>手牌</small><b>${s.me.handCards?.length || 0}/3</b></span>
+        <span class="draft-metric tp"><small>战术点</small><b>${s.me.tp} TP</b></span>
+      </div>
+    `;
+
     if (pDraft.ready) {
       if (existing) {
         existing.querySelector('.draft-shop-panel').innerHTML = `
-          <h2 style="color:var(--gold); font-size:1.2rem; margin-bottom:8px;">⚡ 战术补给站</h2>
-          <p style="color:var(--accent); font-size:1rem; animation:pulse 1s infinite;">已完成选牌，等待对方选择…</p>
+          <div class="draft-shop-title-row"><div><span class="draft-shop-eyebrow">课间补给</span><h2>战术补给站</h2></div><span class="draft-ready-mark">✓</span></div>
+          <div class="draft-waiting-state"><span class="draft-waiting-dot" aria-hidden="true"></span><strong>已完成选牌</strong><span>等待对方完成选择…</span></div>
         `;
       }
       return;
@@ -974,9 +1072,10 @@ function checkDraftShopModal(s) {
     if (existing) {
       const slotsWrap = existing.querySelector('#draft-slots-wrap');
       if (slotsWrap) slotsWrap.innerHTML = renderSlots();
-      const subTitle = existing.querySelector('.draft-shop-panel p');
-      if (subTitle) {
-        subTitle.innerHTML = `下节课即将开始！点击卡面直接购买（当前持有: ${s.me.handCards?.length || 0}/3 | 战术点: ⚡${s.me.tp}）`;
+      const status = existing.querySelector('#draft-shop-status');
+      if (status) status.innerHTML = statusHTML;
+      if (draftInteraction?.type === 'refresh' && draftInteraction.previousCardId && pDraft.slots[draftInteraction.index]?.card?.id !== draftInteraction.previousCardId) {
+        setTimeout(() => { if (draftInteraction?.type === 'refresh') draftInteraction = null; }, 450);
       }
       return;
     }
@@ -988,15 +1087,17 @@ function checkDraftShopModal(s) {
 
     overlay.innerHTML = `
       <div class="draft-shop-panel">
-        <h2 style="color:var(--gold); font-size:1.25rem; margin-bottom:4px;">战术补给站</h2>
-        <p style="font-size:0.82rem; color:var(--text-secondary); margin-bottom:12px;">
-          下节课即将开始！点击卡面直接购买（当前持有: ${s.me.handCards?.length || 0}/3 | 战术点: ⚡${s.me.tp}）
-        </p>
+        <div class="draft-shop-title-row">
+          <div><span class="draft-shop-eyebrow">课间补给</span><h2>战术补给站</h2></div>
+          <span class="draft-shop-icon" aria-hidden="true">✦</span>
+        </div>
+        <div class="draft-shop-status" id="draft-shop-status">${statusHTML}</div>
         <div class="draft-slots-container" id="draft-slots-wrap">
           ${renderSlots()}
         </div>
-        <div style="text-align:center; margin-top:14px;">
-          <button class="btn btn-primary btn-lg" onclick="window._confirmDraftReady()" style="min-width:180px;">
+        <div class="draft-shop-footer">
+          <span>最多持有 3 张战术卡</span>
+          <button class="btn btn-primary btn-lg" onclick="window._confirmDraftReady()">
             完成选牌
           </button>
         </div>
@@ -1014,36 +1115,41 @@ function buildFfaGrid(s) {
   const me = s.me;
   const others = (s.players || []).filter(p => p.id !== me?.id);
   const isTargeting = s.turnPhase === 'choose_target' && s.isMyAttackTurn;
-  
-  let html = `<div class="ffa-opponents-grid" style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:12px;">`;
+
+  let html = `<div class="ffa-opponents-grid" role="list" aria-label="其他玩家">`;
   others.forEach(p => {
     if (!p || !p.card) return;
     const isDefender = s.defenderIdx !== null && s.players[s.defenderIdx]?.id === p.id;
     const isAttacker = s.attackerIdx !== null && s.players[s.attackerIdx]?.id === p.id;
     const canBeTargeted = isTargeting && !p.isDead;
-    const identityDisplay = p.identity === 'lord' ? '👑主' : (p.identity === '?' ? '❓' : identityName(p.identity));
-    
+    const identityDisplay = p.identity === 'lord' ? '主将' : (p.identity === '?' ? '未知' : identityName(p.identity));
+    const stateLabel = p.isDead ? '已阵亡' : (isDefender ? '当前目标' : (isAttacker ? '进攻中' : '待命'));
+    const targetLabel = canBeTargeted ? '，点击选择为攻击目标' : '';
+    const safeName = escapeHTML(p.nickname || '匿名玩家');
+    const cardRole = canBeTargeted ? 'button' : 'listitem';
+
     html += `
-      <div data-pid="${p.id}" class="ffa-micro-card ${getAuraClass(p)} ${isDefender ? 'active-target' : ''} ${isAttacker ? 'active-attacker' : ''} ${p.isDead ? 'dead' : ''} ${canBeTargeted ? 'selectable-target' : ''}" 
-           style="position:relative; width:80px; background:var(--bg-card); border:2px solid ${isDefender ? 'var(--red)' : (isAttacker ? 'var(--gold)' : (canBeTargeted ? 'var(--accent)' : 'var(--bg-inset)'))}; border-radius:8px; padding:4px; text-align:center; cursor:${canBeTargeted ? 'pointer' : 'default'}; transition:all 0.2s;"
-           ${canBeTargeted ? `onclick="window.selectFfaTarget('${p.id}')"` : ''}>
-        <div style="font-size:10px; color:var(--text-secondary); margin-bottom:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p.nickname}</div>
-        <div class="micro-avatar-wrap" style="position:relative;">
-          <img src="${p.card?.image||''}" alt="" onerror="this.style.display='none'" style="width:40px; height:40px; border-radius:50%; object-fit:cover; margin:0 auto; display:block; filter:${p.isDead ? 'grayscale(1)' : 'none'}">
-          ${isAttacker ? `<div class="atk-badge" style="position:absolute; bottom:-4px; left:50%; transform:translateX(-50%); background:var(--red); color:#fff; font-size:8px; padding:0 4px; border-radius:4px; font-weight:900;">ATK</div>` : ''}
-          ${p.isDead ? `<div style="position:absolute; inset:0; background:rgba(0,0,0,0.4); border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; font-size:10px; font-weight:900;">已阵亡</div>` : ''}
+      <div data-pid="${escapeHTML(p.id)}" class="ffa-micro-card ${getAuraClass(p)} ${isDefender ? 'active-target' : ''} ${isAttacker ? 'active-attacker' : ''} ${p.isDead ? 'dead' : ''} ${canBeTargeted ? 'selectable-target' : ''}"
+           role="${cardRole}" ${canBeTargeted ? `tabindex="0" onclick="window.selectFfaTarget('${escapeHTML(p.id)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.selectFfaTarget('${escapeHTML(p.id)}')}"` : ''}
+           aria-label="${safeName}${targetLabel}">
+        <div class="ffa-card-topline">
+          <strong class="ffa-player-name">${safeName}</strong>
+          <span class="ffa-state-label">${stateLabel}</span>
         </div>
-        <div style="position:absolute; top:-4px; right:-4px; background:var(--bg-card); border-radius:10px; font-size:10px; padding:0 4px; border:1px solid var(--bg-inset);">${identityDisplay}</div>
-        <div class="hp-bar-h enemy" style="width:${pct(p.hp,p.maxHp)}%; height:4px; margin-top:4px; border-radius:2px;"></div>
-        <div style="font-size:9px; color:var(--text-main); margin-top:2px;">${p.hp}/${p.maxHp}</div>
-        <div class="bc-buffs ffa-buffs" aria-label="${escapeHTML(p.nickname)}的状态">${buffIcons(p, s)}</div>
-      </div>
+        <div class="micro-avatar-wrap">
+          <img src="${escapeHTML(p.card?.image || '')}" alt="${escapeHTML(p.card?.name || '')}" onerror="this.style.display='none'">
+          ${isAttacker ? `<span class="atk-badge">进攻</span>` : ''}
+          ${p.isDead ? `<span class="ffa-dead-mark">阵亡</span>` : ''}
+        </div>
+        <div class="ffa-card-meta"><span class="identity-badge">${escapeHTML(identityDisplay)}</span><span class="ffa-character-name">${escapeHTML(p.card.name || '未知角色')}</span></div>
+        <div class="ffa-hp-row"><div class="ffa-hp-track"><span style="width:${pct(p.hp, p.maxHp)}%"></span></div><span>${p.hp}/${p.maxHp}</span></div>
+        <div class="bc-buffs ffa-buffs" aria-label="${safeName}的状态">${buffIcons(p, s)}</div>
       </div>
     `;
   });
   html += `</div>`;
   if (isTargeting) {
-    html += `<div style="text-align:center; color:var(--accent); font-weight:bold; font-size:1.1rem; animation:pulse 1s infinite;">请选择你要攻击的目标！</div>`;
+    html += `<div class="ffa-targeting-hint"><span aria-hidden="true">◎</span><strong>选择攻击目标</strong><span>点击一名存活玩家</span></div>`;
   }
   return html;
 }
@@ -1347,15 +1453,20 @@ export function onTurnResolved(data) {
         }
       }
 
-      data.aoeResults.forEach(res => {
+      const ffaGrid = document.querySelector('.ffa-opponents-grid');
+      ffaGrid?.classList.add('aoe-resolving');
+      const aoeHold = Math.max(1500, 520 + data.aoeResults.length * 170);
+
+      data.aoeResults.forEach((res, index) => {
         const dId = res.playerId;
         const getLiveDCard = () => dId === S.me.id ? document.getElementById('card-me') : document.querySelector(`.ffa-micro-card[data-pid="${dId}"]`);
-        
+
+        const impactDelay = 260 + index * 150;
         setTimeout(() => {
           const liveDCard = getLiveDCard();
-          if (liveDCard && document.body.contains(liveDCard)) liveDCard.classList.add('card-hit');
-        }, 300);
-        
+          if (liveDCard && document.body.contains(liveDCard)) liveDCard.classList.add('card-hit', 'aoe-target-hit');
+        }, impactDelay);
+
         setTimeout(() => {
           const liveDCard = getLiveDCard();
           if (liveDCard && document.body.contains(liveDCard)) {
@@ -1374,9 +1485,9 @@ export function onTurnResolved(data) {
               }, 180);
             }
           }
-        }, 400);
+        }, impactDelay + 80);
       });
-      
+
       setTimeout(() => {
         setHP('hp-me', newState.me.hp, newState.me.maxHp, 'hp-me-t');
       }, 400);
@@ -1384,10 +1495,11 @@ export function onTurnResolved(data) {
       setTimeout(() => {
         const liveAtkCard = getLiveAtkCard();
         if (liveAtkCard && document.body.contains(liveAtkCard)) liveAtkCard.classList.remove('card-attacking');
+        ffaGrid?.classList.remove('aoe-resolving');
         data.aoeResults.forEach(res => {
           const dId = res.playerId;
           const liveDCard = dId === S.me.id ? document.getElementById('card-me') : document.querySelector(`.ffa-micro-card[data-pid="${dId}"]`);
-          if (liveDCard && document.body.contains(liveDCard)) liveDCard.classList.remove('card-hit');
+          if (liveDCard && document.body.contains(liveDCard)) liveDCard.classList.remove('card-hit', 'aoe-target-hit');
         });
         
         setTimeout(() => {
@@ -1401,7 +1513,7 @@ export function onTurnResolved(data) {
           refreshAll();
           if (data.gameOver) setTimeout(() => showGameOver(S), 800);
         }, data.classChanged ? 1500 : 500);
-      }, 1500);
+      }, aoeHold);
     }, 800);
   } else {
     // 1v1 动画
