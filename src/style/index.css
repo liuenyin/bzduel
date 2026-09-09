@@ -375,7 +375,7 @@ input[type="text"]::placeholder{color:var(--text-muted)}
 .bc-multi{font-size:.72rem;white-space:nowrap;margin-top:-2px}
 
 .multiplier{padding:2px 7px;border-radius:999px;font-weight:700;font-size:.68rem}
-.multiplier.x2{background:#fef3e2;color:#b67721}.multiplier.x1{background:var(--bg-inset);color:var(--text-muted)}.multiplier.x05{background:#fde8e8;color:#944}
+.multiplier.x3{background:#fff0c7;color:#9a5b00}.multiplier.x2{background:#fef3e2;color:#b67721}.multiplier.x1{background:var(--bg-inset);color:var(--text-muted)}.multiplier.x05{background:#fde8e8;color:#944}
 
 .vs-area{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-width:86px;max-width:130px}
 .vs-area::before{content:none}
@@ -2065,3 +2065,19 @@ summary { list-style: none; }
 @media (prefers-reduced-motion: reduce) {
   .hand-fan-container, .hand-fab, .ffa-micro-card, .draft-slot-card, .draft-waiting-dot { transition:none !important; animation:none !important; }
 }
+
+.battle-surrender{white-space:nowrap;}
+@media (max-width:680px){.battle-surrender{font-size:.72rem;padding:6px 9px;}}
+
+/* 1v1 battle rhythm */
+.phase-text { min-height: 2.4em; display:flex; align-items:center; justify-content:center; transition: color .2s ease, opacity .2s ease; }
+.phase-text:has(span[style*="accent"]) { animation: phasePulse 1.6s ease-in-out infinite; }
+.battle-control-panel.is-idle .action-bar { opacity:.82; }
+.battle-surrender { border-color: rgba(192,96,64,.28); }
+@keyframes phasePulse { 0%,100%{opacity:.72} 50%{opacity:1} }
+@media (prefers-reduced-motion: reduce) { .phase-text:has(span[style*="accent"]) { animation:none; } }
+
+.motion-toggle{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:10px;color:var(--text-muted);font-size:.78rem;cursor:pointer}.motion-toggle input{accent-color:var(--accent)}
+body.reduced-motion *,body.reduced-motion *::before,body.reduced-motion *::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+
+.action-stack{display:inline-flex;flex-direction:column;align-items:center;gap:4px}.dice-purpose{font-size:.72rem;color:var(--text-muted);letter-spacing:.02em}.reroll-count strong{color:var(--accent)}

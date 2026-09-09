@@ -10,6 +10,19 @@ import { createPool, refreshShop, scaleCharStats } from './shop.js';
 // ── 节点类型 ──
 const NODE = { NORMAL: 'normal', ELITE: 'elite', BOSS: 'boss', EVENT: 'event' };
 
+function shuffle(values) {
+  const result = [...values];
+  for (let index = result.length - 1; index > 0; index--) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [result[index], result[swapIndex]] = [result[swapIndex], result[index]];
+  }
+  return result;
+}
+
+function clone(value) {
+  return value == null ? value : JSON.parse(JSON.stringify(value));
+}
+
 /**
  * 创建新的 Run
  * @param {string} playerId
@@ -71,6 +84,9 @@ export function createRun(playerId, nickname) {
     beveragePurchasedThisNode: false,
     nextNodeGoldBonus: 0, // 故宫文创效果
     atkBonusThisPlane: 0,  // 脉动效果
+    coreDiceGrowth: 0,     // 赵恩培辅阵：阵眼最小骰面的永久成长
+    coreDiceGrowthByIndex: [], // 计浩然核心技能：参与骰子的永久成长
+    coreExtraDice: [],     // 赵恩培核心技能：永久招募的骰子面数
   };
 }
 
@@ -78,6 +94,8 @@ export function createRun(playerId, nickname) {
  * 放置角色到棋盘
  */
 export function placeCharacter(run, benchIndex, slot) {
+  if (run.phase !== 'shop') return { ok: false, error: 'invalid_phase' };
+  if (!Number.isInteger(benchIndex)) return { ok: false, error: 'invalid_bench' };
   if (benchIndex < 0 || benchIndex >= run.bench.length) return { ok: false, error: 'invalid_bench' };
 
   // 计算当前棋盘人数
@@ -105,6 +123,7 @@ export function placeCharacter(run, benchIndex, slot) {
  * 从棋盘移回备战席
  */
 export function removeFromBoard(run, slot) {
+  if (run.phase !== 'shop') return { ok: false, error: 'invalid_phase' };
   let char;
   if (slot === 'core') {
     if (!run.board.core) return { ok: false };
@@ -126,6 +145,7 @@ export function removeFromBoard(run, slot) {
  * 购买经验
  */
 export function buyXP(run) {
+  if (run.phase !== 'shop') return { ok: false, error: 'invalid_phase' };
   if (run.gold < AC.XP_BUY_COST) return { ok: false, error: 'no_gold' };
   if (run.level >= AC.MAX_LEVEL) return { ok: false, error: 'max_level' };
 
@@ -158,7 +178,7 @@ export function calculateSupportBuffs(run) {
     redHeatNoDmg: false,
     healOnOverflow: 0,
     allOddAtkBonus: 0,
-    flatAtkChance: { chance: 0, value: 0 },
+    flatAtkChance: { chance: 0, value: 0, sources: [] },
     revive: null, // { hp, diceBoost?, diceCount? }
     sticker: null, // { threshold, pct }
     courseMult: 0,
@@ -200,7 +220,12 @@ export function calculateSupportBuffs(run) {
         buffs.allOddAtkBonus += val; break;
       case SUPPORT_TYPE.FLAT_ATK_CHANCE: {
         const chance = charCfg.support.special?.triggerChance || 0.5;
-        if (Math.random() < chance) buffs.flatAtkChance.value += val;
+        const value = Number(val) || 0;
+        if (value > 0) {
+          buffs.flatAtkChance.sources.push({ chance, value });
+          buffs.flatAtkChance.value += value;
+          buffs.flatAtkChance.chance = Math.max(buffs.flatAtkChance.chance, chance);
+        }
         break;
       }
       case SUPPORT_TYPE.REVIVE: {
@@ -240,6 +265,12 @@ export function calculateSupportBuffs(run) {
  * 处理战斗结果
  */
 export function processBattleResult(run, won, damageDealt = 0) {
+  if (typeof won !== 'boolean' || !Number.isFinite(damageDealt) || damageDealt < 0 || damageDealt > 1_000_000) {
+    return { ok: false, error: 'invalid_result' };
+  }
+  if (!['combat', 'manual_combat'].includes(run.phase)) {
+    return { ok: false, error: 'invalid_phase' };
+  }
   run.stats.roundsPlayed++;
   run.stats.totalDamage += damageDealt;
 
@@ -299,6 +330,7 @@ export function processBattleResult(run, won, damageDealt = 0) {
   const advanceRes = advanceNode(run);
 
   return {
+    ok: true,
     goldEarned, interest, xpEarned, leveledUp,
     commanderDamage,
     ...advanceRes
@@ -374,9 +406,10 @@ export function chooseEvent(run) {
       { id: 'bargain', name: '砍价高手', desc: '商店刷新费用-1（最低0）', effect: 'refreshDiscount', value: 1 },
     ];
     // 随机选 3 个
-    const shuffled = allBuffs.sort(() => Math.random() - 0.5);
+    const shuffled = shuffle(allBuffs);
     const options = shuffled.slice(0, 3);
     run.phase = 'event_choosing';
+    run._eventOptions = clone(options);
     return { ok: true, choice: 'investment', options };
   } else {
     // 金矿
@@ -389,9 +422,18 @@ export function chooseEvent(run) {
  * 确认投资策略选择
  */
 export function confirmInvestment(run, buffId, options) {
-  const buff = options.find(b => b.id === buffId);
+  if (run.phase !== 'event_choosing' || !Array.isArray(run._eventOptions)) {
+    return { ok: false, error: 'invalid_event' };
+  }
+  if (Array.isArray(options)) {
+    const actualIds = run._eventOptions.map(option => option?.id).join('|');
+    const suppliedIds = options.map(option => option?.id).join('|');
+    if (actualIds !== suppliedIds) return { ok: false, error: 'invalid_choice' };
+  }
+  const buff = run._eventOptions.find(b => b?.id === buffId);
   if (!buff) return { ok: false };
-  run.investmentBuffs.push(buff);
+  run.investmentBuffs.push(clone(buff));
+  delete run._eventOptions;
   // 推进到下一节点 (复用相同的安全切图逻辑)
   advanceNode(run);
   return { ok: true, buff };
@@ -440,6 +482,7 @@ export function generateAIOpponent(run) {
     star: aiStar,
     nodeType,
     coreSkills: { positive: aiCharCfg.corePositive, negative: aiCharCfg.coreNegative },
+    rerollAll: !!aiCharCfg.rerollAll,
   };
 }
 
@@ -447,6 +490,7 @@ export function generateAIOpponent(run) {
  * 购买饮料
  */
 export function buyBeverage(run, beverageId) {
+  if (run.phase !== 'shop') return { ok: false, error: 'invalid_phase' };
   if (!run.hasBeverageShop) return { ok: false, error: 'no_shop' };
   if (run.beveragePurchasedThisNode) return { ok: false, error: 'already_bought' };
   const bev = BEVERAGES.find(b => b.id === beverageId);
@@ -483,17 +527,22 @@ export function getRunView(run) {
     xpToNext: run.level < AC.MAX_LEVEL ? AC.LEVEL_XP[run.level - 1] : 0,
     commanderHP: run.commanderHP, maxCommanderHP: run.maxCommanderHP,
     currentPlane: run.currentPlane, currentNode: run.currentNode,
-    planeEnvironments: run.planeEnvironments,
-    board: run.board, bench: run.bench, shop: run.shop,
+    planeEnvironments: clone(run.planeEnvironments),
+    board: clone(run.board), bench: clone(run.bench), shop: clone(run.shop),
     phase: run.phase,
     winStreak: run.winStreak, loseStreak: run.loseStreak,
-    investmentBuffs: run.investmentBuffs,
-    nodeTypes: run.nodeTypes,
-    stats: run.stats,
+    investmentBuffs: clone(run.investmentBuffs),
+    nodeTypes: clone(run.nodeTypes),
+    stats: clone(run.stats),
     hasBeverageShop: run.hasBeverageShop,
     beveragePurchasedThisNode: run.beveragePurchasedThisNode,
     currentNodeType: getCurrentNodeType(run),
-    interest: Math.min(Math.floor(run.gold / 10), AC.MAX_INTEREST),
+    interest: Math.min(
+      Math.floor(run.gold / 10) * AC.INTEREST_PER_10,
+      AC.MAX_INTEREST + run.investmentBuffs
+        .filter(buff => buff.id === 'compound_interest')
+        .reduce((sum, buff) => sum + (Number(buff.value) || 0), 0),
+    ),
   };
 }
 

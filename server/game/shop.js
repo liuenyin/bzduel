@@ -60,6 +60,8 @@ export function refreshShop(pool, level) {
  * @returns {{ ok:boolean, error?:string, starUps?:Array }}
  */
 export function buyCharacter(run, shopIdx) {
+  if (run.phase !== 'shop') return { ok: false, error: 'invalid_phase' };
+  if (!Number.isInteger(shopIdx)) return { ok: false, error: 'invalid_index' };
   if (shopIdx < 0 || shopIdx >= run.shop.length) return { ok: false, error: 'invalid_index' };
   const item = run.shop[shopIdx];
   if (!item) return { ok: false, error: 'empty_slot' };
@@ -89,8 +91,10 @@ export function buyCharacter(run, shopIdx) {
  * @returns {{ ok:boolean, refund?:number }}
  */
 export function sellCharacter(run, from, index) {
+  if (run.phase !== 'shop') return { ok: false, error: 'invalid_phase' };
   let char;
   if (from === 'bench') {
+    if (!Number.isInteger(index)) return { ok: false, error: 'invalid_index' };
     if (index < 0 || index >= run.bench.length) return { ok: false };
     char = run.bench.splice(index, 1)[0];
   } else if (from === 'board') {
@@ -98,11 +102,11 @@ export function sellCharacter(run, from, index) {
       if (!run.board.core) return { ok: false };
       char = run.board.core;
       run.board.core = null;
-    } else {
+    } else if (typeof index === 'string' && Object.prototype.hasOwnProperty.call(run.board.hexSlots, index)) {
       if (!run.board.hexSlots[index]) return { ok: false };
       char = run.board.hexSlots[index];
       run.board.hexSlots[index] = null;
-    }
+    } else return { ok: false, error: 'invalid_index' };
   } else {
     return { ok: false };
   }

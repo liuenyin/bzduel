@@ -9,7 +9,8 @@ export const AC = {
   PLANES_COUNT: 6,
   NODES_PER_PLANE: [3, 4, 4, 5, 5, 5],
   MAX_LEVEL: 7,
-  LEVEL_XP: [0, 4, 8, 14, 22, 32, 44],
+  // XP required to advance from each level. Index 0 is the level-1 -> level-2 cost.
+  LEVEL_XP: [4, 8, 14, 22, 32, 44, 0],
   BASE_INCOME: 5,
   INTEREST_PER_10: 1,
   MAX_INTEREST: 5,
@@ -369,7 +370,11 @@ export const AC_CHARS = [
 /** 按 ID 查角色 */
 export const AC_CHAR_MAP = Object.fromEntries(AC_CHARS.map(c => {
   const base = characters.find(b => b.id === c.id);
-  return [c.id, { ...c, image: base?.image || `/photos/${c.id}.jpg` }];
+  return [c.id, {
+    ...c,
+    image: base?.image || `/photos/${c.id}.jpg`,
+    rerollAll: !!(c.rerollAll ?? base?.rerollAll),
+  }];
 }));
 
 /** 按费用分组 */

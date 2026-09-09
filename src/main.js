@@ -114,11 +114,16 @@ function initGlobalChat() {
     const isMe = sender === (localStorage.getItem('dice_duel_nickname') || '匿名');
     const msgEl = document.createElement('div');
     msgEl.className = 'chat-msg';
-    msgEl.innerHTML = `
-      <span style="font-size:0.65rem; color:var(--text-muted)">[${time}]</span> 
-      <span class="chat-msg-sender" style="${isMe ? 'color:var(--green)' : ''}">${sender}:</span> 
-      <span>${msg}</span>
-    `;
+    const timeEl = document.createElement('span');
+    timeEl.style.cssText = 'font-size:0.65rem; color:var(--text-muted)';
+    timeEl.textContent = `[${time ?? ''}] `;
+    const senderEl = document.createElement('span');
+    senderEl.className = 'chat-msg-sender';
+    if (isMe) senderEl.style.color = 'var(--green)';
+    senderEl.textContent = `${sender ?? '匿名'}: `;
+    const messageEl = document.createElement('span');
+    messageEl.textContent = msg ?? '';
+    msgEl.append(timeEl, senderEl, messageEl);
     chatMessagesEl.appendChild(msgEl);
     chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
     if (chatWidgetEl.classList.contains('collapsed')) {
@@ -149,7 +154,10 @@ export function showGlobalChat(message) {
   if (chatWidgetEl) {
     chatWidgetEl.style.display = 'flex';
     if (message) {
-      chatMessagesEl.innerHTML = `<div class="chat-msg system">${message}</div>`;
+      const messageEl = document.createElement('div');
+      messageEl.className = 'chat-msg system';
+      messageEl.textContent = message;
+      chatMessagesEl.replaceChildren(messageEl);
     }
   }
 }

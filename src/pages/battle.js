@@ -377,6 +377,10 @@ function seedBattleFeedbackState(state) {
 }
 
 export function renderBattle(container, data) {
+  if (!container || !data?.state || typeof data.state !== 'object') {
+    if (container) container.textContent = '战斗数据无效，请返回大厅重试。';
+    return () => {};
+  }
   const viewEpoch = ++battleViewEpoch;
   activeBattleViewEpoch = viewEpoch;
   cancelBattleAnimations();
@@ -433,6 +437,8 @@ export function renderBattle(container, data) {
     });
   };
   window._confirmDraftReady = () => { gameSocket.confirmDraftReady(); };
+  window._showSacrifice = showSacrifice;
+  window._doSacrifice = doSacrifice;
   window._playTacticalCard = (id) => {
     const cardEl = document.querySelector(`.hand-card-kards[data-card-id="${id}"]`);
     cardEl?.classList.add('disabled');
@@ -515,7 +521,7 @@ export function renderBattle(container, data) {
     navigate('lobby');
   });
   listen('error_msg', (d) => {
-    alert(d.message);
+    window._showToast(d?.message || '操作失败');
     refreshAll();
   });
   listen('buy_water_result', (d) => {
@@ -558,6 +564,13 @@ export function renderBattle(container, data) {
   return () => {
     for (const [event, handler] of socketListeners) gameSocket.off(event, handler);
     stopConnectionStatus();
+    for (const key of [
+      '_pickSubj', '_pickDreamTarget', '_refreshDraftSlot', '_buyDraftCard',
+      '_confirmDraftReady', '_playTacticalCard', 'selectFfaTarget',
+      '_showSacrifice', '_doSacrifice',
+    ]) {
+      delete window[key];
+    }
     if (activeBattleViewEpoch === viewEpoch) {
       activeBattleViewEpoch = 0;
       cancelBattleAnimations();
@@ -651,10 +664,10 @@ function buildArena(s) {
             <div class="reroll-count" id="reroll-count">重投 <strong>${me.rerolls}</strong> 次</div>
             <p class="reroll-hint" id="reroll-hint">选中骰子后可重投</p>
             <button id="btn-reroll" class="btn btn-secondary" style="display:none;">重投选中</button>
+            ${s.gameMode === '1v1' ? '<button id="btn-surrender" class="btn btn-secondary battle-surrender">投降</button>' : ''}
             <details class="battle-menu">
               <summary aria-label="更多对局操作" title="更多对局操作">&#8943;</summary>
               <div class="battle-menu-popover">
-                ${s.gameMode === '1v1' ? '<button id="btn-surrender" class="btn btn-secondary">投降</button>' : ''}
                 <button id="btn-leave-battle" class="btn btn-secondary">退出对局</button>
               </div>
             </details>
@@ -669,12 +682,12 @@ function buildArena(s) {
 }
 // ── 事件绑定 (仅初始化时调用一次) ──
 function bindCoreEvents() {
-  on('btn-roll', 'click', () => { playDiceRoll(); gameSocket.rollDice(); disableBtn('btn-roll'); });
+  on('btn-roll', 'click', () => { const b=document.getElementById('btn-roll'); if(b) { b.disabled=true; b.textContent='掷骰中…'; } playDiceRoll(); gameSocket.rollDice(); });
   on('btn-confirm', 'click', () => {
     const sel = document.querySelectorAll('.die.selected');
     const indices = [...sel].map(d => parseInt(d.dataset.idx));
     gameSocket.confirmDice(indices);
-    disableBtn('btn-confirm'); hide('btn-reroll');
+    const b=document.getElementById('btn-confirm'); if(b) { b.disabled=true; b.textContent='处理中…'; } hide('btn-reroll');
   });
   // btn-reroll 在 sidebar 中，只绑一次
   const rr = document.getElementById('btn-reroll');
@@ -710,16 +723,16 @@ function bindCoreEvents() {
 // ── 仅重绑 action-bar 内的按钮 (refreshAll 每次重建 action-bar HTML) ──
 function rebindActionButtons() {
   const roll = document.getElementById('btn-roll');
-  if (roll) roll.onclick = () => { playDiceRoll(); gameSocket.rollDice(); disableBtn('btn-roll'); };
+  if (roll) roll.onclick = () => { roll.disabled=true; roll.textContent='掷骰中…'; playDiceRoll(); gameSocket.rollDice(); };
   const conf = document.getElementById('btn-confirm');
   if (conf) conf.onclick = () => {
     const sel = document.querySelectorAll('.die.selected');
     const indices = [...sel].map(d => parseInt(d.dataset.idx));
     gameSocket.confirmDice(indices);
-    disableBtn('btn-confirm'); hide('btn-reroll');
+    if(conf) { conf.disabled=true; conf.textContent='处理中…'; } hide('btn-reroll');
   };
   const buy = document.getElementById('btn-buy-water');
-  if (buy) buy.onclick = () => { gameSocket.buyWater(); disableBtn('btn-buy-water'); };
+  if (buy) buy.onclick = () => { buy.disabled=true; buy.textContent='购买中…'; gameSocket.buyWater(); };
 }
 
 function refreshStatusEffects(containerId, player) {
@@ -1166,15 +1179,17 @@ function checkDraftShopModal(s) {
 
 // ── FFA UI ──
 function buildFfaGrid(s) {
+  if (!s || typeof s !== 'object') return '<div class="ffa-opponents-grid"></div>';
+  const players = Array.isArray(s.players) ? s.players : [];
   const me = s.me;
-  const others = (s.players || []).filter(p => p.id !== me?.id);
+  const others = players.filter(p => p?.id !== me?.id);
   const isTargeting = s.turnPhase === 'choose_target' && s.isMyAttackTurn;
 
   let html = `<div class="ffa-opponents-grid" role="list" aria-label="其他玩家">`;
   others.forEach(p => {
     if (!p || !p.card) return;
-    const isDefender = s.defenderIdx !== null && s.players[s.defenderIdx]?.id === p.id;
-    const isAttacker = s.attackerIdx !== null && s.players[s.attackerIdx]?.id === p.id;
+    const isDefender = Number.isInteger(s.defenderIdx) && players[s.defenderIdx]?.id === p.id;
+    const isAttacker = Number.isInteger(s.attackerIdx) && players[s.attackerIdx]?.id === p.id;
     const canBeTargeted = isTargeting && !p.isDead;
     const identityDisplay = p.identity === 'lord' ? '主将' : (p.identity === '?' ? '未知' : identityName(p.identity));
     const stateLabel = p.isDead ? '已阵亡' : (isDefender ? '当前目标' : (isAttacker ? '进攻中' : '待命'));
@@ -1196,7 +1211,7 @@ function buildFfaGrid(s) {
           ${p.isDead ? `<span class="ffa-dead-mark">阵亡</span>` : ''}
         </div>
         <div class="ffa-card-meta"><span class="identity-badge">${escapeHTML(identityDisplay)}</span><span class="ffa-character-name">${escapeHTML(p.card.name || '未知角色')}</span></div>
-        <div class="ffa-hp-row"><div class="ffa-hp-track"><span style="width:${pct(p.hp, p.maxHp)}%"></span></div><span>${p.hp}/${p.maxHp}</span></div>
+        <div class="ffa-hp-row"><div class="ffa-hp-track"><span style="width:${pct(p.hp, p.maxHp)}%"></span></div><span>${escapeHTML(p.hp)}/${escapeHTML(p.maxHp)}</span></div>
         <div class="bc-buffs ffa-buffs" aria-label="${safeName}的状态">${buffIcons(p, s)}</div>
       </div>
     `;
@@ -1241,7 +1256,7 @@ function renderDice() {
         face += S.extraTurnFaceBoost;
       }
       // 殷泽轩屏蔽：如果不是我掷出的且对方是 YZX
-      const isYzx = v === -1 || (atkPlayer && atkPlayer.stealth);
+      const isYzx = v === -1 || (atkPlayer && atkPlayer.stealthActive);
       const color = DICE_COLORS[face];
       let style = color ? `border-color:${color.border}; color:${color.border};` : '';
       if (S.atkResult && !isKept) style += 'opacity:0.3;';
@@ -1259,19 +1274,20 @@ function renderDice() {
       html += `</div>`;
     }
   }
-  if (S.defenseRolls || (S.aoeDefenses && S.aoeDefenses[S.me.id] && S.aoeDefenses[S.me.id].rolls)) {
+  const myAoeDefense = S.aoeDefenses?.[S.me?.id] || null;
+  if (Array.isArray(S.defenseRolls) || Array.isArray(myAoeDefense?.rolls)) {
     // 防御骰
     const canSelect = S.turnPhase === 'def_rolled' && S.isMyDefendTurn;
-    const rollsToRender = S.aoeDefenses ? S.aoeDefenses[S.me.id].rolls : S.defenseRolls;
-    const isConfirmed = S.aoeDefenses ? S.aoeDefenses[S.me.id].confirmed : false;
+    const rollsToRender = myAoeDefense ? myAoeDefense.rolls : S.defenseRolls;
+    const isConfirmed = !!myAoeDefense?.confirmed;
     
     html += `<div class="dice-row"><span class="dice-label" style="color:var(--blue)">守</span>`;
-    if (rollsToRender) {
+    if (Array.isArray(rollsToRender)) {
       html += rollsToRender.map((v, i) => {
         const face = defPool[i] || 6;
         const color = DICE_COLORS[face];
         // 如果点数是 -1，说明被后端屏蔽了
-        const isYzx = v === -1 || (defPlayer && defPlayer.stealth);
+        const isYzx = v === -1 || (defPlayer && defPlayer.stealthActive);
         let style = color ? `border-color:${color.border}; color:${color.border};` : '';
         if (isConfirmed) style += 'opacity:0.5;';
         const displayVal = isYzx ? '?' : v;
@@ -1316,7 +1332,7 @@ function updateActionButtons() {
       if (S.me.buffs && S.me.buffs.find(b => b.id === 'sugar_crash')) btnReroll.innerHTML = '🚫 犯糖';
     } else {
       btnReroll.disabled = false;
-      btnReroll.innerHTML = '重投';
+      btnReroll.innerHTML = `重投 ${count} 颗`;
     }
   }
   
@@ -1359,7 +1375,7 @@ function updateActionButtons() {
 }
 
 // 献祭弹窗
-window._showSacrifice = () => {
+function showSacrifice() {
   const sel = document.querySelectorAll('.die.defense.selected');
   let opts = '';
   sel.forEach(d => {
@@ -1370,13 +1386,13 @@ window._showSacrifice = () => {
   m.id = 'sacrifice-modal';
   m.innerHTML = `<div class="panel"><h3>选择一个骰子进行献祭</h3><p>该骰子变1，回复其点数-1的HP</p>${opts}</div>`;
   document.body.appendChild(m);
-};
+}
 
-window._doSacrifice = (idx) => {
+function doSacrifice(idx) {
   const indices = Array.from(document.querySelectorAll('.die.defense.selected')).map(d => parseInt(d.dataset.idx));
   gameSocket.confirmDice(indices, { sacrificeIndex: idx });
-  document.getElementById('sacrifice-modal').remove();
-};
+  document.getElementById('sacrifice-modal')?.remove();
+}
 
 // ── 攻击确认回调 ──
 function onAtkConfirmed(data) {
@@ -1390,30 +1406,33 @@ function onAtkConfirmed(data) {
 // ── 辅助：构建提示信息 ──
 function buildAlerts(data) {
   let alerts = [];
-  const ar = data.atkResult || {};
+  data = data && typeof data === 'object' ? data : {};
+  const ar = data.atkResult && typeof data.atkResult === 'object' ? data.atkResult : {};
+  const addAlert = (type, text) => alerts.push(`<div class="skill-alert ${type}">${escapeHTML(text)}</div>`);
 
-  if (data.deathCause === 'red_heat') alerts.push('<div class="skill-alert negative">红温伤害致死</div>');
+  if (data.deathCause === 'red_heat') addAlert('negative', '红温伤害致死');
 
-  if (ar.posTriggered) alerts.push(`<div class="skill-alert positive">[${ar.posName}] 发动</div>`);
-  if (ar.negTriggered) alerts.push(`<div class="skill-alert negative">[${ar.negName}] 发动</div>`);
+  if (ar.posTriggered) addAlert('positive', `[${ar.posName || '正面技能'}] 发动`);
+  if (ar.negTriggered) addAlert('negative', `[${ar.negName || '负面技能'}] 发动`);
 
   const results = data.isAoE ? (Array.isArray(data.aoeResults) ? data.aoeResults : []) : [data];
 
   results.forEach(res => {
-    if (res.defPosTriggered) alerts.push(`<div class="skill-alert positive">[${res.defPosName}] 发动</div>`);
-    if (res.defNegTriggered) alerts.push(`<div class="skill-alert negative">[${res.defNegName}] 发动</div>`);
+    if (!res || typeof res !== 'object') return;
+    if (res.defPosTriggered) addAlert('positive', `[${res.defPosName || '正面技能'}] 发动`);
+    if (res.defNegTriggered) addAlert('negative', `[${res.defNegName || '负面技能'}] 发动`);
     
-    if (res.lcCounterDamage > 0) alerts.push(`<div class="skill-alert positive">反击伤害: ${res.lcCounterDamage}</div>`);
-    if (res.lcHealTriggered) alerts.push(`<div class="skill-alert positive">献祭回复: ${res.healAmount}HP</div>`);
-    if (res.eatTriggered) alerts.push(`<div class="skill-alert positive">吃掉！攻击降为 2</div>`);
-    if (res.noobTriggered) alerts.push(`<div class="skill-alert negative">杂鱼反噬 — 血量减半！</div>`);
-    if (res.detonateTriggered) alerts.push(`<div class="skill-alert negative">红温引爆 — ${res.detonateDamage}伤害！</div>`);
-    if (res.redHeatApplied > 0) alerts.push(`<div class="skill-alert negative">红温 +${res.redHeatApplied}层</div>`);
-    if (res.extraTurnTriggered) alerts.push(`<div class="skill-alert positive">死磕 — 获得额外攻击回合！</div>`);
-    if (res.nineLivesTriggered || data.nineLivesTriggered) alerts.push(`<div class="skill-alert positive">九条命 — 满血复活！</div>`);
+    if (Number(res.lcCounterDamage) > 0) addAlert('positive', `反击伤害: ${Number(res.lcCounterDamage)}`);
+    if (res.lcHealTriggered) addAlert('positive', `献祭回复: ${Number(res.healAmount) || 0}HP`);
+    if (res.eatTriggered) addAlert('positive', '吃掉！攻击降为 2');
+    if (res.noobTriggered) addAlert('negative', '杂鱼反噬 — 血量减半！');
+    if (res.detonateTriggered) addAlert('negative', `红温引爆 — ${Number(res.detonateDamage) || 0}伤害！`);
+    if (Number(res.redHeatApplied) > 0) addAlert('negative', `红温 +${Number(res.redHeatApplied)}层`);
+    if (res.extraTurnTriggered) addAlert('positive', '死磕 — 获得额外攻击回合！');
+    if (res.nineLivesTriggered || data.nineLivesTriggered) addAlert('positive', '九条命 — 满血复活！');
   });
 
-  if (data.firstBloodTriggered) alerts.push(`<div class="skill-alert negative">偏科 — 防御选骰数 -1！</div>`);
+  if (data.firstBloodTriggered) addAlert('negative', '偏科 — 防御选骰数 -1！');
 
   return [...new Set(alerts)].join('');
 }
@@ -1671,17 +1690,23 @@ export function onTurnResolved(data) {
 }
 
 // ── 换课动画 ──
-function showClassChange(data) {
+function showClassChange(data = {}) {
+  const viewEpoch = activeBattleViewEpoch;
   setTimeout(() => {
-    const s = SUBJECTS[data.subject];
+    if (!isBattleViewActive(viewEpoch)) return;
+    if (!data || typeof data !== 'object') return;
+    const subjectId = typeof data.subject === 'string' ? data.subject : '';
+    const subject = SUBJECTS[subjectId];
+    const classIndex = Number.isInteger(data.index) && data.index >= 0 ? data.index : 0;
+    const day = Number.isInteger(data.day) && data.day > 0 ? data.day : 1;
     const overlay = document.createElement('div');
     overlay.className = data.dayChanged ? 'class-change-overlay day-change-overlay' : 'class-change-overlay compact';
     overlay.innerHTML = `
       <div class="class-change-content">
-        <div class="cc-icon">${s?.icon || '📝'}</div>
-        ${data.dayChanged ? `<div class="cc-day">第 ${data.day || 1} 天</div>` : ''}
-        <div class="cc-label">第 ${data.index + 1} 节课</div>
-        <div class="cc-name">${s?.label || data.subject}</div>
+        <div class="cc-icon">${escapeHTML(subject?.icon || '📝')}</div>
+        ${data.dayChanged ? `<div class="cc-day">第 ${day} 天</div>` : ''}
+        <div class="cc-label">第 ${classIndex + 1} 节课</div>
+        <div class="cc-name">${escapeHTML(subject?.label || subjectId || '未知课程')}</div>
       </div>
     `;
     document.body.appendChild(overlay);
@@ -1745,7 +1770,8 @@ function buildBattleSummary(state, playerId) {
   };
   const player = state.players?.find(candidate => candidate.id === playerId);
 
-  for (const entry of state.log || []) {
+  for (const entry of (Array.isArray(state?.log) ? state.log : [])) {
+    if (!entry || typeof entry !== 'object') continue;
     if (entry.type === 'tactical' && entry.actorId === playerId) summary.tacticalCards += 1;
     if (entry.type === 'skill' && (entry.actorId === playerId || (!entry.actorId && player?.nickname && entry.text?.includes(player.nickname)))) {
       summary.skillTriggers += 1;
@@ -1793,7 +1819,8 @@ function buildBattleSummary(state, playerId) {
 }
 
 function battleSummaryHTML(state) {
-  const summary = buildBattleSummary(state, state.me.id);
+  state = state && typeof state === 'object' ? state : {};
+  const summary = buildBattleSummary(state, state.me?.id);
   const metrics = [
     ['造成伤害', summary.damageDealt],
     ['承受伤害', summary.damageTaken],
@@ -1814,7 +1841,7 @@ function battleSummaryHTML(state) {
         `).join('')}
       </div>
       <details class="go-battle-log">
-        <summary>查看完整战斗记录 <span>${state.log?.length || 0}</span></summary>
+        <summary>查看完整战斗记录 <span>${Array.isArray(state.log) ? state.log.length : 0}</span></summary>
         <div class="go-battle-log-content">${battleLogContentHTML(state)}</div>
       </details>
     </section>
@@ -1822,6 +1849,8 @@ function battleSummaryHTML(state) {
 }
 
 function showGameOver(s, meta = {}) {
+  if (!s || typeof s !== 'object') return;
+  meta = meta && typeof meta === 'object' ? meta : {};
   if (document.querySelector('.game-over-screen')) return;
   const o = document.createElement('div');
   o.className = 'game-over-screen';
@@ -1836,13 +1865,13 @@ function showGameOver(s, meta = {}) {
   } else {
     // FFA
     if (s.winner === 'lord') {
-      isWin = s.me.identity === 'lord' || s.me.identity === 'loyalist';
+      isWin = s.me?.identity === 'lord' || s.me?.identity === 'loyalist';
       statusStr = isWin ? '胜 利 (主公/忠臣 赢)' : '败 北 (主公/忠臣 赢)';
     } else if (s.winner === 'rebel') {
-      isWin = s.me.identity === 'rebel';
+      isWin = s.me?.identity === 'rebel';
       statusStr = isWin ? '胜 利 (反贼 赢)' : '败 北 (反贼 赢)';
     } else if (s.winner === 'spy') {
-      isWin = s.me.identity === 'spy';
+      isWin = s.me?.identity === 'spy';
       statusStr = isWin ? '胜 利 (内奸 赢)' : '败 北 (内奸 赢)';
     }
   }
@@ -1861,17 +1890,19 @@ function showGameOver(s, meta = {}) {
   function renderPlayer(p, index) {
     if (!p) return '';
     const isMe = index === s.myIndex;
-    const card = p.card;
-    const isYzx = (p.cardId === 'char_10' || p.stealth) && !isMe;
+    const card = p.card && typeof p.card === 'object'
+      ? p.card
+      : { name: '未知角色', image: '' };
+    const isYzx = (p.cardId === 'char_10' || p.stealthActive) && !isMe;
     const hpText = isYzx ? '??' : p.hp;
     const maxHpText = isYzx ? '??' : p.maxHp;
-    const hpPercent = isYzx ? 100 : (p.hp / p.maxHp) * 100;
-    const identityHtml = s.gameMode === 'sanguosha' ? `<div style="color:var(--accent);font-size:0.8rem;margin-top:4px;">身份: ${escapeHTML(p.identity === 'lord' ? '主公' : (p.identity === '?' ? '未知' : p.identity))}</div>` : '';
+    const hpPercent = isYzx ? 100 : pct(Number(p.hp), Number(p.maxHp));
+    const identityHtml = s.gameMode === 'sanguosha' ? `<div style="color:var(--accent);font-size:0.8rem;margin-top:4px;">身份: ${escapeHTML(p.identity === '?' ? '未知' : identityName(p.identity))}</div>` : '';
 
     return `
       <div class="player-box ${isMe ? 'me' : 'op'} ${isYzx ? 'stealth' : ''}" style="${s.gameMode === 'sanguosha' ? 'width:45%; margin-bottom:10px;' : ''}">
         <div class="avatar-area">
-          <img src="${escapeHTML(card.image)}" class="avatar" alt="" />
+          ${card.image ? `<img src="${escapeHTML(card.image)}" class="avatar" alt="${escapeHTML(card.name || '角色')}" onerror="this.remove()" />` : ''}
           ${isMe ? `<div class="badge-me">我</div>` : ''}
         </div>
         <div class="player-info">
@@ -1884,9 +1915,9 @@ function showGameOver(s, meta = {}) {
             <div class="hp-bar">
               <div class="hp-bar-fill" style="width:${hpPercent}%"></div>
             </div>
-            <div class="hp-text">${hpText} / ${maxHpText}</div>
+            <div class="hp-text">${escapeHTML(hpText)} / ${escapeHTML(maxHpText)}</div>
           </div>
-          <div class="buffs-row">${buffIcons(p)}</div>
+          <div class="buffs-row">${buffIcons(p, s)}</div>
         </div>
       </div>
     `;
@@ -1942,9 +1973,22 @@ function showGameOver(s, meta = {}) {
 }
 
 // ── 辅助 ──
-function curSubj() { return S.schedule[S.currentClassIndex] || S.schedule[S.schedule.length-1]; }
-function pct(c,m) { if (typeof c !== 'number' || typeof m !== 'number') return 100; return m>0 ? Math.max(0,Math.round(c/m*100)) : 0; }
-function getM(p,subj) { return p.card ? getSkillMultiplier(p.card.subjects, subj) : 1; }
+function curSubj() {
+  const schedule = Array.isArray(S?.schedule) ? S.schedule : [];
+  return schedule[S?.currentClassIndex] || schedule[schedule.length - 1] || '';
+}
+function pct(c,m) {
+  if (!Number.isFinite(c) || !Number.isFinite(m) || m <= 0) return 0;
+  return Math.max(0, Math.min(100, Math.round(c / m * 100)));
+}
+function getM(p,subj) {
+  if (!p?.card) return 1;
+  const base = getSkillMultiplier(p.card.subjects, subj);
+  return subj === 'geography' && base === 2
+    && (p.activeBlessings || []).some(card => card.id === 'card_geo_1')
+    ? 3
+    : base;
+}
 
 function getAuraClass(p) {
   if (!p) return '';
@@ -1964,6 +2008,7 @@ function updateAura(el, p) {
 }
 
 function multiTag(m) {
+  if (m===3) return '<span class="multiplier x3">×3</span>';
   if (m===2) return '<span class="multiplier x2">×2</span>';
   if (m===0.5) return '<span class="multiplier x05">×½</span>';
   return '<span class="multiplier x1">×1</span>';
@@ -2013,7 +2058,7 @@ function actionButtons(s) {
     const buyBtn = (s.me.cardId === 'char_14' && !s.me.skillsSealed && !s.hasAttackerRerolled && s.me.chargeStacks < 2)
       ? '<button id="btn-buy-water" class="btn btn-secondary" style="margin-left:8px;">买水</button>' 
       : '';
-    return `<div>
+    return `<div class="action-stack"><small class="dice-purpose">选择计入攻击的骰子</small>
           <button id="btn-confirm" class="btn btn-success" disabled>✓ 确认</button>
           ${buyBtn}
         </div>`;
@@ -2021,7 +2066,7 @@ function actionButtons(s) {
   if (s.turnPhase === 'def_rolled' && s.isMyDefendTurn) {
     const defenseSlots = s.me.effectiveDefSlots ?? s.me.card.defSlots;
     const sacBtn = s.me.cardId === 'char_8' && !s.me.skillsSealed ? '<button id="btn-sacrifice" class="btn btn-secondary" style="display:none;" onclick="window._showSacrifice()">献祭回血</button>' : '';
-    return `<div>
+    return `<div class="action-stack"><small class="dice-purpose">选择计入防御的骰子</small>
           <button id="btn-confirm" class="btn btn-primary" disabled>✓ 确认</button>
           ${sacBtn}
         </div>`;
@@ -2035,18 +2080,21 @@ function portraitInitials(name) {
 }
 
 function portraitHTML(name, image) {
+  const safeName = escapeHTML(name || '角色');
   return `
-    <span class="portrait-fallback" aria-hidden="true">${portraitInitials(name)}</span>
-    ${image ? `<img src="${image}" alt="${name || '角色'}" onerror="this.remove()">` : ''}
+    <span class="portrait-fallback" aria-hidden="true">${escapeHTML(portraitInitials(name))}</span>
+    ${image ? `<img src="${escapeHTML(image)}" alt="${safeName}" onerror="this.remove()">` : ''}
   `;
 }
 
 function battleTopbarHTML(s) {
+  s = s && typeof s === 'object' ? s : {};
   const canReschedule = !!s.me?.hasReschedule;
+  const day = Number.isInteger(s.currentDay) && s.currentDay > 0 ? s.currentDay : 1;
   return `
     <div class="battle-day">
       <span>对局进度</span>
-      <strong>第 ${s.currentDay || 1} 天</strong>
+      <strong>第 ${day} 天</strong>
     </div>
     <div class="battle-schedule-track">${scheduleHTML(s)}</div>
     ${canReschedule ? '<button id="btn-reschedule" class="btn btn-secondary battle-reschedule">调课</button>' : ''}
@@ -2054,12 +2102,13 @@ function battleTopbarHTML(s) {
 }
 
 function scheduleHTML(s) {
-  return s.schedule.map((subj, i) => {
+  const schedule = Array.isArray(s?.schedule) ? s.schedule : [];
+  return schedule.map((subj, i) => {
     const info = SUBJECTS[subj];
     const active = i === s.currentClassIndex;
     const past = i < s.currentClassIndex;
     return `<div class="sch-item${active ? ' active' : ''}${past ? ' past' : ''}" data-class-index="${i}">
-      <span>${info?.icon||'📝'}</span><span class="sch-label">${info?.label||subj}</span>
+      <span>${escapeHTML(info?.icon || '📝')}</span><span class="sch-label">${escapeHTML(info?.label || subj || '未知课程')}</span>
     </div>`;
   }).join('');
 }

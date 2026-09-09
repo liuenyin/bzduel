@@ -15,7 +15,7 @@ export default defineConfig({
     browserName: 'chromium',
   },
   webServer: {
-    command: `node --input-type=module -e "process.env.NODE_ENV='production'; process.env.DISABLE_STATS_WRITE='1'; process.env.PORT='${testPort}'; const { build } = await import('vite'); await build({ logLevel: 'error' }); await import('./server/index.js')"`,
+    command: `node --input-type=module -e "process.env.NODE_ENV='development'; process.env.DISABLE_STATS_WRITE='1'; process.env.PORT='${testPort}'; await import('./server/index.js')"`,
     url: baseURL,
     reuseExistingServer: false,
     timeout: 30000,

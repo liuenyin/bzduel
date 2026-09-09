@@ -6,7 +6,9 @@ import {
   buyWater,
   confirmAttack,
   confirmDefense,
+  confirmDraftReady,
   createGame,
+  eliminateDisconnectedPlayer,
   getAttackConfirmationView,
   getStateView,
   playTacticalCard,
@@ -76,7 +78,29 @@ function forceTurn(game, attackerIdx, defenderIdx) {
   };
 }
 
+function prepareDefenseResolution(game, { finalAtk = 10, defenseRolls = [1, 1, 1, 1], pierce = false } = {}) {
+  forceTurn(game, 0, 1);
+  game.turnPhase = TURN.DEF_ROLLED;
+  game.turnData.attackRolls = [3, 3, 3, 3];
+  game.turnData.defenseRolls = [...defenseRolls];
+  game.turnData.atkResult = {
+    baseAtk: finalAtk,
+    bonusDamage: 0,
+    finalAtk,
+    pierce,
+    selfDamage: 0,
+    keptIndices: [0, 1, 2],
+    faces: [3, 3, 3],
+  };
+}
+
 function completeCurrentTurn(game, { attackRandom = 0.999999, defenseRollValue = 1 } = {}) {
+  if (game.draftShop?.active) {
+    game.players.filter(player => !player.isDead).forEach(player => {
+      const draftPlayer = game.draftShop.players?.[player.id];
+      if (draftPlayer && !draftPlayer.ready) confirmDraftReady(game, player.id);
+    });
+  }
   const attacker = game.players[game.turnData.attackerIdx];
   const defender = game.players[game.turnData.defenderIdx];
   withRandom(attackRandom, () => rollAttack(game));
@@ -514,4 +538,216 @@ test('stealth masks defense dice in attack confirmation events', () => {
   const defenderView = getAttackConfirmationView(game, 'player-b');
   assert.deepEqual(attackerView.defenseRolls, attackerView.defenseRolls.map(() => -1));
   assert.notDeepEqual(defenderView.defenseRolls, defenderView.defenseRolls.map(() => -1));
+});
+
+test('draft readiness ignores defeated FFA players and requires battle phase', () => {
+  const game = createFfaBattle();
+  game.draftShop = {
+    active: true,
+    players: Object.fromEntries(game.players.map(player => [player.id, { ready: false, slots: [] }])),
+  };
+  game.players[2].hp = 0;
+  game.players[2].isDead = true;
+
+  assert.equal(confirmDraftReady(game, game.players[0].id).allReady, false);
+  const finalReady = confirmDraftReady(game, game.players[1].id);
+  assert.equal(finalReady.ok, true);
+  assert.equal(finalReady.allReady, true);
+  assert.equal(game.draftShop.active, false);
+
+  game.draftShop.active = true;
+  game.phase = 'preparation';
+  assert.deepEqual(confirmDraftReady(game, game.players[0].id), { ok: false, error: 'invalid_phase' });
+});
+
+test('math blessing skips the target next normal attack instead of granting an extra turn', () => {
+  const game = createBattle();
+  game.schedule[0] = 'math';
+  game.players[0].activeBlessings = [{ ...cardMap.card_mat_1 }];
+
+  withRandom(0.2, () => rollAttack(game));
+  assert.equal(confirmAttack(game, [0, 1, 2]).ok, true);
+  assert.equal(game.extraTurnQueue?.length || 0, 0);
+  assert.equal(game.players[1].skipAttackCount, 1);
+
+  game.turnData.defenseRolls = game.turnData.defenseRolls.map(() => 1);
+  assert.equal(confirmDefense(game, game.players[1].id, [0, 1, 2]).ok, true);
+  const skipped = rollAttack(game);
+  assert.equal(skipped.ok, true);
+  assert.equal(skipped.skipped, true);
+  assert.equal(skipped.classChanged, true);
+  assert.equal(game.players[1].skipAttackCount, 0);
+  assert.equal(game.turnData.isExtraTurn, undefined);
+});
+
+test('an FFA tactical elimination advances past the defeated participant', () => {
+  const game = createFfaBattle();
+  const [lord, rebel, spy] = game.players;
+  lord.identity = IDENTITY.LORD;
+  rebel.identity = IDENTITY.REBEL;
+  spy.identity = IDENTITY.SPY;
+  forceTurn(game, 0, 1);
+  game.schedule[game.currentClassIndex] = 'chemistry';
+  lord.handCards = [{ ...cardMap.card_che_3 }];
+  rebel.hp = 2;
+  rebel.redHeat = 3;
+
+  const result = playTacticalCard(game, lord.id, 'card_che_3');
+  assert.equal(result.ok, true);
+  assert.equal(result.gameOver, false);
+  assert.deepEqual(result.defeatedIds, [rebel.id]);
+  assert.equal(rebel.isDead, true);
+  assert.equal(game.turnData.attackerIdx, 2);
+  assert.equal(game.turnPhase, TURN.CHOOSE_TARGET);
+});
+
+test('an AoE defender tactical card always targets the current attacker', () => {
+  const game = createFfaBattle();
+  const [attacker, primaryDefender, aoeDefender] = game.players;
+  forceTurn(game, 0, 1);
+  game.turnData.isAoE = true;
+  game.turnData.aoeDefenses = {
+    [primaryDefender.id]: { confirmed: false, rolls: [1, 1, 1] },
+    [aoeDefender.id]: { confirmed: false, rolls: [1, 1, 1] },
+  };
+  aoeDefender.handCards = [{ ...cardMap.card_gen_10 }];
+
+  const result = playTacticalCard(game, aoeDefender.id, 'card_gen_10');
+  assert.equal(result.ok, true);
+  assert.equal(attacker.redHeat, 2);
+  assert.equal(primaryDefender.redHeat, 0);
+});
+
+test('Chinese blessing adds defense for each selected odd die', () => {
+  const game = createBattle();
+  game.schedule[0] = 'chinese';
+  game.players.forEach(player => {
+    player.card.positiveSkill = null;
+    player.card.negativeSkill = null;
+  });
+  game.players[1].activeBlessings = [{ ...cardMap.card_chi_1 }];
+  prepareDefenseResolution(game, { finalAtk: 10, defenseRolls: [1, 2, 3, 4] });
+
+  const result = confirmDefense(game, game.players[1].id, [0, 1, 2]);
+  assert.equal(result.ok, true);
+  assert.equal(result.finalDef, 10);
+  assert.equal(result.damage, 0);
+});
+
+test('fixed damage reduction applies after penetration', () => {
+  for (const [subject, cardId, placement] of [
+    ['biology', 'card_bio_1', 'activeBlessings'],
+    ['chinese', 'card_gen_05', 'playedTurnCards'],
+  ]) {
+    const game = createBattle();
+    game.schedule[0] = subject;
+    game.players.forEach(player => {
+      player.card.positiveSkill = null;
+      player.card.negativeSkill = null;
+    });
+    game.players[1][placement] = [{ ...cardMap[cardId] }];
+    prepareDefenseResolution(game, { finalAtk: 10, pierce: true });
+
+    const result = confirmDefense(game, game.players[1].id, [0, 1, 2]);
+    assert.equal(result.damage, 7, cardId);
+  }
+});
+
+test('final bonus damage is added after multipliers and is suppressed by politics blessing', () => {
+  const game = createBattle();
+  game.schedule[0] = 'music';
+  game.players.forEach(player => {
+    player.card.positiveSkill = null;
+    player.card.negativeSkill = null;
+  });
+  game.players[0].activeBlessings = [{ ...cardMap.card_mus_1 }];
+  game.players[0].playedTurnCards = [{ ...cardMap.card_gen_08 }];
+  prepareDefenseResolution(game, { finalAtk: 8 });
+  let result = confirmDefense(game, game.players[1].id, [0, 1, 2]);
+  assert.equal(result.damage, 8);
+
+  game.schedule[0] = 'politics';
+  game.currentSubRound = 0;
+  game.players[0].activeBlessings = [];
+  game.players[0].playedTurnCards = [{ ...cardMap.card_gen_08 }];
+  game.players[1].activeBlessings = [{ ...cardMap.card_pol_1 }];
+  prepareDefenseResolution(game, { finalAtk: 8, pierce: true });
+  result = confirmDefense(game, game.players[1].id, [0, 1, 2]);
+  assert.equal(result.damage, 8);
+});
+
+test('history blessing is consumed only by the first positive damage in its class', () => {
+  const game = createBattle();
+  game.schedule[0] = 'history';
+  game.players.forEach(player => {
+    player.card.positiveSkill = null;
+    player.card.negativeSkill = null;
+  });
+  const blessing = { ...cardMap.card_his_1 };
+  game.players[1].activeBlessings = [blessing];
+
+  prepareDefenseResolution(game, { finalAtk: 0 });
+  let result = confirmDefense(game, game.players[1].id, [0, 1, 2]);
+  assert.equal(result.damage, 0);
+  assert.equal(blessing.usedInClass, undefined);
+
+  game.currentSubRound = 0;
+  prepareDefenseResolution(game, { finalAtk: 10 });
+  result = confirmDefense(game, game.players[1].id, [0, 1, 2]);
+  assert.equal(result.damage, 3);
+  assert.equal(blessing.usedInClass, true);
+
+  game.currentSubRound = 0;
+  prepareDefenseResolution(game, { finalAtk: 10 });
+  result = confirmDefense(game, game.players[1].id, [0, 1, 2]);
+  assert.equal(result.damage, 7);
+});
+
+test('disconnect elimination settles 1v1 without triggering nine lives', () => {
+  const game = createBattle('char_16', 'char_6');
+  const disconnected = game.players[0];
+  assert.equal(disconnected.card.positiveSkill?.id, 'nine_lives');
+
+  const result = eliminateDisconnectedPlayer(game, disconnected.id);
+  assert.equal(result.ok, true);
+  assert.equal(result.gameOver, true);
+  assert.equal(result.winner, 1);
+  assert.equal(result.deathCause, 'disconnect');
+  assert.equal(disconnected.isDead, true);
+  assert.equal(disconnected.hp, 0);
+  assert.equal(disconnected.nineLivesUsed, false);
+});
+
+test('an AoE turn finishes when its last pending defender disconnects', () => {
+  const game = createFfaBattle();
+  const [attacker, confirmedDefender, disconnected] = game.players;
+  attacker.identity = IDENTITY.LORD;
+  confirmedDefender.identity = IDENTITY.REBEL;
+  disconnected.identity = IDENTITY.SPY;
+  prepareDefenseResolution(game, { finalAtk: 0 });
+  game.turnData.isAoE = true;
+  game.turnData.aoeDefenses = {
+    [confirmedDefender.id]: {
+      rolls: [1, 1, 1, 1],
+      confirmed: true,
+      keepIndices: [0, 1, 2],
+      options: null,
+      hasRerolled: false,
+    },
+    [disconnected.id]: {
+      rolls: null,
+      confirmed: false,
+      keepIndices: null,
+      options: null,
+      hasRerolled: false,
+    },
+  };
+
+  const result = eliminateDisconnectedPlayer(game, disconnected.id);
+  assert.equal(result.ok, true);
+  assert.equal(result.gameOver, false);
+  assert.equal(result.advanced, true);
+  assert.equal(result.isAoE, true);
+  assert.equal(disconnected.isDead, true);
+  assert.notEqual(game.turnData.attackerIdx, 2);
 });

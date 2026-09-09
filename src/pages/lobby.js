@@ -4,6 +4,7 @@
 import { gameSocket } from '../net/socket.js';
 import { navigate, showGlobalChat } from '../main.js';
 import { characters } from '../../shared/characters.js';
+import { escapeHTML } from '../utils/html.js';
 
 function portraitInitials(name) {
   return Array.from(String(name || '?').replace(/[\[\]\s]/g, '')).slice(-2).join('') || '?';
@@ -11,9 +12,9 @@ function portraitInitials(name) {
 
 function portraitFrame(character, className = '') {
   return `
-    <span class="portrait-frame ${className}">
-      <span class="portrait-fallback" aria-hidden="true">${portraitInitials(character.name)}</span>
-      ${character.image ? `<img src="${character.image}" alt="${character.name}" loading="lazy" onerror="this.remove()">` : ''}
+    <span class="portrait-frame ${escapeHTML(className)}">
+      <span class="portrait-fallback" aria-hidden="true">${escapeHTML(portraitInitials(character.name))}</span>
+      ${character.image ? `<img src="${escapeHTML(character.image)}" alt="${escapeHTML(character.name)}" loading="lazy" onerror="this.remove()">` : ''}
     </span>
   `;
 }
@@ -43,25 +44,11 @@ export function renderLobby(container, data = {}) {
           </div>
         </div>
 
-        <div style="margin-top:20px; padding-top:16px; border-top:1px dashed var(--bg-inset);">
-          <p style="font-family:var(--font-display); font-weight:700; color:var(--accent); text-align:center; margin-bottom:12px;">三国杀？ (3~8人)</p>
-          <div class="btn-group">
-            <button id="btn-create-ffa" class="btn btn-primary" style="flex:1">创建大乱斗</button>
-            <div class="room-row" style="flex:2">
-              <input id="room-input-ffa" type="text" placeholder="大乱斗房间号" maxlength="8" />
-              <button id="btn-join-ffa" class="btn btn-primary">加入</button>
-            </div>
-          </div>
-        </div>
-
-        <div style="margin-top:20px; padding-top:16px; border-top:2px solid var(--accent); display:none;">
-          <p style="font-family:var(--font-display); font-weight:700; color:var(--gold, #f0c040); text-align:center; margin-bottom:12px;">🎲 货币战争 (自走棋)</p>
-          <button id="btn-autochess" class="btn btn-lg" style="width:100%; background:linear-gradient(135deg, #f0c040, #e67e22); color:#1a1a2e; font-weight:900; font-size:1.1rem;">⚔️ 货币战争...?</button>
-        </div>
 
         <div style="margin-top:12px; text-align:center;">
           <button id="btn-stats" class="btn btn-secondary" style="width:100%;">📊 查看全服角色胜率数据</button>
         </div>
+        <label class="motion-toggle"><input id="motion-toggle" type="checkbox"> 简洁动画</label>
       </div>
 
       <div id="pve-opponent-modal" class="modal-overlay pve-opponent-modal" role="dialog" aria-modal="true" aria-labelledby="pve-opponent-title">
@@ -74,7 +61,7 @@ export function renderLobby(container, data = {}) {
             ${characters.filter(character => !character.ffaOnly).map(character => `
               <button class="pve-opponent-option" type="button" data-character-id="${character.id}" aria-pressed="false">
                 ${portraitFrame(character, 'pve-opponent-portrait')}
-                <span>${character.name}</span>
+                <span>${escapeHTML(character.name)}</span>
                 <small>${character.hp} HP</small>
               </button>
             `).join('')}
@@ -151,11 +138,11 @@ export function renderLobby(container, data = {}) {
 
   const inviteParams = new URLSearchParams(window.location.search);
   const invitedRoomId = inviteParams.get('room');
-  const invitedMode = inviteParams.get('mode') === 'sanguosha' ? 'sanguosha' : '1v1';
+  const invitedMode = '1v1';
   if (invitedRoomId) {
-    const inputId = invitedMode === 'sanguosha' ? 'room-input-ffa' : 'room-input';
+    const inputId = 'room-input';
     document.getElementById(inputId).value = invitedRoomId;
-    statusDiv.innerHTML = `<p class="status-msg">邀请房间 ${invitedRoomId} 已填入，输入昵称后即可加入。</p>`;
+    statusDiv.innerHTML = `<p class="status-msg">邀请房间 ${escapeHTML(invitedRoomId)} 已填入，输入昵称后即可加入。</p>`;
   }
 
   function getNick() {
@@ -245,26 +232,17 @@ export function renderLobby(container, data = {}) {
     gameSocket.joinRoom(n, roomId);
   });
 
-  document.getElementById('btn-create-ffa').addEventListener('click', () => {
-    const n = getNick(); if (!n) return;
-    gameSocket.createFfaRoom(n);
-    statusDiv.innerHTML = '<p class="status-msg">创建大乱斗房间中…</p>';
-  });
 
-  document.getElementById('btn-join-ffa').addEventListener('click', () => {
-    const n = getNick(); if (!n) return;
-    const roomId = document.getElementById('room-input-ffa').value.trim();
-    if (!roomId) {
-      statusDiv.innerHTML = '<p style="color:var(--red);">请输入大乱斗房间号</p>';
-      return;
-    }
-    gameSocket.joinFfaRoom(n, roomId);
-  });
 
-  document.getElementById('btn-autochess').addEventListener('click', () => {
-    const n = getNick(); if (!n) return;
-    gameSocket.emit('start_autochess', { nickname: n });
-  });
+  const motionToggle = document.getElementById('motion-toggle');
+  if (motionToggle) {
+    motionToggle.checked = localStorage.getItem('dice_duel_reduced_motion') === '1';
+    document.body.classList.toggle('reduced-motion', motionToggle.checked);
+    motionToggle.addEventListener('change', () => {
+      localStorage.setItem('dice_duel_reduced_motion', motionToggle.checked ? '1' : '0');
+      document.body.classList.toggle('reduced-motion', motionToggle.checked);
+    });
+  }
 
   document.getElementById('btn-stats').addEventListener('click', async () => {
     document.getElementById('stats-modal').style.display = 'flex';
@@ -300,17 +278,19 @@ export function renderLobby(container, data = {}) {
     function drawTable(mode) {
       const stats = data[mode] || {};
       let table = '<div class="stats-matrix-wrap"><table class="stats-matrix"><thead><tr><th>胜率(场次)</th>';
-      chars.forEach(c => { table += `<th>${c.name}</th>`; });
+      chars.forEach(c => { table += `<th>${escapeHTML(c.name)}</th>`; });
       table += '</tr></thead><tbody>';
       
       chars.forEach(rowChar => {
-        table += `<tr><th>${rowChar.name}</th>`;
+        table += `<tr><th>${escapeHTML(rowChar.name)}</th>`;
         chars.forEach(colChar => {
           if (rowChar.id === colChar.id) {
             table += `<td class="empty-cell">-</td>`;
           } else {
-            const wins = (stats[rowChar.id] && stats[rowChar.id][colChar.id]) || 0;
-            const losses = (stats[colChar.id] && stats[colChar.id][rowChar.id]) || 0;
+            const winsValue = stats[rowChar.id] && stats[rowChar.id][colChar.id];
+            const lossesValue = stats[colChar.id] && stats[colChar.id][rowChar.id];
+            const wins = Number.isFinite(Number(winsValue)) ? Math.max(0, Number(winsValue)) : 0;
+            const losses = Number.isFinite(Number(lossesValue)) ? Math.max(0, Number(lossesValue)) : 0;
             const total = wins + losses;
             if (total === 0) {
               table += `<td class="empty-cell" style="color:var(--text-muted);">-</td>`;
@@ -356,7 +336,7 @@ export function renderLobby(container, data = {}) {
     showGlobalChat(isOwner ? '房间已创建，等待对手加入...' : '已重新加入等待中的房间。');
     const modeName = mode === 'sanguosha' ? '大乱斗' : '1v1';
     const playerList = mode === 'sanguosha'
-      ? `<div id="ffa-player-list">已加入: <ul>${players.map(p => `<li>${p.nickname}</li>`).join('')}</ul></div>`
+      ? `<div id="ffa-player-list">已加入: <ul>${players.map(p => `<li>${escapeHTML(p?.nickname || '匿名玩家')}</li>`).join('')}</ul></div>`
       : '';
     const inviteUrl = new URL(window.location.href);
     inviteUrl.search = '';
@@ -365,7 +345,7 @@ export function renderLobby(container, data = {}) {
     statusDiv.innerHTML = `
       <div class="panel" style="text-align:center; padding:16px;">
         <p style="color:var(--text-secondary);">${modeName} 房间号：</p>
-        <p style="font-family:var(--font-display); font-size:2rem; font-weight:900; color:var(--accent); margin:8px 0;">${roomId}</p>
+        <p style="font-family:var(--font-display); font-size:2rem; font-weight:900; color:var(--accent); margin:8px 0;">${escapeHTML(roomId)}</p>
         <p class="status-msg">等待好友加入…</p>
         ${playerList}
         ${mode === 'sanguosha' && isOwner ? `<button id="btn-start-ffa" class="btn btn-primary" style="margin-top:12px; width:100%;">全员准备完毕，开始游戏</button>` : ''}
@@ -399,7 +379,7 @@ export function renderLobby(container, data = {}) {
 
   gameSocket.on('ffa_room_update', ({ players }) => {
     // 仅在房主端显示或者全员大厅显示
-    const list = players.map(p => `<li>${p.nickname}</li>`).join('');
+    const list = (Array.isArray(players) ? players : []).map(p => `<li>${escapeHTML(p?.nickname || '匿名玩家')}</li>`).join('');
     const listEl = document.getElementById('ffa-player-list');
     if(listEl) listEl.innerHTML = `已加入: <ul>${list}</ul>`;
     else {
@@ -416,21 +396,21 @@ export function renderLobby(container, data = {}) {
 
   gameSocket.on('match_found', (data) => {
     gameSocket.currentRoomId = data.roomId;
-    if (data.mode === 'autochess') {
-      navigate('autochess', data);
-    } else {
+    {
       showGlobalChat('已连接到对局！');
       navigate('preparation', data);
     }
   });
 
-  gameSocket.on('error_msg', ({ message }) => {
-    statusDiv.innerHTML = `<p style="color:var(--red);">✗ ${message}</p>`;
+  gameSocket.on('error_msg', (data = {}) => {
+    const message = typeof data === 'string' ? data : data.message;
+    statusDiv.innerHTML = `<p style="color:var(--red);">✗ ${escapeHTML(message || '发生错误')}</p>`;
   });
 
-  gameSocket.on('room_closed', ({ reason }) => {
+  gameSocket.on('room_closed', (data = {}) => {
+    const reason = typeof data === 'string' ? data : data.reason;
     gameSocket.currentRoomId = null;
-    statusDiv.innerHTML = `<p style="color:var(--text-secondary);">${reason || '房间已关闭'}</p>`;
+    statusDiv.innerHTML = `<p style="color:var(--text-secondary);">${escapeHTML(reason || '房间已关闭')}</p>`;
   });
 
   if (data.resumedRoom) showWaitingRoom(data.resumedRoom);

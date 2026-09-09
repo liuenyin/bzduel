@@ -5,6 +5,7 @@ import { gameSocket } from '../net/socket.js';
 import { navigate } from '../main.js';
 import { characters } from '../../shared/characters.js';
 import { SUBJECTS, getSubjectLabel, getSubjectIcon, getSkillMultiplier, DICE_COLORS } from '../../shared/rules.js';
+import { escapeHTML } from '../utils/html.js';
 
 function portraitInitials(name) {
   return Array.from(String(name || '?').replace(/[\[\]\s]/g, '')).slice(-2).join('') || '?';
@@ -12,9 +13,9 @@ function portraitInitials(name) {
 
 function portraitFrame(character, className = '') {
   return `
-    <span class="portrait-frame ${className}">
-      <span class="portrait-fallback" aria-hidden="true">${portraitInitials(character.name)}</span>
-      ${character.image ? `<img src="${character.image}" alt="${character.name}" onerror="this.remove()">` : ''}
+    <span class="portrait-frame ${escapeHTML(className)}">
+      <span class="portrait-fallback" aria-hidden="true">${escapeHTML(portraitInitials(character.name))}</span>
+      ${character.image ? `<img src="${escapeHTML(character.image)}" alt="${escapeHTML(character.name)}" onerror="this.remove()">` : ''}
     </span>
   `;
 }
@@ -30,8 +31,8 @@ export function renderPreparation(container, data) {
         ${selectedAiOpponent ? portraitFrame(selectedAiOpponent, 'prep-opponent-avatar') : ''}
         <div>
           <span>对手</span>
-          <strong>${opponent || state.opponent.nickname}</strong>
-          ${selectedAiOpponent ? `<small>指定角色：${selectedAiOpponent.name}</small>` : ''}
+          <strong>${escapeHTML(opponent || state.opponent?.nickname || '未知对手')}</strong>
+          ${selectedAiOpponent ? `<small>指定角色：${escapeHTML(selectedAiOpponent.name)}</small>` : ''}
         </div>
       </div>
 
@@ -231,7 +232,7 @@ function renderSchedule(schedule) {
     .map((subj, i) => `
       <div class="schedule-item" data-index="${i}">
         <span class="icon">${getSubjectIcon(subj)}</span>
-        <span class="label">${SUBJECTS[subj]?.label || subj}</span>
+        <span class="label">${escapeHTML(SUBJECTS[subj]?.label || subj)}</span>
       </div>
     `)
     .join('');
@@ -244,7 +245,7 @@ function renderAvatar(char, gameMode) {
   return `
     <div class="avatar-cell ${disabled ? 'disabled' : ''}" data-id="${char.id}" style="${disabled ? 'opacity: 0.5; filter: grayscale(1); cursor: not-allowed; position: relative;' : ''}">
       ${portraitFrame(char, 'avatar-img')}
-      <div class="avatar-name">${char.name}</div>
+      <div class="avatar-name">${escapeHTML(char.name)}</div>
       ${disabled ? `<div style="position:absolute; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6); border-radius:12px; display:flex; align-items:center; justify-content:center; color:white; font-size:10px; font-weight:bold;">仅大乱斗</div>` : ''}
     </div>
   `;

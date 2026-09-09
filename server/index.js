@@ -9,7 +9,7 @@ import { dirname, join } from 'path';
 import {
   createGame, selectCard, setReady, useReschedule,
   rollAttack, rerollDice, confirmAttack, confirmDefense, selectTarget, buyWater, chooseDreamTarget,
-  playTacticalCard, refreshDraftSlot, buyDraftCard, confirmDraftReady,
+  playTacticalCard, refreshDraftSlot, buyDraftCard, confirmDraftReady, eliminateDisconnectedPlayer,
   getCurrentAttackerId, getCurrentDefenderId, getStateView, getAttackConfirmationView,
   getEffectiveDicePool, getAllowedSlotCount, TURN,
 } from './game/engine.js';
@@ -65,11 +65,38 @@ const rooms = new Map();
 const matchQueue = [];
 const socketToRoom = new Map();
 const activeSockets = new Map();
-const acRuns = new Map(); // socketId -> autochess run
+const acRuns = new Map(); // persistent playerId -> autochess run
 const reconnectGraceMs = Math.max(1000, Number(process.env.RECONNECT_GRACE_MS) || 60000);
 const finishedRoomRetentionMs = Math.max(30000, Number(process.env.FINISHED_ROOM_RETENTION_MS) || 300000);
 let roomCounter = 1000;
 function newRoomId() { return String(++roomCounter); }
+
+function payloadObject(payload) {
+  return payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : {};
+}
+
+function normalizeNickname(value) {
+  if (typeof value !== 'string') return null;
+  const nickname = value.trim();
+  if (!nickname || Array.from(nickname).length > 12) return null;
+  return nickname;
+}
+
+function validRoomId(value) {
+  return typeof value === 'string' && /^\d{1,8}$/.test(value);
+}
+
+function hasActiveSession(playerId) {
+  const run = acRuns.get(playerId);
+  if (run && (run.phase === 'victory' || run.phase === 'defeat')) {
+    acRuns.delete(playerId);
+  }
+  return socketToRoom.has(playerId) || acRuns.has(playerId);
+}
+
+function rejectInvalidNickname(socket) {
+  socket.emit('error_msg', { message: '昵称不能为空且不能超过12个字符' });
+}
 
 // ── Socket.IO ──
 io.on('connection', (socket) => {
@@ -90,7 +117,14 @@ io.on('connection', (socket) => {
   });
 
   // ── PVE ──
-  socket.on('start_pve', ({ nickname, aiCardId = null } = {}) => {
+  socket.on('start_pve', (payload = {}) => {
+    const { nickname: rawNickname, aiCardId = null } = payloadObject(payload);
+    const nickname = normalizeNickname(rawNickname);
+    if (!nickname) return rejectInvalidNickname(socket);
+    if (hasActiveSession(playerId)) {
+      socket.emit('error_msg', { message: '你已经在其他对局中' });
+      return;
+    }
     const requestedAiCard = typeof aiCardId === 'string' ? characterMap[aiCardId] : null;
     if (aiCardId && (!requestedAiCard || requestedAiCard.ffaOnly)) {
       socket.emit('error_msg', { message: '无法使用该角色作为人机对手' });
@@ -123,7 +157,13 @@ io.on('connection', (socket) => {
   });
 
   // ── 创建房间 ──
-  socket.on('create_room', ({ nickname }) => {
+  socket.on('create_room', (payload = {}) => {
+    const nickname = normalizeNickname(payloadObject(payload).nickname);
+    if (!nickname) return rejectInvalidNickname(socket);
+    if (hasActiveSession(playerId)) {
+      socket.emit('error_msg', { message: '你已经在其他对局中' });
+      return;
+    }
     const roomId = newRoomId();
     rooms.set(roomId, {
       game: { pending: true, creatorId: playerId, creatorName: nickname, mode: '1v1' },
@@ -135,7 +175,18 @@ io.on('connection', (socket) => {
   });
 
   // ── 加入房间 ──
-  socket.on('join_room', ({ nickname, roomId }) => {
+  socket.on('join_room', (payload = {}) => {
+    const { roomId } = payloadObject(payload);
+    const nickname = normalizeNickname(payloadObject(payload).nickname);
+    if (!nickname) return rejectInvalidNickname(socket);
+    if (!validRoomId(roomId)) {
+      socket.emit('error_msg', { message: '房间号无效' });
+      return;
+    }
+    if (hasActiveSession(playerId)) {
+      socket.emit('error_msg', { message: '你已经在其他对局中' });
+      return;
+    }
     const room = rooms.get(roomId);
     if (!room || !room.game.pending || room.game.mode !== '1v1') {
       socket.emit('error_msg', { message: '房间不存在或已开始' }); return;
@@ -156,7 +207,13 @@ io.on('connection', (socket) => {
   });
 
   // ── 匹配 ──
-  socket.on('join_matchmaking', ({ nickname }) => {
+  socket.on('join_matchmaking', (payload = {}) => {
+    const nickname = normalizeNickname(payloadObject(payload).nickname);
+    if (!nickname) return rejectInvalidNickname(socket);
+    if (hasActiveSession(playerId)) {
+      socket.emit('error_msg', { message: '你已经在其他对局中' });
+      return;
+    }
     if (matchQueue.length > 0) {
       const idx = matchQueue.findIndex(p => p.playerId !== playerId);
       if (idx === -1) {
@@ -197,7 +254,13 @@ io.on('connection', (socket) => {
   });
 
   // ── FFA 大乱斗房间 ──
-  socket.on('create_ffa_room', ({ nickname }) => {
+  socket.on('create_ffa_room', (payload = {}) => {
+    const nickname = normalizeNickname(payloadObject(payload).nickname);
+    if (!nickname) return rejectInvalidNickname(socket);
+    if (hasActiveSession(playerId)) {
+      socket.emit('error_msg', { message: '你已经在其他对局中' });
+      return;
+    }
     const roomId = newRoomId();
     rooms.set(roomId, {
       game: { pending: true, mode: 'sanguosha', players: [{ id: playerId, nickname }] },
@@ -209,13 +272,27 @@ io.on('connection', (socket) => {
     io.to(roomId).emit('ffa_room_update', { players: [{ id: playerId, nickname }] });
   });
 
-  socket.on('join_ffa_room', ({ nickname, roomId }) => {
+  socket.on('join_ffa_room', (payload = {}) => {
+    const { roomId } = payloadObject(payload);
+    const nickname = normalizeNickname(payloadObject(payload).nickname);
+    if (!nickname) return rejectInvalidNickname(socket);
+    if (!validRoomId(roomId)) {
+      socket.emit('error_msg', { message: '房间号无效' });
+      return;
+    }
+    if (hasActiveSession(playerId)) {
+      socket.emit('error_msg', { message: '你已经在其他对局中' });
+      return;
+    }
     const room = rooms.get(roomId);
     if (!room || !room.game.pending || room.game.mode !== 'sanguosha') {
       socket.emit('error_msg', { message: '房间不存在或已开始' }); return;
     }
     if (room.game.players.length >= 8) {
       socket.emit('error_msg', { message: '房间已满 (最多8人)' }); return;
+    }
+    if (room.game.players.some(player => player.id === playerId)) {
+      socket.emit('error_msg', { message: '你已经在该房间' }); return;
     }
     room.game.players.push({ id: playerId, nickname });
     room.playerSockets.push(playerId);
@@ -226,9 +303,11 @@ io.on('connection', (socket) => {
     io.to(roomId).emit('ffa_room_update', { players: room.game.players });
   });
 
-  socket.on('start_ffa_game', ({ roomId }) => {
+  socket.on('start_ffa_game', (payload = {}) => {
+    const roomId = payloadObject(payload).roomId;
     const room = rooms.get(roomId);
     if (!room || !room.game.pending || room.game.mode !== 'sanguosha') return;
+    if (socketToRoom.get(playerId) !== roomId) return;
     // 只有房主可以开始
     if (room.game.players[0].id !== playerId) return;
     if (room.game.players.length < 3) {
@@ -249,7 +328,8 @@ io.on('connection', (socket) => {
   });
 
   // ── 战斗内交互 ──
-  socket.on('select_target', ({ targetId }) => {
+  socket.on('select_target', (payload = {}) => {
+    const targetId = payloadObject(payload).targetId;
     const room = getRoom(playerId); if (!room) return;
     if (selectTarget(room.game, playerId, targetId).ok) {
       room.playerSockets.forEach(pid => {
@@ -258,7 +338,8 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('choose_dream_target', ({ targetIndex }) => {
+  socket.on('choose_dream_target', (payload = {}) => {
+    const targetIndex = payloadObject(payload).targetIndex;
     const room = getRoom(playerId); if (!room) return;
     const res = chooseDreamTarget(room.game, playerId, targetIndex);
     if (res.ok) {
@@ -266,7 +347,8 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('select_card', ({ cardId }) => {
+  socket.on('select_card', (payload = {}) => {
+    const cardId = payloadObject(payload).cardId;
     const room = getRoom(playerId); if (!room) return;
     if (selectCard(room.game, playerId, cardId).ok) {
       socket.emit('state_update', getStateView(room.game, playerId));
@@ -297,7 +379,8 @@ io.on('connection', (socket) => {
   });
 
   // ── 调课权 ──
-  socket.on('use_reschedule', ({ classIndex, newType }) => {
+  socket.on('use_reschedule', (payload = {}) => {
+    const { classIndex, newType } = payloadObject(payload);
     const room = getRoom(playerId); if (!room) return;
     if (useReschedule(room.game, playerId, classIndex, newType).ok) {
       emitStateToAll(room);
@@ -317,13 +400,16 @@ io.on('connection', (socket) => {
       return;
     }
       emitStateToAll(room);
-      if (res.selfKill) {
+      if (res.skipped) {
+        emitSkippedAttackResolution(room, res);
+      } else if (res.selfKill) {
         emitImmediateTurnResolution(room, res);
       }
   });
 
   // ── 重投骰子 ──
-  socket.on('reroll_dice', ({ indices } = {}) => {
+  socket.on('reroll_dice', (payload = {}) => {
+    const indices = payloadObject(payload).indices;
     const room = getRoom(playerId); if (!room) return;
     const res = rerollDice(room.game, playerId, indices);
     if (!res.ok) return;
@@ -360,7 +446,8 @@ io.on('connection', (socket) => {
   });
 
   // ── 确认骰子 ──
-  socket.on('confirm_dice', ({ indices, options = {} } = {}) => {
+  socket.on('confirm_dice', (payload = {}) => {
+    const { indices, options = {} } = payloadObject(payload);
     const roomId = socketToRoom.get(playerId);
     const room = getRoom(playerId); if (!room) return;
     const g = room.game;
@@ -452,6 +539,11 @@ io.on('connection', (socket) => {
     const room = getRoom(playerId);
     if (room && room.game.players) {
       socket.emit('state_update', getStateView(room.game, playerId));
+      return;
+    }
+    const run = acRuns.get(playerId);
+    if (run) {
+      socket.emit('ac_run_update', getRunView(run));
     }
   });
 
@@ -462,7 +554,8 @@ io.on('connection', (socket) => {
   });
 
   // ── 战术卡与商店 ──
-  socket.on('play_tactical_card', ({ cardId } = {}, acknowledge) => {
+  socket.on('play_tactical_card', (payload = {}, acknowledge) => {
+    const cardId = payloadObject(payload).cardId;
     const room = getRoom(playerId);
     if (!room || !room.game) {
       if (typeof acknowledge === 'function') acknowledge({ ok: false, error: '对局不存在' });
@@ -478,10 +571,20 @@ io.on('connection', (socket) => {
     if (typeof acknowledge === 'function') acknowledge({ ok: true, card: res.card });
     emitToAll(room, 'tactical_card_played', { playerId, card: res.card });
     emitStateToAll(room);
-    if (res.gameOver) emitTacticalGameOver(room, res);
+    if (res.gameOver) {
+      emitTacticalGameOver(room, res);
+      return;
+    }
+    if (res.defeatedIds?.length) {
+      emitImmediateTurnResolution(room, res);
+      return;
+    }
+    const roomId = socketToRoom.get(playerId);
+    if (roomId) triggerAiPhase(roomId);
   });
 
-  socket.on('refresh_draft_slot', ({ slotIndex }) => {
+  socket.on('refresh_draft_slot', (payload = {}) => {
+    const slotIndex = payloadObject(payload).slotIndex;
     const room = getRoom(playerId);
     if (!room || !room.game) return;
     const res = refreshDraftSlot(room.game, playerId, slotIndex);
@@ -492,7 +595,8 @@ io.on('connection', (socket) => {
     emitStateToAll(room);
   });
 
-  socket.on('buy_draft_card', ({ slotIndex } = {}, acknowledge) => {
+  socket.on('buy_draft_card', (payload = {}, acknowledge) => {
+    const slotIndex = payloadObject(payload).slotIndex;
     const room = getRoom(playerId);
     if (!room || !room.game) {
       if (typeof acknowledge === 'function') acknowledge({ ok: false, error: '对局不存在' });
@@ -512,8 +616,14 @@ io.on('connection', (socket) => {
   socket.on('draft_ready', () => {
     const room = getRoom(playerId);
     if (!room || !room.game) return;
-    confirmDraftReady(room.game, playerId);
+    const result = confirmDraftReady(room.game, playerId);
+    if (!result.ok) {
+      socket.emit('error_msg', { message: result.error || '无法完成选牌' });
+      return;
+    }
     emitStateToAll(room);
+    const roomId = socketToRoom.get(playerId);
+    if (result.allReady && roomId) triggerAiPhase(roomId);
   });
 
   socket.on('surrender', (_payload = {}, acknowledge) => {
@@ -536,9 +646,27 @@ io.on('connection', (socket) => {
 
   // ── 断线 ──
   // ── 聊天系统 ──
-  socket.on('chat_msg', ({ roomId, sender, msg }) => {
-    if (!roomId) return;
-    io.to(roomId).emit('chat_msg_receive', { sender, msg, time: new Date().toLocaleTimeString('en-US', { hour12: false }) });
+  socket.on('chat_msg', (payload = {}) => {
+    const roomId = socketToRoom.get(playerId);
+    const room = roomId ? rooms.get(roomId) : null;
+    const msg = payloadObject(payload).msg;
+    if (!room || typeof msg !== 'string') return;
+
+    const text = msg.trim().slice(0, 200);
+    if (!text) return;
+    const sender = room.game?.players?.find(player => player.id === playerId)?.nickname
+      || room.game?.creatorName
+      || '匿名玩家';
+    const recipients = new Set(room.playerSockets || room.game?.players?.map(player => player.id) || []);
+    for (const recipientId of recipients) {
+      if (recipientId && !recipientId.startsWith('AI_')) {
+        io.to(recipientId).emit('chat_msg_receive', {
+          sender,
+          msg: text,
+          time: new Date().toLocaleTimeString('en-US', { hour12: false }),
+        });
+      }
+    }
   });
 
   socket.on('disconnect', () => {
@@ -614,6 +742,10 @@ function triggerAiPhase(roomId) {
           emitTacticalGameOver(room, result);
           return;
         }
+        if (result.defeatedIds?.length) {
+          emitImmediateTurnResolution(room, result);
+          return;
+        }
       }
     }
   }
@@ -627,6 +759,10 @@ function triggerAiPhase(roomId) {
       if (!rollRes.ok) return;
       emitStateToAll(room);
 
+      if (rollRes.skipped) {
+        emitSkippedAttackResolution(room, rollRes);
+        return;
+      }
       if (rollRes.selfKill) {
         emitImmediateTurnResolution(room, rollRes);
         return;
@@ -788,16 +924,17 @@ function recordCompletedMatch(game) {
 function emitImmediateTurnResolution(room, result) {
   const game = room.game;
   emitToAll(room, 'turn_resolved', pid => ({
-    damage: 0,
-    selfDamage: result.selfDamage || 0,
-    pierce: false,
-    finalDef: 0,
-    penalty: 0,
-    defNegTriggered: false,
-    defNegName: null,
-    defPosTriggered: false,
-    defPosName: null,
-    noobTriggered: false,
+    ...result,
+    damage: result.damage ?? 0,
+    selfDamage: result.selfDamage ?? 0,
+    pierce: result.pierce ?? false,
+    finalDef: result.finalDef ?? 0,
+    penalty: result.penalty ?? 0,
+    defNegTriggered: result.defNegTriggered ?? false,
+    defNegName: result.defNegName ?? null,
+    defPosTriggered: result.defPosTriggered ?? false,
+    defPosName: result.defPosName ?? null,
+    noobTriggered: result.noobTriggered ?? false,
     gameOver: result.gameOver ?? true,
     winner: result.winner ?? game.winner,
     deathCause: result.deathCause || 'self_damage',
@@ -805,6 +942,40 @@ function emitImmediateTurnResolution(room, result) {
     state: getStateView(game, pid),
   }));
   if (result.gameOver ?? true) {
+    recordCompletedMatch(game);
+    scheduleFinishedRoomCleanup(room);
+    return;
+  }
+
+  const roomId = [...rooms.entries()].find(([, candidate]) => candidate === room)?.[0];
+  if (result.classChanged) {
+    emitToAll(room, 'class_change', () => ({
+      subject: result.nextSubject,
+      index: game.currentClassIndex,
+      day: result.currentDay || game.currentDay || 1,
+      dayChanged: !!result.dayChanged,
+    }));
+    if (roomId) setTimeout(() => triggerAiPhase(roomId), 5000);
+  } else if (roomId) {
+    triggerAiPhase(roomId);
+  }
+}
+
+function emitSkippedAttackResolution(room, result) {
+  const game = room.game;
+  emitToAll(room, 'turn_resolved', pid => ({
+    damage: 0,
+    selfDamage: 0,
+    pierce: false,
+    finalDef: 0,
+    penalty: 0,
+    skipped: true,
+    gameOver: !!result.gameOver,
+    winner: result.winner ?? game.winner,
+    attackerIdx: result.attackerIdx,
+    state: getStateView(game, pid),
+  }));
+  if (result.gameOver) {
     recordCompletedMatch(game);
     scheduleFinishedRoomCleanup(room);
     return;
@@ -985,6 +1156,16 @@ function getPersistentPlayerId(socket) {
 }
 
 function resumePlayerSession(socket, playerId) {
+  const autochessRun = acRuns.get(playerId);
+  if (autochessRun) {
+    return {
+      ok: true,
+      roomId: `ac_${playerId}`,
+      mode: 'autochess',
+      run: getRunView(autochessRun),
+    };
+  }
+
   const roomId = socketToRoom.get(playerId);
   const room = roomId ? rooms.get(roomId) : null;
   if (!room) {
@@ -1096,21 +1277,12 @@ function finalizePlayerDisconnect(roomId, playerId) {
   const player = room.game.players?.find(p => p.id === playerId);
   if (!player) return;
 
-  player.hp = 0;
-  player.isDead = true;
-
-  if (room.game.turnPhase === TURN.DEF_ROLLED && room.game.turnData?.isAoE) {
-    const defState = room.game.turnData.aoeDefenses[playerId];
-    if (defState && !defState.confirmed) {
-      const indices = defState.rolls.map((_, index) => index).slice(0, player.card.defSlots);
-      const result = confirmDefense(room.game, playerId, indices);
-      if (result.ok && !result.waitingForOthers) {
-        emitToAll(room, 'turn_resolved', pid => ({ ...result, state: getStateView(room.game, pid) }));
-      }
-    }
-  }
-
+  const result = eliminateDisconnectedPlayer(room.game, playerId);
   emitToAll(room, 'opponent_disconnected', { disconnectedId: playerId });
+  if (result.ok && (result.gameOver || result.advanced)) {
+    emitImmediateTurnResolution(room, result);
+    return;
+  }
   emitStateToAll(room);
 }
 
@@ -1158,21 +1330,89 @@ function cleanupRoom(roomOrId) {
   rooms.delete(rid);
 }
 
+function buildAutoCombatFighter(run, buffs) {
+  const coreEntry = run.board.core;
+  const coreCfg = AC_CHAR_MAP[coreEntry.charId];
+  const coreStats = scaleCharStats(coreCfg, coreEntry.star);
+  let dicePool = [...coreStats.dicePool];
+  const growthByIndex = Array.isArray(run.coreDiceGrowthByIndex) ? run.coreDiceGrowthByIndex : [];
+  dicePool = dicePool.map((face, index) => face + (Number(growthByIndex[index]) || 0));
+  if (run.coreDiceGrowth > 0 && dicePool.length > 0) {
+    const minIndex = dicePool.indexOf(Math.min(...dicePool));
+    dicePool[minIndex] += run.coreDiceGrowth;
+  }
+  if (Array.isArray(run.coreExtraDice)) dicePool.push(...run.coreExtraDice);
+
+  const luckyDice = (run.investmentBuffs || []).filter(buff => buff.id === 'lucky_dice');
+  if (luckyDice.length > 0) {
+    const boost = luckyDice.reduce((sum, buff) => sum + buff.value, 0);
+    dicePool = dicePool.map(face => face + boost);
+  }
+
+  return {
+    id: coreEntry.charId,
+    name: coreCfg.name,
+    hp: coreStats.hp,
+    dicePool,
+    atkSlots: coreStats.atkSlots,
+    defSlots: coreStats.defSlots,
+    coreSkills: { positive: coreCfg.corePositive, negative: coreCfg.coreNegative },
+    rerollAll: !!coreCfg.rerollAll,
+  };
+}
+
+function autoCombatOptions(run, buffs) {
+  const scholarBonus = (run.investmentBuffs || [])
+    .filter(buff => buff.id === 'scholar_aura')
+    .reduce((sum, buff) => sum + buff.value, 0);
+  return {
+    atkBonusThisPlane: (run.atkBonusThisPlane || 0) + scholarBonus,
+    courseMultiplier: 1 + (buffs.courseMult || 0),
+  };
+}
+
+function persistAutoCombatGrowth(run, buffs, combatResult, coreId) {
+  if (buffs.growMinDie > 0) run.coreDiceGrowth = (run.coreDiceGrowth || 0) + buffs.growMinDie;
+  for (const entry of combatResult.log || []) {
+    if (entry.commanderRecruit && entry.defenderSide === 'p1') {
+      run.coreExtraDice ??= [];
+      run.coreExtraDice.push(entry.commanderRecruit);
+    }
+    if (entry.attackerSide === 'p1' && Array.isArray(entry.diceGrowthIndices) && entry.diceGrowth > 0) {
+      run.coreDiceGrowthByIndex ??= [];
+      for (const index of entry.diceGrowthIndices) {
+        if (Number.isInteger(index) && index >= 0) {
+          run.coreDiceGrowthByIndex[index] = (run.coreDiceGrowthByIndex[index] || 0) + entry.diceGrowth;
+        }
+      }
+    }
+  }
+}
+
 // ============================================================
 // 货币战争 (自走棋) Socket 处理
 // ============================================================
 io.on('connection', (socket) => {
+  const playerId = socket.data.playerId || getPersistentPlayerId(socket);
+
   // ── 开始货币战争 ──
-  socket.on('start_autochess', ({ nickname }) => {
-    const run = createRun(socket.id, nickname);
-    acRuns.set(socket.id, run);
+  socket.on('start_autochess', (payload = {}) => {
+    const nickname = normalizeNickname(payloadObject(payload).nickname);
+    if (!nickname) return rejectInvalidNickname(socket);
+    if (hasActiveSession(playerId)) {
+      socket.emit('error_msg', { message: '你已经在其他对局中' });
+      return;
+    }
+    const run = createRun(playerId, nickname);
+    acRuns.set(playerId, run);
     const runView = getRunView(run);
-    socket.emit('match_found', { roomId: 'ac_' + socket.id, mode: 'autochess', run: runView });
+    socket.emit('match_found', { roomId: 'ac_' + playerId, mode: 'autochess', run: runView });
   });
 
   // ── 购买角色 ──
-  socket.on('ac_buy', ({ shopIndex }) => {
-    const run = acRuns.get(socket.id);
+  socket.on('ac_buy', (payload = {}) => {
+    const shopIndex = payloadObject(payload).shopIndex;
+    const run = acRuns.get(playerId);
     if (!run) return;
     const result = buyCharacter(run, shopIndex);
     if (!result.ok) { socket.emit('error_msg', { message: result.error }); return; }
@@ -1183,16 +1423,19 @@ io.on('connection', (socket) => {
   });
 
   // ── 卖出角色 ──
-  socket.on('ac_sell', ({ from, index }) => {
-    const run = acRuns.get(socket.id);
+  socket.on('ac_sell', (payload = {}) => {
+    const { from, index } = payloadObject(payload);
+    const run = acRuns.get(playerId);
     if (!run) return;
-    sellCharacter(run, from, index);
+    const result = sellCharacter(run, from, index);
+    if (!result.ok) { socket.emit('error_msg', { message: result.error || 'sell_failed' }); return; }
     socket.emit('ac_run_update', getRunView(run));
   });
 
   // ── 放置角色 ──
-  socket.on('ac_place', ({ benchIndex, slot }) => {
-    const run = acRuns.get(socket.id);
+  socket.on('ac_place', (payload = {}) => {
+    const { benchIndex, slot } = payloadObject(payload);
+    const run = acRuns.get(playerId);
     if (!run) return;
     const result = placeCharacter(run, benchIndex, slot);
     if (!result.ok) { socket.emit('error_msg', { message: result.error }); return; }
@@ -1200,17 +1443,20 @@ io.on('connection', (socket) => {
   });
 
   // ── 从棋盘移回 ──
-  socket.on('ac_remove', ({ slot }) => {
-    const run = acRuns.get(socket.id);
+  socket.on('ac_remove', (payload = {}) => {
+    const slot = payloadObject(payload).slot;
+    const run = acRuns.get(playerId);
     if (!run) return;
-    removeFromBoard(run, slot);
+    const result = removeFromBoard(run, slot);
+    if (!result.ok) { socket.emit('error_msg', { message: result.error || 'remove_failed' }); return; }
     socket.emit('ac_run_update', getRunView(run));
   });
 
   // ── 刷新商店 ──
   socket.on('ac_refresh_shop', () => {
-    const run = acRuns.get(socket.id);
+    const run = acRuns.get(playerId);
     if (!run) return;
+    if (run.phase !== 'shop') { socket.emit('error_msg', { message: 'invalid_phase' }); return; }
     let refreshCost = AC.SHOP_REFRESH_COST;
     const bargainBuff = (run.investmentBuffs || []).filter(b => b.id === 'bargain');
     if (bargainBuff.length > 0) refreshCost = Math.max(0, refreshCost - bargainBuff.reduce((s, b) => s + b.value, 0));
@@ -1222,7 +1468,7 @@ io.on('connection', (socket) => {
 
   // ── 买经验 ──
   socket.on('ac_buy_xp', () => {
-    const run = acRuns.get(socket.id);
+    const run = acRuns.get(playerId);
     if (!run) return;
     const result = buyXP(run);
     if (!result.ok) { socket.emit('error_msg', { message: result.error }); return; }
@@ -1231,36 +1477,18 @@ io.on('connection', (socket) => {
 
   // ── 开始战斗 ──
   socket.on('ac_start_combat', () => {
-    const run = acRuns.get(socket.id);
-    if (!run || !run.board.core) return;
+    const run = acRuns.get(playerId);
+    if (!run || run.phase !== 'shop' || !run.board.core) {
+      socket.emit('error_msg', { message: !run?.board?.core ? '请先放置阵眼' : 'invalid_phase' });
+      return;
+    }
 
     run.phase = 'combat';
     const buffs = calculateSupportBuffs(run);
 
-    // 构建玩家战斗角色
     const coreEntry = run.board.core;
     const coreCfg = AC_CHAR_MAP[coreEntry.charId];
-    const coreStats = scaleCharStats(coreCfg, coreEntry.star);
-    const playerFighter = {
-      name: coreCfg.name,
-      hp: coreStats.hp,
-      dicePool: [...coreStats.dicePool],
-      atkSlots: coreStats.atkSlots,
-      defSlots: coreStats.defSlots,
-      coreSkills: { positive: coreCfg.corePositive, negative: coreCfg.coreNegative },
-    };
-
-    // 幸运骰: 所有骰子面数+N
-    const luckyDice = (run.investmentBuffs || []).filter(b => b.id === 'lucky_dice');
-    if (luckyDice.length > 0) {
-      const boost = luckyDice.reduce((s, b) => s + b.value, 0);
-      playerFighter.dicePool = playerFighter.dicePool.map(f => f + boost);
-    }
-
-    // 学霸光环: 攻击+4
-    let scholarBonus = 0;
-    const scholarBuff = (run.investmentBuffs || []).filter(b => b.id === 'scholar_aura');
-    if (scholarBuff.length > 0) scholarBonus = scholarBuff.reduce((s, b) => s + b.value, 0);
+    const playerFighter = buildAutoCombatFighter(run, buffs);
 
     // 生成 AI 对手
     const nodeType = getCurrentNodeType(run);
@@ -1273,22 +1501,17 @@ io.on('connection', (socket) => {
     }
 
     // 执行自动战斗
-    const combatResult = autoResolveMatch(playerFighter, aiFighter, buffs, {
-      atkBonusThisPlane: (run.atkBonusThisPlane || 0) + scholarBonus,
-    });
+    const combatResult = autoResolveMatch(playerFighter, aiFighter, buffs, autoCombatOptions(run, buffs));
 
     const won = combatResult.winner === 1;
 
     // 处理战后结算
     const battleResult = processBattleResult(run, won, combatResult.totalDamageByP1);
-
-    // 辅阵技：战后骰面成长
-    if (won && buffs.growMinDie > 0 && coreCfg) {
-      // 找骰池最小的骰子，加面数
-      const pool = coreStats.dicePool;
-      const minIdx = pool.indexOf(Math.min(...pool));
-      // 永久修改需要存储，这里简化为记录buff
+    if (!battleResult.ok) {
+      socket.emit('error_msg', { message: battleResult.error || 'invalid_result' });
+      return;
     }
+    persistAutoCombatGrowth(run, buffs, combatResult, coreEntry.charId);
 
     socket.emit('ac_combat_result', {
       combatLog: combatResult.log,
@@ -1301,29 +1524,17 @@ io.on('connection', (socket) => {
 
   // ── 手动战斗 ──
   socket.on('ac_start_manual_combat', () => {
-    const run = acRuns.get(socket.id);
-    if (!run || !run.board.core) return;
+    const run = acRuns.get(playerId);
+    if (!run || run.phase !== 'shop' || !run.board.core) {
+      socket.emit('error_msg', { message: !run?.board?.core ? '请先放置阵眼' : 'invalid_phase' });
+      return;
+    }
 
     run.phase = 'manual_combat';
     const buffs = calculateSupportBuffs(run);
 
     const coreEntry = run.board.core;
-    const coreCfg = AC_CHAR_MAP[coreEntry.charId];
-    const coreStats = scaleCharStats(coreCfg, coreEntry.star);
-    const playerFighter = {
-      name: coreCfg.name,
-      hp: coreStats.hp,
-      dicePool: [...coreStats.dicePool],
-      atkSlots: coreStats.atkSlots,
-      defSlots: coreStats.defSlots,
-      coreSkills: { positive: coreCfg.corePositive, negative: coreCfg.coreNegative },
-    };
-
-    const luckyDice = (run.investmentBuffs || []).filter(b => b.id === 'lucky_dice');
-    if (luckyDice.length > 0) {
-      const boost = luckyDice.reduce((s, b) => s + b.value, 0);
-      playerFighter.dicePool = playerFighter.dicePool.map(f => f + boost);
-    }
+    const playerFighter = buildAutoCombatFighter(run, buffs);
 
     const nodeType = getCurrentNodeType(run);
     let aiFighter;
@@ -1332,6 +1543,14 @@ io.on('connection', (socket) => {
     } else {
       aiFighter = generateAIOpponent(run);
     }
+
+    run._manualCombat = {
+      playerFighter,
+      aiFighter,
+      buffs,
+      opts: autoCombatOptions(run, buffs),
+      coreId: coreEntry.charId,
+    };
 
     socket.emit('ac_manual_combat_setup', {
       playerFighter,
@@ -1346,19 +1565,42 @@ io.on('connection', (socket) => {
     });
   });
 
-  socket.on('ac_manual_combat_done', ({ won, totalDamage }) => {
-    const run = acRuns.get(socket.id);
-    if (!run) return;
-    processBattleResult(run, won, totalDamage || 0);
+  socket.on('ac_manual_combat_done', (payload = {}) => {
+    const run = acRuns.get(playerId);
+    if (!run || run.phase !== 'manual_combat' || !run._manualCombat) {
+      socket.emit('error_msg', { message: 'invalid_phase' });
+      return;
+    }
+
+    const { playerFighter, aiFighter, buffs, opts, coreId } = run._manualCombat;
+    const combatResult = autoResolveMatch(playerFighter, aiFighter, buffs, opts);
+    const won = combatResult.winner === 1;
+    const result = processBattleResult(run, won, combatResult.totalDamageByP1);
+    if (!result.ok) {
+      socket.emit('error_msg', { message: result.error || 'invalid_result' });
+      return;
+    }
+    persistAutoCombatGrowth(run, buffs, combatResult, coreId);
+    delete run._manualCombat;
+    socket.emit('ac_combat_result', {
+      combatLog: combatResult.log,
+      won,
+      goldEarned: result.goldEarned,
+      commanderDamage: result.commanderDamage,
+      result: getRunView(run),
+    });
     socket.emit('ac_run_update', getRunView(run));
   });
 
   // ── 事件节点选择 ──
   socket.on('ac_event_choice', () => {
-    const run = acRuns.get(socket.id);
+    const run = acRuns.get(playerId);
     if (!run) return;
     const result = chooseEvent(run);
-    if (!result.ok) return;
+    if (!result.ok) {
+      socket.emit('error_msg', { message: result.error || 'invalid_phase' });
+      return;
+    }
     if (result.choice === 'investment') {
       run._eventOptions = result.options;
       socket.emit('ac_event_options', { options: result.options });
@@ -1370,27 +1612,36 @@ io.on('connection', (socket) => {
   });
 
   // ── 确认投资策略 ──
-  socket.on('ac_confirm_investment', ({ buffIndex }) => {
-    const run = acRuns.get(socket.id);
-    if (!run || !run._eventOptions) return;
+  socket.on('ac_confirm_investment', (payload = {}) => {
+    const run = acRuns.get(playerId);
+    const { buffIndex } = payloadObject(payload);
+    if (!run || !Array.isArray(run._eventOptions)) {
+      socket.emit('error_msg', { message: 'invalid_event' });
+      return;
+    }
+    if (!Number.isInteger(buffIndex) || buffIndex < 0 || buffIndex >= run._eventOptions.length) {
+      socket.emit('error_msg', { message: 'invalid_choice' });
+      return;
+    }
     const result = confirmInvestment(run, run._eventOptions[buffIndex]?.id, run._eventOptions);
+    if (!result.ok) {
+      socket.emit('error_msg', { message: result.error || 'invalid_choice' });
+      return;
+    }
     delete run._eventOptions;
     socket.emit('ac_run_update', getRunView(run));
   });
 
   // ── 购买饮料 ──
-  socket.on('ac_buy_beverage', ({ beverageId }) => {
-    const run = acRuns.get(socket.id);
+  socket.on('ac_buy_beverage', (payload = {}) => {
+    const { beverageId } = payloadObject(payload);
+    const run = acRuns.get(playerId);
     if (!run) return;
     const result = buyBeverage(run, beverageId);
     if (!result.ok) { socket.emit('error_msg', { message: result.error }); return; }
     socket.emit('ac_run_update', getRunView(run));
   });
 
-  // ── 断开连接时清理 ──
-  socket.on('disconnect', () => {
-    acRuns.delete(socket.id);
-  });
 });
 
 const PORT = process.env.PORT || 3000;

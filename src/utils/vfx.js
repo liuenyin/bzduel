@@ -1,5 +1,16 @@
 import gsap from 'gsap';
 
+const hasNativeAnimationFrame = typeof globalThis.requestAnimationFrame === 'function'
+  && typeof globalThis.cancelAnimationFrame === 'function';
+
+// GSAP starts its ticker while the module is imported. Some jsdom-like
+// environments provide requestAnimationFrame without its cancellation pair,
+// which makes GSAP throw asynchronously even when every effect is skipped.
+if (typeof globalThis.requestAnimationFrame === 'function'
+  && typeof globalThis.cancelAnimationFrame !== 'function') {
+  globalThis.cancelAnimationFrame = timerId => clearTimeout(timerId);
+}
+
 const AURA_CLASSES = [
   'aura-gpy-rage',
   'aura-dream-domain',
@@ -11,6 +22,13 @@ const AURA_CLASSES = [
 
 function prefersReducedMotion() {
   return typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+}
+
+function canAnimate() {
+  return hasNativeAnimationFrame
+    && typeof window !== 'undefined'
+    && typeof document !== 'undefined'
+    && typeof globalThis.requestAnimationFrame === 'function';
 }
 
 const EFFECT_COLORS = {
@@ -33,6 +51,10 @@ export const vfxManager = {
    * @param {Function} [onComplete] - Optional callback upon completion
    */
   rollDice(diceElements, finalValues = [], onComplete = null) {
+    if (!canAnimate()) {
+      if (typeof onComplete === 'function') onComplete();
+      return null;
+    }
     const validEls = Array.from(diceElements || []).filter(el => el && typeof el === 'object' && el.style);
     if (validEls.length === 0) {
       if (typeof onComplete === 'function') onComplete();
@@ -96,6 +118,10 @@ export const vfxManager = {
    * @param {Function} [onComplete] - Callback when hit animation finishes
    */
   playHitImpact(targetCardElement, damageAmount, options = {}, onComplete = null) {
+    if (!canAnimate()) {
+      if (typeof onComplete === 'function') onComplete();
+      return null;
+    }
     const opts = options || {};
     const safeDmg = Number.isFinite(damageAmount) ? damageAmount : 0;
     const isCrit = opts.isCrit || safeDmg >= 8;
@@ -159,6 +185,7 @@ export const vfxManager = {
    * @param {number} [intensity=1.0] - Impulse scale
    */
   triggerCameraImpulse(intensity = 1.0) {
+    if (!canAnimate()) return null;
     if (prefersReducedMotion()) return null;
     const target = document.querySelector('.arena') || document.querySelector('#app') || document.body;
     const safeIntensity = Number.isFinite(intensity) ? intensity : 1.0;
@@ -180,6 +207,7 @@ export const vfxManager = {
    * @param {boolean} [isCrit=false] - Critical hit flag
    */
   spawnFloatingDamage(targetElement, damageAmount, isCrit = false, options = {}) {
+    if (!canAnimate()) return null;
     if (!targetElement || !document.body.contains(targetElement)) return null;
 
     const validDmg = Number.isFinite(damageAmount) ? damageAmount : 0;
@@ -215,6 +243,7 @@ export const vfxManager = {
    * @param {string} [type='pos'] - Theme type ('pos', 'neg', 'neu', 'gold', 'crimson', 'azure')
    */
   showSkillBanner(title, subtitle = '', type = 'pos') {
+    if (!canAnimate()) return null;
     const banner = document.createElement('div');
     banner.className = `skill-glass-banner ${type}`;
     banner.innerHTML = `
@@ -248,7 +277,8 @@ export const vfxManager = {
    * @param {string} ultimateName - Ultimate skill key or title
    * @param {HTMLElement} [containerElement=document.body] - Container element
    */
-  triggerUltimateVFX(characterId, ultimateName, containerElement = document.body) {
+  triggerUltimateVFX(characterId, ultimateName, containerElement = null) {
+    if (!canAnimate()) return null;
     this.triggerCameraImpulse(2.2);
 
     const targetContainer = (containerElement && document.body.contains(containerElement)) ? containerElement : document.body;
@@ -425,6 +455,7 @@ export const vfxManager = {
    * @param {HTMLElement} cardElement - .battle-card element
    */
   triggerRevivalHalo(cardElement) {
+    if (!canAnimate()) return null;
     if (!cardElement || !document.body.contains(cardElement)) return;
 
     const ring = document.createElement('div');
@@ -454,6 +485,7 @@ export const vfxManager = {
    * Briefly marks the active attacker without blocking controls.
    */
   playTurnTransition(cardElement, options = {}) {
+    if (!canAnimate()) return null;
     if (!cardElement || !document.body.contains(cardElement)) return null;
     const extraTurn = !!options.extraTurn;
     const ring = document.createElement('div');
@@ -484,6 +516,7 @@ export const vfxManager = {
    * Animates status additions and removals in the compact status row.
    */
   playStatusChange(element, options = {}) {
+    if (!canAnimate()) return null;
     if (!element || !document.body.contains(element)) return null;
     const added = options.added !== false;
     const color = EFFECT_COLORS[options.category] || EFFECT_COLORS.neutral;
@@ -506,6 +539,7 @@ export const vfxManager = {
    * Small local flash for a skill, tactical log entry, counter, or state trigger.
    */
   playSkillTrigger(element, type = 'neutral') {
+    if (!canAnimate()) return null;
     if (!element || !document.body.contains(element)) return null;
     const color = EFFECT_COLORS[type] || EFFECT_COLORS.neutral;
     const flash = document.createElement('span');
@@ -531,6 +565,10 @@ export const vfxManager = {
    * Tactical card feedback with type-aware color and target resolution.
    */
   playTacticalCardResolved(sourceCardEl, targetCardEl, options = {}, onComplete = null) {
+    if (!canAnimate()) {
+      if (typeof onComplete === 'function') onComplete();
+      return null;
+    }
     const color = EFFECT_COLORS[options.cardType] || EFFECT_COLORS.tactical;
     if (prefersReducedMotion()) {
       if (targetCardEl) this.playSkillTrigger(targetCardEl, options.cardType || 'tactical');
@@ -547,6 +585,10 @@ export const vfxManager = {
    * @param {Function} [onComplete=null] - Optional callback
    */
   playTacticalCardVFX(sourceCardEl, targetCardEl, onComplete = null, options = {}) {
+    if (!canAnimate()) {
+      if (typeof onComplete === 'function') onComplete();
+      return null;
+    }
     const isSourceValid = sourceCardEl && document.body.contains(sourceCardEl);
     const isTargetValid = targetCardEl && document.body.contains(targetCardEl);
 
@@ -631,6 +673,7 @@ export const vfxManager = {
    * @param {string} auraClass - Active aura CSS class name
    */
   triggerAuraEffect(cardElement, auraClass) {
+    if (!canAnimate()) return null;
     if (!cardElement) return;
 
     AURA_CLASSES.forEach(c => cardElement.classList.remove(c));
@@ -657,6 +700,7 @@ export const vfxManager = {
    * @param {string} [color='var(--accent)'] - Particle color hex/var
    */
   spawnParticles(x, y, count = 12, color = 'var(--accent)') {
+    if (!canAnimate()) return null;
     const numParticles = (count === null || count === undefined) ? 12 : count;
     const particleColor = color || 'var(--accent)';
 
