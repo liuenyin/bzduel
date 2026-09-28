@@ -27,7 +27,9 @@ class GameSocket {
     this.playerSessionId = getPlayerSessionId();
     this.sessionResumeListeners = new Set();
     this.connectionListeners = new Set();
+    this.gameListeners = new Map();
     this.lastResumeData = null;
+    this.sessionRevision = 0;
     this.hasConnected = false;
     this.socket = io({
       auth: { playerSessionId: this.playerSessionId },
@@ -44,8 +46,9 @@ class GameSocket {
       const reconnected = this.hasConnected;
       this.hasConnected = true;
       this.notifyConnectionListeners({ connected: true, reconnected });
+      const revision = this.sessionRevision;
       this.socket.timeout(5000).emit('resume_session', {}, (error, result) => {
-        if (error || !result?.ok) return;
+        if (error || !result?.ok || revision !== this.sessionRevision) return;
         this.currentRoomId = result.roomId;
         this.lastResumeData = result;
         for (const listener of this.sessionResumeListeners) listener(result);
@@ -58,8 +61,13 @@ class GameSocket {
     this.socket.on('connect_error', (error) => {
       this.notifyConnectionListeners({ connected: false, reconnecting: true, reason: error.message });
     });
-    this.socket.on('match_found', (data) => { this.currentRoomId = data.roomId; });
-    this.socket.on('room_created', (data) => { this.currentRoomId = data.roomId; });
+    const trackRoom = data => {
+      this.sessionRevision++;
+      this.lastResumeData = null;
+      this.currentRoomId = data.roomId;
+    };
+    this.socket.on('match_found', trackRoom);
+    this.socket.on('room_created', trackRoom);
   }
 
   notifyConnectionListeners(status) {
@@ -74,7 +82,10 @@ class GameSocket {
 
   onSessionResumed(listener) {
     this.sessionResumeListeners.add(listener);
-    if (this.lastResumeData) queueMicrotask(() => listener(this.lastResumeData));
+    const snapshot = this.lastResumeData;
+    if (snapshot) queueMicrotask(() => {
+      if (this.sessionResumeListeners.has(listener) && this.lastResumeData === snapshot) listener(snapshot);
+    });
     return () => this.sessionResumeListeners.delete(listener);
   }
 
@@ -106,6 +117,7 @@ class GameSocket {
   surrender(acknowledge) { this.socket.emit('surrender', {}, acknowledge); }
   requestRematch(acknowledge) { this.socket.emit('request_rematch', {}, acknowledge); }
   leaveRoom(acknowledge) {
+    this.sessionRevision++;
     this.socket.emit('leave_room', {}, (result) => {
       if (result?.ok) {
         this.currentRoomId = null;
@@ -117,24 +129,24 @@ class GameSocket {
 
   sendChat(n, msg) { if (this.currentRoomId) this.socket.emit('chat_msg', { roomId: this.currentRoomId, sender: n, msg }); }
 
-  on(e, cb) { this.socket.on(e, cb); }
-  off(e, cb) { this.socket.off(e, cb); }
+  on(e, cb) {
+    if (!this.gameListeners.has(e)) this.gameListeners.set(e, new Set());
+    this.gameListeners.get(e).add(cb);
+    this.socket.on(e, cb);
+    return () => this.off(e, cb);
+  }
+  off(e, cb) {
+    this.socket.off(e, cb);
+    this.gameListeners.get(e)?.delete(cb);
+  }
   emit(e, data) { this.socket.emit(e, data); }
 
   removeAllGameListeners() {
-    const events = [
-      'match_found', 'room_created', 'matchmaking_waiting',
-      'state_update', 'opponent_selected', 'opponent_ready',
-      'battle_start', 'schedule_updated',
-      'atk_confirmed', 'turn_resolved', 'class_change',
-      'opponent_connection_lost', 'opponent_reconnected', 'opponent_disconnected',
-      'game_over', 'rematch_status', 'rematch_started', 'opponent_left_room', 'room_closed',
-      'error_msg', 'buy_water_result', 'tactical_card_played',
-      // autochess events
-      'ac_run_update', 'ac_combat_result', 'ac_event_options', 'ac_star_up',
-      // chat_msg_receive is NOT removed here because the global chat widget handles it
-    ];
-    for (const e of events) this.socket.removeAllListeners(e);
+    for (const [event, listeners] of this.gameListeners) {
+      if (event === 'chat_msg_receive') continue;
+      for (const listener of listeners) this.socket.off(event, listener);
+      this.gameListeners.delete(event);
+    }
   }
 }
 

@@ -2,9 +2,9 @@
 // 校园战力党 — 准备页面 (选卡 + 课程表)
 // ============================================================
 import { gameSocket } from '../net/socket.js';
-import { navigate } from '../main.js';
+import { navigate } from '../app/router.js';
 import { characters } from '../../shared/characters.js';
-import { SUBJECTS, getSubjectLabel, getSubjectIcon, getSkillMultiplier, DICE_COLORS } from '../../shared/rules.js';
+import { SUBJECTS, getSubjectIcon, getSkillMultiplier, DICE_COLORS } from '../../shared/rules.js';
 import { escapeHTML } from '../utils/html.js';
 
 function portraitInitials(name) {

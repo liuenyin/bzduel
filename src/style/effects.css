@@ -1,0 +1,94 @@
+/* ── 优雅特效 & 移动端友好适配 ──────────────── */.vfx-heavy-hit {
+  animation: heavyHitShake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}@keyframes heavyHitShake {
+  10%, 90% { transform: translate3d(-2px, 0, 0); }
+  20%, 80% { transform: translate3d(3px, 0, 0); }
+  30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+  40%, 60% { transform: translate3d(4px, 0, 0); }
+}/* 角色 Aura 光环 (高质感微光) */.aura-gpy-rage {
+  box-shadow: 0 0 16px rgba(220, 38, 38, 0.6), inset 0 0 10px rgba(220, 38, 38, 0.4) !important;
+  border-color: #ef4444 !important;
+  animation: auraPulseRed 1.8s infinite ease-in-out;
+}@keyframes auraPulseRed {
+  0%, 100% { box-shadow: 0 0 12px rgba(220, 38, 38, 0.5); }
+  50% { box-shadow: 0 0 24px rgba(220, 38, 38, 0.9); }
+}.aura-dream-domain {
+  box-shadow: 0 0 16px rgba(168, 85, 247, 0.6), inset 0 0 10px rgba(168, 85, 247, 0.4) !important;
+  border-color: #c084fc !important;
+  animation: auraPulsePurple 2s infinite ease-in-out;
+}@keyframes auraPulsePurple {
+  0%, 100% { box-shadow: 0 0 12px rgba(168, 85, 247, 0.5); }
+  50% { box-shadow: 0 0 22px rgba(168, 85, 247, 0.85); }
+}.aura-zxs-water {
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.6) !important;
+  border-color: #38bdf8 !important;
+  animation: auraPulseBlue 2s infinite ease-in-out;
+}@keyframes auraPulseBlue {
+  0%, 100% { box-shadow: 0 0 10px rgba(56, 189, 248, 0.4); }
+  50% { box-shadow: 0 0 20px rgba(56, 189, 248, 0.8); }
+}.aura-yzm-gold {
+  box-shadow: 0 0 14px rgba(234, 179, 8, 0.6) !important;
+  border-color: #facc15 !important;
+}.aura-wyc-redheat {
+  box-shadow: 0 0 16px rgba(239, 68, 68, 0.7) !important;
+  border-color: #ef4444 !important;
+  animation: auraPulseRedHeat 1.5s infinite ease-in-out;
+}@keyframes auraPulseRedHeat {
+  0%, 100% { box-shadow: 0 0 10px rgba(239, 68, 68, 0.5); }
+  50% { box-shadow: 0 0 24px rgba(239, 68, 68, 0.9); }
+}.aura-whd-sugar {
+  box-shadow: 0 0 16px rgba(236, 72, 153, 0.6) !important;
+  border-color: #ec4899 !important;
+  animation: auraGlitchPink 0.3s infinite;
+}@keyframes auraGlitchPink {
+  0% { transform: translate(0) }
+  20% { transform: translate(-1px, 1px) }
+  40% { transform: translate(-1px, -1px) }
+  60% { transform: translate(1px, 1px) }
+  80% { transform: translate(1px, -1px) }
+  100% { transform: translate(0) }
+}/* 梦境盲选弹窗 (移动端高度适配) */.dream-target-modal-panel {
+  max-width: 440px;
+  width: 92%;
+  padding: 24px 20px;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1.5px solid var(--accent-soft);
+  border-radius: 20px;
+  box-shadow: var(--shadow-lg), 0 12px 36px rgba(120, 80, 160, 0.12);
+  color: var(--text);
+  text-align: center;
+  margin: auto;
+}.dream-target-cards-container {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin: 18px 0;
+}.dream-target-btn {
+  flex: 1;
+  padding: 16px 6px;
+  background: var(--bg-card);
+  border: 1.5px solid var(--accent-soft);
+  border-radius: 14px;
+  color: var(--text);
+  font-weight: 700;
+  font-size: 0.95rem;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}.dream-target-btn:hover, .dream-target-btn:active {
+  transform: scale(0.96);
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+}@media (max-width: 480px) {
+  .dream-target-cards-container {
+    gap: 8px;
+  }
+  .dream-target-btn {
+    padding: 14px 4px;
+    font-size: 0.85rem;
+  }
+}/* ── 统一状态效果栏 ───────────────────────── */.bc-buffs{position:relative;width:100%;min-height:24px;display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:center;gap:4px;overflow:visible;z-index:20}.status-empty{font-size:.65rem;color:var(--text-muted);line-height:22px}.status-effect{position:relative;max-width:100%;overflow:visible;transform-origin:center}.status-effect>summary{height:22px;max-width:132px;display:inline-flex;align-items:center;gap:4px;padding:0 6px;border:1px solid transparent;border-radius:6px;list-style:none;cursor:pointer;font-size:.65rem;font-weight:750;line-height:1;white-space:nowrap;user-select:none}.status-effect>summary::-webkit-details-marker{display:none}.status-name{min-width:0;overflow:hidden;text-overflow:ellipsis}.status-value{flex:0 0 auto;font-size:.61rem;font-weight:850}.status-debuff>summary{background:rgba(196,92,92,.11);border-color:rgba(196,92,92,.25);color:#a64141}.status-buff>summary{background:rgba(106,158,109,.12);border-color:rgba(106,158,109,.27);color:#3d7842}.status-blessing>summary{background:rgba(192,154,80,.13);border-color:rgba(192,154,80,.3);color:#866522}.status-neutral>summary{background:rgba(91,143,185,.1);border-color:rgba(91,143,185,.23);color:#466f91}.status-effect[open]>summary{box-shadow:0 0 0 2px rgba(192,96,64,.12)}.status-popover{position:absolute;top:calc(100% + 6px);left:50%;z-index:80;width:min(240px,calc(100vw - 32px));transform:translateX(-50%);display:flex;flex-direction:column;gap:3px;padding:9px 10px;background:var(--bg-card);border:1px solid var(--bg-inset);border-radius:7px;box-shadow:var(--shadow-lg);color:var(--text-secondary);font-size:.7rem;line-height:1.45;text-align:left;white-space:normal}.status-popover strong{color:var(--text);font-size:.73rem}.status-popover small{padding-top:3px;border-top:1px solid var(--bg-inset);color:var(--accent);font-size:.64rem;font-weight:700}.ffa-buffs{margin-top:3px;min-height:0;max-height:48px;overflow:visible}.ffa-buffs .status-effect>summary{max-width:68px;height:19px;padding:0 4px;font-size:.58rem}.ffa-buffs .status-empty{font-size:.55rem;line-height:18px}

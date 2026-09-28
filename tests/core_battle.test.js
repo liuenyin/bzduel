@@ -34,6 +34,30 @@ function createBattle(firstCard = 'char_6', secondCard = 'char_6') {
   return game;
 }
 
+for (const cardId of ['card_gen_01', 'card_mus_3']) {
+  test(`${cardId} rerolls a defender selected by index rather than player ID`, () => {
+    const game = createBattle();
+    game.schedule[0] = cardMap[cardId].subject === 'universal' ? 'chinese' : cardMap[cardId].subject;
+    withRandom(0, () => rollAttack(game));
+    withRandom(0, () => confirmAttack(game, [0, 1, 2]));
+    const defender = game.players[1];
+    defender.handCards = [structuredClone(cardMap[cardId])];
+    const before = [...game.turnData.defenseRolls];
+    const result = withRandom(0.99, () => playTacticalCard(game, defender.id, cardId));
+    assert.equal(result.ok, true);
+    assert.equal(game.turnData.defenseRolls.filter((value, i) => value !== before[i]).length, 1);
+  });
+}
+
+test('tactical cards cannot mutate a battle during the draft shop', () => {
+  const game = createBattle();
+  game.players[0].handCards = [structuredClone(cardMap.card_gen_01)];
+  game.draftShop = { active: true, players: {} };
+  const before = structuredClone(game);
+  assert.equal(playTacticalCard(game, 'player-a', 'card_gen_01').ok, false);
+  assert.deepEqual(game, before);
+});
+
 function createFfaBattle(cardIds = ['char_6', 'char_6', 'char_6']) {
   const players = cardIds.map((_, index) => ({
     id: `ffa-player-${index}`,

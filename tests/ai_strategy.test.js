@@ -33,6 +33,7 @@ function makePlayer(overrides = {}) {
 
 function makeState(ai, opponent, overrides = {}) {
   return {
+    phase: 'battle',
     schedule: ['english'],
     currentClassIndex: 0,
     currentSubRound: 0,
@@ -43,6 +44,18 @@ function makeState(ai, opponent, overrides = {}) {
     ...overrides,
   };
 }
+
+test('AI skips illegal attack cards and already active effects', () => {
+  const ai = makePlayer({ handCards: [cardMap.card_gen_04, cardMap.card_gen_03], hp: 1 });
+  const state = makeState(ai, makePlayer({ id: 'opponent' }), {
+    turnPhase: 'def_rolled', turnData: { attackerIdx: 1, defenderIdx: 0 },
+  });
+  assert.equal(aiChooseTacticalCard(state, ai.id)?.id, 'card_gen_03');
+  ai.playedTurnCards = [cardMap.card_gen_03];
+  assert.equal(aiChooseTacticalCard(state, ai.id), null);
+  state.draftShop = { active: true };
+  assert.equal(aiChooseTacticalCard(state, ai.id), null);
+});
 
 test('AI keep choices contain unique in-range dice indices', () => {
   const indices = aiChooseKeepIndices({ rolls: [2, 8, 5, 7], faces: [8, 8, 8, 8], slots: 3 });

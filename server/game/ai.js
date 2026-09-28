@@ -2,6 +2,7 @@
 // 校园战力党 — PVE AI 对手
 // ============================================================
 import { characters, SKILL } from '../../shared/characters.js';
+import { ATTACK_TACTICAL_CARDS, DEFENSE_TACTICAL_CARDS } from '../../shared/tactical-rules.js';
 import { getSkillMultiplier } from '../../shared/rules.js';
 
 /**
@@ -165,6 +166,7 @@ function scoreTacticalCard(state, player, card) {
 }
 
 export function aiChooseTacticalCard(state, playerId) {
+  if (state.phase !== 'battle' || state.draftShop?.active) return null;
   const player = state.players.find(candidate => candidate.id === playerId);
   if (!player || player.isDead || !Array.isArray(player.handCards)) return null;
   const subject = state.schedule[state.currentClassIndex];
@@ -174,6 +176,9 @@ export function aiChooseTacticalCard(state, playerId) {
 
   return player.handCards
     .filter(card => card.subject === 'universal' || card.subject === subject)
+    .filter(card => !ATTACK_TACTICAL_CARDS.has(card.id) || isAttacker)
+    .filter(card => !DEFENSE_TACTICAL_CARDS.has(card.id) || isDefender)
+    .filter(card => !(card.type === 'blessing' ? player.activeBlessings : player.playedTurnCards)?.some(active => active.id === card.id))
     .filter(card => card.type === 'blessing' || hasTurnWindow)
     .map(card => ({ card, score: scoreTacticalCard(state, player, card) }))
     .filter(item => item.score > 0)

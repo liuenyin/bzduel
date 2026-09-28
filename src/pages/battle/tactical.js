@@ -1,0 +1,55 @@
+import { SUBJECTS } from '../../../shared/rules.js';
+import { ATTACK_TACTICAL_CARDS, DEFENSE_TACTICAL_CARDS, CLASH_TACTICAL_CARDS, OPPONENT_TARGET_TACTICAL_CARDS } from '../../../shared/tactical-rules.js';
+
+export function getTacticalCardMoment(card) {
+  if (card.type === 'blessing') return { label: '持续强化', kind: 'blessing' };
+  if (ATTACK_TACTICAL_CARDS.has(card.id)) return { label: '攻击时', kind: 'attack' };
+  if (DEFENSE_TACTICAL_CARDS.has(card.id)) return { label: '防守时', kind: 'defense' };
+  if (CLASH_TACTICAL_CARDS.has(card.id)) return { label: '交锋时', kind: 'clash' };
+  return { label: OPPONENT_TARGET_TACTICAL_CARDS.has(card.id) ? '影响对手' : '即时使用', kind: 'instant' };
+}
+
+export function getTacticalCardUsability(card, state) {
+  const me = state.me;
+  if (state.phase !== 'battle' || state.draftShop?.active || me.isDead) {
+    return { canPlay: false, reason: '当前无法使用战术卡' };
+  }
+  const isAttacker = state.attackerIdx === state.myIndex;
+  const isDefender = state.aoeDefenses
+    ? !!state.aoeDefenses[me.id] && !state.aoeDefenses[me.id].confirmed
+    : state.defenderIdx === state.myIndex;
+  if (!isAttacker && !isDefender) return { canPlay: false, reason: '等待自己的交锋' };
+  const currentSubject = state.schedule[state.currentClassIndex];
+  const subject = SUBJECTS[card.subject];
+  if (card.subject !== 'universal' && card.subject !== currentSubject) {
+    return { canPlay: false, reason: `仅限${subject?.label || card.subject}课` };
+  }
+
+  if (card.type === 'blessing' && (me.activeBlessings || []).some(active => active.id === card.id)) {
+    return { canPlay: false, reason: '本节课已生效' };
+  }
+  if ((me.playedTurnCards || []).some(active => active.id === card.id)) {
+    return { canPlay: false, reason: '同类效果已生效' };
+  }
+
+  const opponent = state.opponent || (state.players || []).find(player => player.id !== me.id && !player.isDead);
+  if (['card_eng_2', 'card_gen_03'].includes(card.id) && me.hp >= me.maxHp) {
+    return { canPlay: false, reason: '生命值已满' };
+  }
+  if (card.id === 'card_che_2') {
+    const hasNegativeState = (me.buffs || []).length > 0 || me.redHeat > 0 || me.stickers > 0 || me.selfStickers > 0 || me.permanentDefPenalty > 0;
+    if (!hasNegativeState) return { canPlay: false, reason: '当前无负面效果' };
+  }
+  if (card.id === 'card_che_3' && !(opponent?.redHeat > 0)) {
+    return { canPlay: false, reason: '对手没有红温' };
+  }
+  if (['card_it_2', 'card_gen_07'].includes(card.id) && !(opponent?.tp > 0)) {
+    return { canPlay: false, reason: '对手没有 TP' };
+  }
+
+  const moment = getTacticalCardMoment(card);
+  if (moment.kind === 'attack' && !isAttacker) return { canPlay: false, reason: '仅在攻击回合使用' };
+  if (moment.kind === 'defense' && !isDefender) return { canPlay: false, reason: '仅在防守回合使用' };
+  if (moment.kind === 'clash' && !isAttacker && !isDefender) return { canPlay: false, reason: '等待自己的交锋' };
+  return { canPlay: true, reason: '' };
+}

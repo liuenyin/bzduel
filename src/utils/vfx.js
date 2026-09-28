@@ -21,7 +21,10 @@ const AURA_CLASSES = [
 ];
 
 function prefersReducedMotion() {
-  return typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  return typeof window !== 'undefined' && (
+    document.body?.classList.contains('reduced-motion')
+    || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  );
 }
 
 function canAnimate() {

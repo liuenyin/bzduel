@@ -1,9 +1,17 @@
+import { buildArena, buildFfaGrid, getTurnFlow, hpLabel, tacticalBarHTML, identityName } from './battle/arena.js';
+import { OPPONENT_TARGET_TACTICAL_CARDS } from '../../shared/tactical-rules.js';
+import { createLifecycle } from '../utils/lifecycle.js';
+import { pct, getM, getAuraClass, multiTag, phasePrompt, actionButtons, battleTopbarHTML } from './battle/presentation.js';
+
+import { getLogSummary, battleLogContentHTML, battleSummaryHTML } from './battle/log.js';
+import { getStatusEffects, statusEffectHTML, buffIcons } from './battle/status.js';
+import { escapeHTML } from '../utils/html.js';
 // ============================================================
 // 校园战力党 — 对战页面 (阶段制 · 卡牌动画)
 // ============================================================
 import { gameSocket } from '../net/socket.js';
-import { navigate } from '../main.js';
-import { SUBJECTS, CORE_SUBJECTS, ELECTIVE_SUBJECTS, MINOR_SUBJECTS, getSkillMultiplier, DICE_COLORS, IDENTITY } from '../../shared/rules.js';
+import { navigate } from '../app/router.js';
+import { SUBJECTS, CORE_SUBJECTS, ELECTIVE_SUBJECTS, MINOR_SUBJECTS, DICE_COLORS } from '../../shared/rules.js';
 import { playDiceRoll, playHit } from '../utils/audio.js';
 import { vfxManager } from '../utils/vfx.js';
 
@@ -18,250 +26,8 @@ let lastTurnSignature = null;
 let pendingTacticalFeedback = null;
 let tacticalHandOpen = false;
 let draftInteraction = null;
-
-const ATTACK_TACTICAL_CARDS = new Set([
-  'card_phy_2', 'card_phy_3', 'card_his_2', 'card_art_2', 'card_it_3',
-  'card_mus_2', 'card_pe_2', 'card_pe_3', 'card_gen_04', 'card_gen_08', 'card_gen_15',
-]);
-const DEFENSE_TACTICAL_CARDS = new Set([
-  'card_bio_2', 'card_pol_2', 'card_his_3', 'card_gen_05', 'card_gen_14',
-]);
-const CLASH_TACTICAL_CARDS = new Set([
-  'card_chi_2', 'card_chi_3', 'card_mat_2', 'card_mat_3', 'card_eng_3',
-  'card_geo_2', 'card_geo_3', 'card_mus_3', 'card_art_3', 'card_tec_2',
-  'card_stu_2', 'card_gen_01', 'card_gen_02', 'card_gen_06', 'card_gen_09',
-  'card_gen_10', 'card_gen_12', 'card_gen_13',
-]);
-const OPPONENT_TARGET_TACTICAL_CARDS = new Set([
-  'card_chi_3', 'card_mat_3', 'card_phy_3', 'card_che_3', 'card_bio_3',
-  'card_pol_3', 'card_geo_3', 'card_it_2', 'card_pe_3', 'card_gen_06',
-  'card_gen_07', 'card_gen_08', 'card_gen_09', 'card_gen_10',
-]);
-
-function escapeHTML(value) {
-  return String(value ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;');
-}
-
-function getStatusEffects(player, state = S) {
-  if (!player) return [];
-  const effects = [];
-  const currentSubject = state?.schedule?.[state.currentClassIndex];
-  const add = (effect) => effects.push({
-    id: effect.id,
-    name: effect.name,
-    description: effect.description || '暂无额外说明',
-    category: effect.category || 'neutral',
-    value: effect.value || '',
-    durationLabel: effect.durationLabel || '',
-  });
-
-  for (const card of player.playedTurnCards || []) {
-    add({
-      id: `turn-card-${card.id}`,
-      name: card.name,
-      description: card.desc,
-      category: card.type === 'debuff' ? 'debuff' : (card.type === 'other' ? 'neutral' : 'buff'),
-      durationLabel: '本回合',
-    });
-  }
-
-  for (const card of player.activeBlessings || []) {
-    if (card.subject !== 'universal' && card.subject !== currentSubject) continue;
-    add({
-      id: `blessing-${card.id}`,
-      name: card.name,
-      description: card.desc,
-      category: 'blessing',
-      durationLabel: '本节课',
-    });
-  }
-
-  if (player.stealthActive) add({ id: 'stealth', name: '隐蔽', description: '本回合对手无法查看你的掷骰点数与结算数值', category: 'buff', durationLabel: '本回合' });
-  if (player.tempSlotBonus > 0) add({ id: 'slot-bonus', name: '选骰扩容', description: '攻击和防御可额外选择骰子', category: 'buff', value: `+${player.tempSlotBonus}`, durationLabel: '本节课' });
-  if (player.chargeStacks > 0) add({ id: 'charge', name: '蓄势', description: '攻击时消耗层数强化爆发效果', category: 'buff', value: `${player.chargeStacks}层`, durationLabel: '消耗前持续' });
-  if (player.invertReduction > 0) add({ id: 'damage-reduction', name: '深度思考', description: '受到的最终伤害永久降低', category: 'buff', value: `-${player.invertReduction}`, durationLabel: '永久' });
-
-  if (player.permanentDefPenalty > 0) add({ id: 'def-penalty', name: '防御透支', description: '防御结算永久降低', category: 'debuff', value: `-${player.permanentDefPenalty}`, durationLabel: '永久' });
-  const sugarCrash = (player.buffs || []).find(buff => buff.id === 'sugar_crash');
-  if (sugarCrash) {
-    const remaining = Number.isInteger(sugarCrash.expireRound) && Number.isInteger(state?.totalRound)
-      ? Math.max(1, sugarCrash.expireRound - state.totalRound)
-      : null;
-    add({ id: 'sugar-crash', name: '犯糖', description: '无法重投，攻击回合开始时受到伤害', category: 'debuff', durationLabel: remaining ? `剩余 ${remaining} 回合` : '临时' });
-  }
-  if (player.redHeat > 0) add({ id: 'red-heat', name: '红温', description: '攻击回合开始时按当前层数失去生命，随后减少 1 层', category: 'debuff', value: `${player.redHeat}层`, durationLabel: '层数归零前' });
-  if (player.stickers > 0) add({ id: 'stickers', name: '贴画', description: '身上的贴画达到 2 张时会引爆', category: 'debuff', value: `${player.stickers}/2`, durationLabel: '引爆前' });
-  if (player.selfStickers > 0) add({ id: 'self-stickers', name: '暴露贴画', description: '自身贴画达到 2 张时会引爆', category: 'debuff', value: `${player.selfStickers}/2`, durationLabel: '引爆前' });
-  if (player.skillsSealed) add({ id: 'skill-sealed', name: '技能封印', description: '正面、中性和负面技能暂时无法生效', category: 'debuff', durationLabel: player.skillsSealedTurnsLeft ? `剩余 ${player.skillsSealedTurnsLeft} 次攻击` : '临时' });
-  if (player.pendingDreamState) add({ id: 'dream-pending', name: '梦境待命', description: '下一节课开始时进入梦境领域', category: 'neutral', durationLabel: '下节课触发' });
-  if (player.dreamStacks > 0 && !player.inDreamState) add({ id: 'dream-stacks', name: '梦境记录', description: '达到 3 层后，下一节课展开梦境领域', category: 'neutral', value: `${player.dreamStacks}/3`, durationLabel: '触发前' });
-  if (player.inDreamState && !player.lgpyForm) add({ id: 'dream-state', name: '梦境领域', description: '对手需要盲选本体；选中分身时本体不受伤害', category: 'buff', durationLabel: '本节课' });
-  if (player.lgpyForm) add({ id: 'lgpy-form', name: '狂暴形态', description: '当前使用强化骰池进行战斗', category: 'neutral', durationLabel: player.lgpyTurnsLeft ? `剩余 ${player.lgpyTurnsLeft} 次攻击` : '临时' });
-  if (player.nineLivesUsed) add({ id: 'nine-lives-used', name: '九条命已触发', description: '复活效果已经消耗，骰池已升级为 D10', category: 'neutral', durationLabel: '本局' });
-  if (player.hasReschedule) add({ id: 'reschedule', name: '调课权', description: '仍可调整尚未开始的一节课程', category: 'neutral', durationLabel: '使用前' });
-
-  const priority = { debuff: 0, buff: 1, blessing: 2, neutral: 3 };
-  return effects.sort((a, b) => (priority[a.category] ?? 9) - (priority[b.category] ?? 9));
-}
-
-function statusEffectHTML(effect) {
-  const tooltip = [effect.name, effect.description, effect.durationLabel].filter(Boolean).join(' · ');
-  return `
-    <details class="status-effect status-${escapeHTML(effect.category)}" data-status-id="${escapeHTML(effect.id)}">
-      <summary title="${escapeHTML(tooltip)}" aria-label="${escapeHTML(tooltip)}">
-        <span class="status-name">${escapeHTML(effect.name)}</span>
-        ${effect.value ? `<span class="status-value">${escapeHTML(effect.value)}</span>` : ''}
-      </summary>
-      <div class="status-popover">
-        <strong>${escapeHTML(effect.name)}</strong>
-        <span>${escapeHTML(effect.description)}</span>
-        ${effect.durationLabel ? `<small>${escapeHTML(effect.durationLabel)}</small>` : ''}
-      </div>
-    </details>
-  `;
-}
-
-function buffIcons(player, state = S) {
-  const effects = getStatusEffects(player, state);
-  if (effects.length === 0) return '<span class="status-empty">暂无状态</span>';
-  return effects.map(statusEffectHTML).join('');
-}
-
-function getLogSummary(entry) {
-  if (!entry) return '尚无战斗记录';
-  const details = entry.details || {};
-  if (entry.type === 'turn' && Array.isArray(details.targets)) {
-    const totalDamage = details.targets.reduce((sum, target) => sum + (Number(target.damage) || 0), 0);
-    return `${details.actorName || '攻击方'} · ${details.targets.length} 个目标 · ${totalDamage > 0 ? `共 ${totalDamage} 伤害` : '未造成伤害'}`;
-  }
-  if (entry.type === 'turn') {
-    return `${details.actorName || '攻击方'} → ${details.targetName || '防守方'} · ${(Number(details.damage) || 0) > 0 ? `${details.damage} 伤害` : '未造成伤害'}`;
-  }
-  return entry.text || '战斗记录';
-}
-
-function logEntryHTML(entry) {
-  const details = entry.details || {};
-  const entryAttrs = `data-log-id="${escapeHTML(entry.id || '')}" data-log-type="${escapeHTML(entry.type || 'system')}" data-actor-id="${escapeHTML(entry.actorId || '')}"`;
-  if (entry.type === 'turn') {
-    const notes = [];
-    if (details.pierce) notes.push('穿透');
-    if (Number(details.selfDamage) > 0) notes.push(`攻击方自伤 ${details.selfDamage}`);
-    if (Number(details.counterDamage) > 0) notes.push(`反击 ${details.counterDamage}`);
-    if (Number(details.healAmount) > 0) notes.push(`回复 ${details.healAmount}`);
-
-    if (Array.isArray(details.targets)) {
-      const targets = details.targets.map(target => {
-        const targetNotes = [];
-        if (Number(target.counterDamage) > 0) targetNotes.push(`反击 ${target.counterDamage}`);
-        if (Number(target.healAmount) > 0) targetNotes.push(`回复 ${target.healAmount}`);
-        return `
-          <div class="log-target-result">
-            <span>${escapeHTML(details.actorName || '攻击方')} → ${escapeHTML(target.targetName || '目标')}</span>
-            <strong class="${Number(target.damage) > 0 ? 'damage' : 'miss'}">${Number(target.damage) > 0 ? `-${target.damage} HP` : '无伤害'}</strong>
-            ${targetNotes.length ? `<small>${escapeHTML(targetNotes.join(' · '))}</small>` : ''}
-          </div>
-        `;
-      }).join('');
-      return `<article class="log-entry log-entry-turn" ${entryAttrs}>${targets}${notes.length ? `<div class="log-entry-notes">${escapeHTML(notes.join(' · '))}</div>` : ''}</article>`;
-    }
-
-    const damage = Number(details.damage) || 0;
-    return `
-      <article class="log-entry log-entry-turn" ${entryAttrs}>
-        <div class="log-entry-main">
-          <span>${escapeHTML(details.actorName || '攻击方')} → ${escapeHTML(details.targetName || '防守方')}</span>
-          <strong class="${damage > 0 ? 'damage' : 'miss'}">${damage > 0 ? `-${damage} HP` : '无伤害'}</strong>
-        </div>
-        ${notes.length ? `<div class="log-entry-notes">${escapeHTML(notes.join(' · '))}</div>` : ''}
-      </article>
-    `;
-  }
-
-  const typeLabel = entry.type === 'tactical' ? '战术' : (entry.type === 'skill' ? '技能' : '系统');
-  return `
-    <article class="log-entry log-entry-${escapeHTML(entry.type || 'system')}" ${entryAttrs}>
-      <span class="log-type">${typeLabel}</span>
-      <span class="log-entry-text">${escapeHTML(entry.text || '')}</span>
-    </article>
-  `;
-}
-
-function battleLogContentHTML(state) {
-  const entries = [...(state?.log || [])].reverse();
-  if (entries.length === 0) return '<div class="battle-log-empty">第一轮结算后会在这里留下记录</div>';
-
-  const classGroups = new Map();
-  for (const entry of entries) {
-    const classKey = Number.isInteger(entry.classIndex)
-      ? `${Number.isInteger(entry.day) ? entry.day : 1}:${entry.classIndex}`
-      : 'legacy';
-    if (!classGroups.has(classKey)) classGroups.set(classKey, []);
-    classGroups.get(classKey).push(entry);
-  }
-
-  return [...classGroups.entries()].map(([classKey, classEntries]) => {
-    const first = classEntries[0];
-    const subject = SUBJECTS[first.subject];
-    const [dayNumber, classIndex] = classKey === 'legacy'
-      ? [null, null]
-      : classKey.split(':').map(Number);
-    const classTitle = classKey === 'legacy'
-      ? '早期记录'
-      : `第 ${dayNumber} 天 · 第 ${classIndex + 1} 节 · ${subject?.label || first.subject || '课程'}`;
-    const roundGroups = new Map();
-    for (const entry of classEntries) {
-      const roundKey = Number.isInteger(entry.totalRound) ? entry.totalRound : 'legacy';
-      if (!roundGroups.has(roundKey)) roundGroups.set(roundKey, []);
-      roundGroups.get(roundKey).push(entry);
-    }
-
-    const rounds = [...roundGroups.entries()].map(([roundKey, roundEntries]) => {
-      const subRound = roundEntries[0].subRound;
-      const roundTitle = roundKey === 'legacy'
-        ? '记录'
-        : `第 ${Number.isInteger(subRound) ? subRound + 1 : roundKey} 回合`;
-      return `
-        <section class="battle-log-round">
-          <h4>${escapeHTML(roundTitle)}</h4>
-          <div class="battle-log-entries">${roundEntries.map(logEntryHTML).join('')}</div>
-        </section>
-      `;
-    }).join('');
-
-    return `<section class="battle-log-class"><h3>${escapeHTML(classTitle)}</h3>${rounds}</section>`;
-  }).join('');
-}
-
-function battleLogHTML(state) {
-  const entries = state?.log || [];
-  const latest = entries[entries.length - 1];
-  return `
-    <details class="battle-log" id="battle-log">
-      <summary class="battle-log-summary">
-        <span class="battle-log-heading">战斗记录 <span id="battle-log-count">${entries.length}</span></span>
-        <span class="battle-log-latest" id="battle-log-latest">${escapeHTML(getLogSummary(latest))}</span>
-        <span class="battle-log-chevron" aria-hidden="true">⌄</span>
-      </summary>
-      <div class="battle-log-content" id="battle-log-content">${battleLogContentHTML(state)}</div>
-    </details>
-  `;
-}
-
-const identityName = (id) => {
-  switch(id) {
-    case IDENTITY.LORD: return '主公';
-    case IDENTITY.LOYALIST: return '忠臣';
-    case IDENTITY.REBEL: return '反贼';
-    case IDENTITY.SPY: return '内奸';
-    default: return '身份';
-  }
-};
+let viewLifecycle = createLifecycle();
+let lastLogContent = null;
 
 function getOpponentCardElement() {
   return document.getElementById('card-op') ||
@@ -309,18 +75,6 @@ function commitAnimatedState(newState, viewEpoch, animationId, shouldShowGameOve
   return true;
 }
 
-function hasRenderedDice(state) {
-  return !!(state?.attackRolls || state?.defenseRolls || state?.aoeDefenses?.[state?.me?.id]?.rolls);
-}
-
-function getTurnFlow(state) {
-  if (state.attackerIdx === state.myIndex) return { direction: 'toward-opponent', arrow: '←' };
-  const meIsDefender = state.gameMode === '1v1' || state.defenderIdx === state.myIndex || state.isMyDefendTurn;
-  return meIsDefender
-    ? { direction: 'toward-me', arrow: '→' }
-    : { direction: 'neutral', arrow: '↔' };
-}
-
 function updateTurnFlow(state) {
   const flow = document.querySelector('#vs-area .battle-flow');
   const round = document.getElementById('battle-round');
@@ -364,10 +118,6 @@ function revealCurrentClass() {
   track.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
 }
 
-function hpLabel(hp, maxHp) {
-  return hp === '??' ? '??' : `${hp} / ${maxHp}`;
-}
-
 function seedBattleFeedbackState(state) {
   lastRenderedStatusIds = new Map(
     (state?.players || []).map(player => [player.id, new Set(getStatusEffects(player, state).map(effect => effect.id))])
@@ -382,6 +132,9 @@ export function renderBattle(container, data) {
     return () => {};
   }
   const viewEpoch = ++battleViewEpoch;
+  viewLifecycle.dispose();
+  viewLifecycle = createLifecycle();
+  lastLogContent = null;
   activeBattleViewEpoch = viewEpoch;
   cancelBattleAnimations();
   S = data.state;
@@ -409,7 +162,7 @@ export function renderBattle(container, data) {
     };
     slot?.classList.add('is-refreshing');
     gameSocket.refreshDraftSlot(idx);
-    setTimeout(() => {
+    viewLifecycle.delay(() => {
       if (draftInteraction?.type === 'refresh' && draftInteraction.index === idx) {
         draftInteraction = null;
         slot?.classList.remove('is-refreshing');
@@ -423,9 +176,10 @@ export function renderBattle(container, data) {
     slot?.classList.add('is-buying');
     slot?.setAttribute('aria-busy', 'true');
     gameSocket.buyDraftCard(idx, (result) => {
+      if (!isBattleViewActive(viewEpoch)) return;
       if (result?.ok) {
         window._showToast('已加入手牌');
-        setTimeout(() => {
+        viewLifecycle.delay(() => {
           if (draftInteraction?.type === 'buy' && draftInteraction.index === idx) draftInteraction = null;
         }, 900);
       } else {
@@ -443,6 +197,7 @@ export function renderBattle(container, data) {
     const cardEl = document.querySelector(`.hand-card-kards[data-card-id="${id}"]`);
     cardEl?.classList.add('disabled');
     gameSocket.playTacticalCard(id, (result) => {
+      if (!isBattleViewActive(viewEpoch)) return;
       if (!result?.ok) {
         cardEl?.classList.remove('disabled');
         window._showToast(result?.error || '无法打出此战术卡');
@@ -450,12 +205,16 @@ export function renderBattle(container, data) {
     });
   };
 
-  container.innerHTML = buildArena(S);
+  window.selectFfaTarget = (pid) => {
+    if (S.turnPhase === 'choose_target' && S.isMyAttackTurn) {
+      gameSocket.selectTarget(pid);
+    }
+  };
+
+  container.innerHTML = buildArena(S, tacticalHandOpen);
   seedBattleFeedbackState(S);
   bindCoreEvents();
-  syncActiveCombatants(S);
-  syncBattleControlPanel();
-  updateTurnFlow(S);
+  refreshAll();
   queueMicrotask(revealCurrentClass);
 
   listen('state_update', (s) => {
@@ -559,7 +318,9 @@ export function renderBattle(container, data) {
     }
   });
 
-  if (S.phase === 'game_over') queueMicrotask(() => showGameOver(S));
+  if (S.phase === 'game_over') queueMicrotask(() => {
+    if (isBattleViewActive(viewEpoch)) showGameOver(S);
+  });
 
   return () => {
     for (const [event, handler] of socketListeners) gameSocket.off(event, handler);
@@ -572,6 +333,9 @@ export function renderBattle(container, data) {
       delete window[key];
     }
     if (activeBattleViewEpoch === viewEpoch) {
+      viewLifecycle.dispose();
+      document.querySelectorAll('#dream-target-modal, #draft-shop-modal, #reschedule-modal, #sacrifice-modal, .class-change-overlay, .game-over-screen, .fxr-dream-bg, .skill-banner, .toast-msg').forEach(el => el.remove());
+      tacticalHandOpen = false;
       activeBattleViewEpoch = 0;
       cancelBattleAnimations();
       document.body.classList.remove('tactical-hand-open');
@@ -579,107 +343,6 @@ export function renderBattle(container, data) {
   };
 }
 
-// ── HTML 骨架 ──
-function buildArena(s) {
-  const me = s.me, op = s.opponent;
-  const subj = s.schedule[s.currentClassIndex];
-  const turnFlow = getTurnFlow(s);
-  
-  window.selectFfaTarget = (pid) => {
-    if (S.turnPhase === 'choose_target' && S.isMyAttackTurn) {
-      gameSocket.selectTarget(pid);
-    }
-  };
-  return `
-    <div class="battle-view">
-    <div class="arena">
-      <header class="battle-topbar sidebar-left" id="sidebar-schedule">
-        ${battleTopbarHTML(s)}
-      </header>
-
-      <main class="arena-center">
-        <div class="card-row">
-          ${ s.gameMode === 'sanguosha' ? `<div id="ffa-grid-container">${buildFfaGrid(s)}</div>` : `
-          <div class="battle-card-wrap opponent-side ${s.attackerIdx !== s.myIndex ? 'active-attacker' : ''} ${op.isDead ? 'dead' : ''}" id="card-op">
-            <div class="bc-multi" id="multi-op">${multiTag(getM(op,subj))}</div>
-            <div class="battle-card ${getAuraClass(op)}">
-              ${portraitHTML(op.card?.name, op.card?.image)}
-              <div class="bc-name">${op.card?.name||'???'}</div>
-              <div class="atk-badge-lg">进攻</div>
-            </div>
-            <div class="bc-hp ${pct(op.hp, op.maxHp) <= 25 ? 'hp-critical' : ''}" aria-label="对手生命 ${op.hp}/${op.maxHp}">
-              <div class="hp-bar-h enemy" id="hp-op" data-hp="${op.hp}" style="width:${pct(op.hp,op.maxHp)}%"></div>
-              <span class="hp-label" id="hp-op-t">${hpLabel(op.hp, op.maxHp)}</span>
-            </div>
-            ${s.gameMode === 'sanguosha' ? `<div class="bc-identity-badge">${identityName(op.identity)}</div>` : ''}
-            <details class="skill-details">
-              <summary style="font-size:0.75rem; color:var(--text-secondary); cursor:pointer; text-align:center; padding-top:4px;">查看技能 (点击展开)</summary>
-              <div class="skill-desc-box">
-              ${op.card?.positiveSkill ? `<div class="skill-desc-line pos">✦ ${op.card.positiveSkill.name}: ${op.card.positiveSkill.desc}</div>` : ''}
-              ${op.card?.neutralSkill ? `<div class="skill-desc-line neu">⬩ ${op.card.neutralSkill.name}: ${op.card.neutralSkill.desc}</div>` : ''}
-              ${op.card?.negativeSkill ? `<div class="skill-desc-line neg">✧ ${op.card.negativeSkill.name}: ${op.card.negativeSkill.desc}</div>` : ''}
-            </div>
-              </details>
-              <div class="bc-buffs" id="buffs-op" aria-label="对手状态">${buffIcons(op, s)}</div>
-          </div>
-          `}
-
-          <div class="vs-area" id="vs-area">
-            <div class="battle-flow ${turnFlow.direction}" aria-hidden="true">
-              <span class="flow-line"></span><span class="flow-arrow">${turnFlow.arrow}</span>
-            </div>
-            <div class="battle-round" id="battle-round">${s.isExtraTurn ? '额外回合' : `第 ${s.totalRound || 1} 回合`}</div>
-            <div id="phase-text" class="phase-text">${phasePrompt(s)}</div>
-          </div>
-
-          <div class="battle-card-wrap self-side ${s.attackerIdx === s.myIndex ? 'active-attacker' : ''} ${me.isDead ? 'dead' : ''}" id="card-me">
-            <div class="bc-multi" id="multi-me">${multiTag(getM(me,subj))}</div>
-            <div class="battle-card ${getAuraClass(me)}">
-              ${portraitHTML(me.card?.name, me.card?.image)}
-              <div class="bc-name">${me.card?.name||'???'}</div>
-              <div class="atk-badge-lg">进攻</div>
-              ${me.isDead ? `<div class="dead-overlay">已阵亡</div>` : ''}
-            </div>
-            <div class="bc-hp ${pct(me.hp, me.maxHp) <= 25 ? 'hp-critical' : ''}" aria-label="我的生命 ${me.hp}/${me.maxHp}">
-              <div class="hp-bar-h friendly" id="hp-me" data-hp="${me.hp}" style="width:${pct(me.hp,me.maxHp)}%"></div>
-              <span class="hp-label" id="hp-me-t">${hpLabel(me.hp, me.maxHp)}</span>
-            </div>
-            ${s.gameMode === 'sanguosha' ? `<div class="bc-identity-badge">${identityName(me.identity)}</div>` : ''}
-            <details class="skill-details">
-              <summary style="font-size:0.75rem; color:var(--text-secondary); cursor:pointer; text-align:center; padding-top:4px;">查看技能 (点击展开)</summary>
-              <div class="skill-desc-box">
-              ${me.card?.positiveSkill ? `<div class="skill-desc-line pos">✦ ${me.card.positiveSkill.name}: ${me.card.positiveSkill.desc}</div>` : ''}
-              ${me.card?.neutralSkill ? `<div class="skill-desc-line neu">⬩ ${me.card.neutralSkill.name}: ${me.card.neutralSkill.desc}</div>` : ''}
-              ${me.card?.negativeSkill ? `<div class="skill-desc-line neg">✧ ${me.card.negativeSkill.name}: ${me.card.negativeSkill.desc}</div>` : ''}
-            </div>
-              </details>
-              <div class="bc-buffs" id="buffs-me" aria-label="我的状态">${buffIcons(me, s)}</div>
-          </div>
-        </div>
-
-        <section class="battle-control-panel ${hasRenderedDice(s) ? 'has-dice' : 'is-idle'}" aria-label="本回合操作">
-          <div class="dice-area" id="dice-area"></div>
-          <div class="action-bar" id="action-bar">${actionButtons(s)}</div>
-          <div class="battle-control-strip" id="sidebar-reroll">
-            <div class="reroll-count" id="reroll-count">重投 <strong>${me.rerolls}</strong> 次</div>
-            <p class="reroll-hint" id="reroll-hint">选中骰子后可重投</p>
-            <button id="btn-reroll" class="btn btn-secondary" style="display:none;">重投选中</button>
-            ${s.gameMode === '1v1' ? '<button id="btn-surrender" class="btn btn-secondary battle-surrender">投降</button>' : ''}
-            <details class="battle-menu">
-              <summary aria-label="更多对局操作" title="更多对局操作">&#8943;</summary>
-              <div class="battle-menu-popover">
-                <button id="btn-leave-battle" class="btn btn-secondary">退出对局</button>
-              </div>
-            </details>
-          </div>
-        </section>
-        <div class="tactical-layer" id="tactical-bar">${tacticalBarHTML(s)}</div>
-      </main>
-    </div>
-    ${battleLogHTML(s)}
-    </div>
-  `;
-}
 // ── 事件绑定 (仅初始化时调用一次) ──
 function bindCoreEvents() {
   on('btn-roll', 'click', () => { const b=document.getElementById('btn-roll'); if(b) { b.disabled=true; b.textContent='掷骰中…'; } playDiceRoll(); gameSocket.rollDice(); });
@@ -821,7 +484,7 @@ function refreshAll() {
   // Phase & actions
   setText('phase-text', phasePrompt(S));
   setText('action-bar', actionButtons(S));
-  setText('tactical-bar', tacticalBarHTML(S));
+  setText('tactical-bar', tacticalBarHTML(S, tacticalHandOpen));
   rebindActionButtons();
   refreshBattleLog();
   // Dice - render if available
@@ -844,7 +507,11 @@ function refreshBattleLog() {
   const content = document.getElementById('battle-log-content');
   if (count) count.textContent = String(entries.length);
   if (latestEl) latestEl.textContent = getLogSummary(latest);
-  if (content) content.innerHTML = battleLogContentHTML(S);
+  const logContent = JSON.stringify(entries);
+  if (content && logContent !== lastLogContent) {
+    content.innerHTML = battleLogContentHTML(S);
+    lastLogContent = logContent;
+  }
 
   if (content && pendingTacticalFeedback) {
     const matchingEntry = [...entries].reverse().find(entry => (
@@ -922,140 +589,12 @@ document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && tacticalHandOpen) window._toggleHand(false);
 });
 
-function getTacticalCardMoment(card) {
-  if (card.type === 'blessing') return { label: '持续强化', kind: 'blessing' };
-  if (ATTACK_TACTICAL_CARDS.has(card.id)) return { label: '攻击时', kind: 'attack' };
-  if (DEFENSE_TACTICAL_CARDS.has(card.id)) return { label: '防守时', kind: 'defense' };
-  if (CLASH_TACTICAL_CARDS.has(card.id)) return { label: '交锋时', kind: 'clash' };
-  return { label: OPPONENT_TARGET_TACTICAL_CARDS.has(card.id) ? '影响对手' : '即时使用', kind: 'instant' };
-}
-
-function getTacticalCardUsability(card, state) {
-  const me = state.me;
-  const currentSubject = state.schedule[state.currentClassIndex];
-  const subject = SUBJECTS[card.subject];
-  if (card.subject !== 'universal' && card.subject !== currentSubject) {
-    return { canPlay: false, reason: `仅限${subject?.label || card.subject}课` };
-  }
-
-  if (card.type === 'blessing' && (me.activeBlessings || []).some(active => active.id === card.id)) {
-    return { canPlay: false, reason: '本节课已生效' };
-  }
-  if ((me.playedTurnCards || []).some(active => active.id === card.id)) {
-    return { canPlay: false, reason: '同类效果已生效' };
-  }
-
-  const opponent = state.opponent || (state.players || []).find(player => player.id !== me.id && !player.isDead);
-  if (['card_eng_2', 'card_gen_03'].includes(card.id) && me.hp >= me.maxHp) {
-    return { canPlay: false, reason: '生命值已满' };
-  }
-  if (card.id === 'card_che_2') {
-    const hasNegativeState = (me.buffs || []).length > 0 || me.redHeat > 0 || me.stickers > 0 || me.selfStickers > 0 || me.permanentDefPenalty > 0;
-    if (!hasNegativeState) return { canPlay: false, reason: '当前无负面效果' };
-  }
-  if (card.id === 'card_che_3' && !(opponent?.redHeat > 0)) {
-    return { canPlay: false, reason: '对手没有红温' };
-  }
-  if (['card_it_2', 'card_gen_07'].includes(card.id) && !(opponent?.tp > 0)) {
-    return { canPlay: false, reason: '对手没有 TP' };
-  }
-
-  const moment = getTacticalCardMoment(card);
-  const isAttacker = state.attackerIdx === state.myIndex;
-  const isDefender = state.defenderIdx === state.myIndex || state.isMyDefendTurn;
-  if (moment.kind === 'attack' && !isAttacker) return { canPlay: false, reason: '仅在攻击回合使用' };
-  if (moment.kind === 'defense' && !isDefender) return { canPlay: false, reason: '仅在防守回合使用' };
-  if (moment.kind === 'clash' && !isAttacker && !isDefender) return { canPlay: false, reason: '等待自己的交锋' };
-  return { canPlay: true, reason: '' };
-}
-
-function tacticalBarHTML(s) {
-  if (!s || !s.me) return '';
-  const me = s.me;
-  const tp = me.tp || 0;
-  const handCards = me.handCards || [];
-
-  let cardsHtml = '';
-  if (handCards.length === 0) {
-    cardsHtml = `
-      <div class="hand-empty-state">
-        <span class="hand-empty-icon" aria-hidden="true"></span>
-        <strong>当前没有战术卡</strong>
-        <span>可在课间补给站购入</span>
-      </div>
-    `;
-  } else {
-    cardsHtml = handCards.map((c) => {
-      if (c.hidden) return '';
-      const typeClass = c.type || 'buff';
-      const scopeLabel = c.subject === 'universal' ? '通用' : (SUBJECTS[c.subject]?.label || c.subject);
-      const moment = getTacticalCardMoment(c);
-      const usability = getTacticalCardUsability(c, s);
-      const canPlay = usability.canPlay;
-      const disableReason = usability.reason;
-
-      return `
-        <button type="button" class="hand-card-kards ${canPlay ? '' : 'disabled'}" data-card-id="${escapeHTML(c.id)}"
-                ${canPlay ? `onclick="window._playTacticalCard('${escapeHTML(c.id)}'); window._toggleHand(false)"` : 'disabled'}
-                aria-label="${escapeHTML(canPlay ? `打出${c.name}` : `${c.name}，${disableReason}`)}">
-          <div class="card-tag-row">
-            <span class="card-tag-type ${escapeHTML(typeClass)}">${escapeHTML(scopeLabel)}</span>
-            <span class="card-timing">${escapeHTML(moment.label)}</span>
-          </div>
-          <div class="card-title-text">${escapeHTML(c.name)}</div>
-          <div class="card-desc-text">${escapeHTML(c.desc)}</div>
-          <div class="hand-card-footer">
-            <span class="card-tp-cost" title="仅为补给站购入价格，打出不消耗 TP">补给价 ${c.tpCost} TP</span>
-            <span class="hand-card-action">${canPlay ? '打出' : escapeHTML(disableReason)}</span>
-          </div>
-        </button>
-      `;
-    }).join('');
-  }
-
-  let blessingsHtml = '';
-  if (me.activeBlessings && me.activeBlessings.length > 0) {
-    blessingsHtml = `<div class="blessing-badges">
-      ${me.activeBlessings.map(b => `<span class="blessing-badge" title="${escapeHTML(b.desc || b.name)}"><span aria-hidden="true">✦</span>${escapeHTML(b.name)}</span>`).join('')}
-    </div>`;
-  }
-
-  return `
-    <div class="hand-fab-container">
-      ${blessingsHtml}
-      <button type="button" class="hand-fab" id="hand-fab" onclick="window._toggleHand()"
-              aria-controls="hand-fan-container" aria-expanded="${tacticalHandOpen}" title="查看战术手牌">
-        <span class="fab-icon" aria-hidden="true"></span>
-        <span class="fab-count">${handCards.length}</span>
-        <span class="fab-tp">${tp} TP</span>
-      </button>
-      <button type="button" class="hand-tray-backdrop ${tacticalHandOpen ? 'expanded' : ''}" id="hand-tray-backdrop"
-              onclick="window._toggleHand(false)" aria-label="关闭战术手牌" tabindex="-1"></button>
-      <section class="hand-fan-container ${tacticalHandOpen ? 'expanded' : ''}" id="hand-fan-container"
-               aria-label="战术手牌" aria-hidden="${!tacticalHandOpen}" ${tacticalHandOpen ? '' : 'inert'}>
-        <header class="hand-tray-header">
-          <div>
-            <span class="hand-tray-eyebrow">战术准备</span>
-            <strong>手牌 ${handCards.length} / 3</strong>
-          </div>
-          <div class="hand-tray-meta">
-            <span>${tp} TP</span>
-            <button type="button" class="hand-tray-close" onclick="window._toggleHand(false)" aria-label="关闭战术手牌" title="关闭">×</button>
-          </div>
-        </header>
-        <div class="hand-tray-cards">${cardsHtml}</div>
-        <p class="hand-tray-note">打出战术卡不消耗 TP</p>
-      </section>
-      </div>
-  `;
-}
-
 window._showToast = (msg) => {
   const t = document.createElement('div');
   t.className = 'toast show';
   t.textContent = msg;
   document.body.appendChild(t);
-  setTimeout(() => t.remove(), 2500);
+  viewLifecycle.delay(() => t.remove(), 2500);
 };
 
 function checkDraftShopModal(s) {
@@ -1142,7 +681,7 @@ function checkDraftShopModal(s) {
       const status = existing.querySelector('#draft-shop-status');
       if (status) status.innerHTML = statusHTML;
       if (draftInteraction?.type === 'refresh' && draftInteraction.previousCardId && pDraft.slots[draftInteraction.index]?.card?.id !== draftInteraction.previousCardId) {
-        setTimeout(() => { if (draftInteraction?.type === 'refresh') draftInteraction = null; }, 450);
+        viewLifecycle.delay(() => { if (draftInteraction?.type === 'refresh') draftInteraction = null; }, 450);
       }
       return;
     }
@@ -1175,52 +714,6 @@ function checkDraftShopModal(s) {
   } else {
     if (existing) existing.remove();
   }
-}
-
-// ── FFA UI ──
-function buildFfaGrid(s) {
-  if (!s || typeof s !== 'object') return '<div class="ffa-opponents-grid"></div>';
-  const players = Array.isArray(s.players) ? s.players : [];
-  const me = s.me;
-  const others = players.filter(p => p?.id !== me?.id);
-  const isTargeting = s.turnPhase === 'choose_target' && s.isMyAttackTurn;
-
-  let html = `<div class="ffa-opponents-grid" role="list" aria-label="其他玩家">`;
-  others.forEach(p => {
-    if (!p || !p.card) return;
-    const isDefender = Number.isInteger(s.defenderIdx) && players[s.defenderIdx]?.id === p.id;
-    const isAttacker = Number.isInteger(s.attackerIdx) && players[s.attackerIdx]?.id === p.id;
-    const canBeTargeted = isTargeting && !p.isDead;
-    const identityDisplay = p.identity === 'lord' ? '主将' : (p.identity === '?' ? '未知' : identityName(p.identity));
-    const stateLabel = p.isDead ? '已阵亡' : (isDefender ? '当前目标' : (isAttacker ? '进攻中' : '待命'));
-    const targetLabel = canBeTargeted ? '，点击选择为攻击目标' : '';
-    const safeName = escapeHTML(p.nickname || '匿名玩家');
-    const cardRole = canBeTargeted ? 'button' : 'listitem';
-
-    html += `
-      <div data-pid="${escapeHTML(p.id)}" class="ffa-micro-card ${getAuraClass(p)} ${isDefender ? 'active-target' : ''} ${isAttacker ? 'active-attacker' : ''} ${p.isDead ? 'dead' : ''} ${canBeTargeted ? 'selectable-target' : ''}"
-           role="${cardRole}" ${canBeTargeted ? `tabindex="0" onclick="window.selectFfaTarget('${escapeHTML(p.id)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.selectFfaTarget('${escapeHTML(p.id)}')}"` : ''}
-           aria-label="${safeName}${targetLabel}">
-        <div class="ffa-card-topline">
-          <strong class="ffa-player-name">${safeName}</strong>
-          <span class="ffa-state-label">${stateLabel}</span>
-        </div>
-        <div class="micro-avatar-wrap">
-          <img src="${escapeHTML(p.card?.image || '')}" alt="${escapeHTML(p.card?.name || '')}" onerror="this.style.display='none'">
-          ${isAttacker ? `<span class="atk-badge">进攻</span>` : ''}
-          ${p.isDead ? `<span class="ffa-dead-mark">阵亡</span>` : ''}
-        </div>
-        <div class="ffa-card-meta"><span class="identity-badge">${escapeHTML(identityDisplay)}</span><span class="ffa-character-name">${escapeHTML(p.card.name || '未知角色')}</span></div>
-        <div class="ffa-hp-row"><div class="ffa-hp-track"><span style="width:${pct(p.hp, p.maxHp)}%"></span></div><span>${escapeHTML(p.hp)}/${escapeHTML(p.maxHp)}</span></div>
-        <div class="bc-buffs ffa-buffs" aria-label="${safeName}的状态">${buffIcons(p, s)}</div>
-      </div>
-    `;
-  });
-  html += `</div>`;
-  if (isTargeting) {
-    html += `<div class="ffa-targeting-hint"><span aria-hidden="true">◎</span><strong>选择攻击目标</strong><span>点击一名存活玩家</span></div>`;
-  }
-  return html;
 }
 
 // ── 掷骰展示 ──
@@ -1400,7 +893,7 @@ function onAtkConfirmed(data) {
   const phase = document.getElementById('phase-text');
   if (phase) phase.innerHTML = buildAlerts(data);
 
-  setTimeout(() => refreshAll(), 600);
+  viewLifecycle.delay(() => refreshAll(), 600);
 }
 
 // ── 辅助：构建提示信息 ──
@@ -1504,7 +997,7 @@ export function onTurnResolved(data) {
   
   if (isAoE) {
     // FFA 群伤效果动画
-    setTimeout(() => {
+    viewLifecycle.delay(() => {
       if (!isAnimationActive(viewEpoch, animationId)) return;
       if (!S || typeof S.myIndex === 'undefined') {
         commitAnimatedState(newState, viewEpoch, animationId, gameOver);
@@ -1541,13 +1034,13 @@ export function onTurnResolved(data) {
         const getLiveDCard = () => dId === S.me.id ? document.getElementById('card-me') : document.querySelector(`.ffa-micro-card[data-pid="${dId}"]`);
 
         const impactDelay = 260 + index * 150;
-        setTimeout(() => {
+        viewLifecycle.delay(() => {
           if (!isAnimationActive(viewEpoch, animationId)) return;
           const liveDCard = getLiveDCard();
           if (liveDCard && document.body.contains(liveDCard)) liveDCard.classList.add('card-hit', 'aoe-target-hit');
         }, impactDelay);
 
-        setTimeout(() => {
+        viewLifecycle.delay(() => {
           if (!isAnimationActive(viewEpoch, animationId)) return;
           const liveDCard = getLiveDCard();
           if (liveDCard && document.body.contains(liveDCard)) {
@@ -1558,7 +1051,7 @@ export function onTurnResolved(data) {
               isAoE: true
             });
             if (res.lcCounterDamage > 0) {
-              setTimeout(() => {
+              viewLifecycle.delay(() => {
                 if (!isAnimationActive(viewEpoch, animationId)) return;
                 const liveAtkCard = getLiveAtkCard();
                 if (liveAtkCard && document.body.contains(liveAtkCard)) {
@@ -1570,12 +1063,12 @@ export function onTurnResolved(data) {
         }, impactDelay + 80);
       });
 
-      setTimeout(() => {
+      viewLifecycle.delay(() => {
         if (!isAnimationActive(viewEpoch, animationId)) return;
         setHP('hp-me', newState.me.hp, newState.me.maxHp, 'hp-me-t');
       }, 400);
 
-      setTimeout(() => {
+      viewLifecycle.delay(() => {
         if (!isAnimationActive(viewEpoch, animationId)) return;
         const liveAtkCard = getLiveAtkCard();
         if (liveAtkCard && document.body.contains(liveAtkCard)) liveAtkCard.classList.remove('card-attacking');
@@ -1586,14 +1079,14 @@ export function onTurnResolved(data) {
           if (liveDCard && document.body.contains(liveDCard)) liveDCard.classList.remove('card-hit', 'aoe-target-hit');
         });
         
-        setTimeout(() => {
+        viewLifecycle.delay(() => {
           commitAnimatedState(newState, viewEpoch, animationId, gameOver);
         }, data.classChanged ? 1500 : 500);
       }, aoeHold);
     }, 800);
   } else {
     // 1v1 动画
-    setTimeout(() => {
+    viewLifecycle.delay(() => {
       if (!isAnimationActive(viewEpoch, animationId)) return;
       if (!S || typeof S.myIndex === 'undefined') {
         commitAnimatedState(newState, viewEpoch, animationId, gameOver);
@@ -1622,13 +1115,13 @@ export function onTurnResolved(data) {
       const atkCard = getLiveAtkCard();
       if (atkCard && document.body.contains(atkCard)) atkCard.classList.add('card-attacking');
 
-      setTimeout(() => {
+      viewLifecycle.delay(() => {
         if (!isAnimationActive(viewEpoch, animationId)) return;
         const liveDefCard = getLiveDefCard();
         if (liveDefCard && document.body.contains(liveDefCard)) liveDefCard.classList.add('card-hit');
       }, 300);
 
-      setTimeout(() => {
+      viewLifecycle.delay(() => {
         if (!isAnimationActive(viewEpoch, animationId)) return;
         // Trigger character ultimate VFX if conditions are met
         if (S && S.players && typeof attackerIdx === 'number' && S.players[attackerIdx]) {
@@ -1655,7 +1148,7 @@ export function onTurnResolved(data) {
           });
         }
         if (data.lcCounterDamage > 0) {
-          setTimeout(() => {
+          viewLifecycle.delay(() => {
             if (!isAnimationActive(viewEpoch, animationId)) return;
             const liveAtkCard = getLiveAtkCard();
             if (liveAtkCard && document.body.contains(liveAtkCard)) {
@@ -1674,14 +1167,14 @@ export function onTurnResolved(data) {
         }
       }, 400);
 
-      setTimeout(() => {
+      viewLifecycle.delay(() => {
         if (!isAnimationActive(viewEpoch, animationId)) return;
         const liveAtkCard = getLiveAtkCard();
         const liveDefCard = getLiveDefCard();
         if (liveAtkCard && document.body.contains(liveAtkCard)) liveAtkCard.classList.remove('card-attacking');
         if (liveDefCard && document.body.contains(liveDefCard)) liveDefCard.classList.remove('card-hit');
         
-        setTimeout(() => {
+        viewLifecycle.delay(() => {
           commitAnimatedState(newState, viewEpoch, animationId, gameOver);
         }, data.classChanged ? 1500 : 500);
       }, 1500);
@@ -1692,7 +1185,7 @@ export function onTurnResolved(data) {
 // ── 换课动画 ──
 function showClassChange(data = {}) {
   const viewEpoch = activeBattleViewEpoch;
-  setTimeout(() => {
+  viewLifecycle.delay(() => {
     if (!isBattleViewActive(viewEpoch)) return;
     if (!data || typeof data !== 'object') return;
     const subjectId = typeof data.subject === 'string' ? data.subject : '';
@@ -1711,7 +1204,7 @@ function showClassChange(data = {}) {
     `;
     document.body.appendChild(overlay);
     const holdTime = data.dayChanged ? 1700 : 900;
-    setTimeout(() => { overlay.classList.add('fade-out'); setTimeout(() => overlay.remove(), 350); }, holdTime);
+    viewLifecycle.delay(() => { overlay.classList.add('fade-out'); viewLifecycle.delay(() => overlay.remove(), 350); }, holdTime);
   }, 2500);
 }
 
@@ -1759,94 +1252,6 @@ function showRescheduleModal() {
 }
 
 // ── 结算 ──
-function buildBattleSummary(state, playerId) {
-  const summary = {
-    damageDealt: 0,
-    damageTaken: 0,
-    flawlessDefenses: 0,
-    tacticalCards: 0,
-    highestHit: 0,
-    skillTriggers: 0,
-  };
-  const player = state.players?.find(candidate => candidate.id === playerId);
-
-  for (const entry of (Array.isArray(state?.log) ? state.log : [])) {
-    if (!entry || typeof entry !== 'object') continue;
-    if (entry.type === 'tactical' && entry.actorId === playerId) summary.tacticalCards += 1;
-    if (entry.type === 'skill' && (entry.actorId === playerId || (!entry.actorId && player?.nickname && entry.text?.includes(player.nickname)))) {
-      summary.skillTriggers += 1;
-    }
-    if (entry.type !== 'turn') continue;
-
-    const details = entry.details || {};
-    if (entry.actorId === playerId) summary.damageTaken += Number(details.selfDamage) || 0;
-
-    if (Array.isArray(details.targets)) {
-      for (const target of details.targets) {
-        const damage = Number(target.damage) || 0;
-        const counterDamage = Number(target.counterDamage) || 0;
-        if (entry.actorId === playerId) {
-          summary.damageDealt += damage;
-          summary.damageTaken += counterDamage;
-          summary.highestHit = Math.max(summary.highestHit, damage);
-        }
-        if (target.playerId === playerId) {
-          summary.damageTaken += damage;
-          summary.flawlessDefenses += damage === 0 ? 1 : 0;
-          summary.damageDealt += counterDamage;
-          summary.highestHit = Math.max(summary.highestHit, counterDamage);
-        }
-      }
-      continue;
-    }
-
-    const damage = Number(details.damage) || 0;
-    const counterDamage = Number(details.counterDamage) || 0;
-    if (entry.actorId === playerId) {
-      summary.damageDealt += damage;
-      summary.damageTaken += counterDamage;
-      summary.highestHit = Math.max(summary.highestHit, damage);
-    }
-    if (entry.targetId === playerId) {
-      summary.damageTaken += damage;
-      summary.flawlessDefenses += damage === 0 ? 1 : 0;
-      summary.damageDealt += counterDamage;
-      summary.highestHit = Math.max(summary.highestHit, counterDamage);
-    }
-  }
-
-  return summary;
-}
-
-function battleSummaryHTML(state) {
-  state = state && typeof state === 'object' ? state : {};
-  const summary = buildBattleSummary(state, state.me?.id);
-  const metrics = [
-    ['造成伤害', summary.damageDealt],
-    ['承受伤害', summary.damageTaken],
-    ['无伤防守', summary.flawlessDefenses],
-    ['战术卡', summary.tacticalCards],
-    ['最高单次', summary.highestHit],
-    ['技能触发', summary.skillTriggers],
-  ];
-  return `
-    <section class="go-review" aria-label="本局复盘">
-      <h2>本局复盘</h2>
-      <div class="go-review-grid">
-        ${metrics.map(([label, value]) => `
-          <div class="go-review-metric">
-            <strong>${value}</strong>
-            <span>${label}</span>
-          </div>
-        `).join('')}
-      </div>
-      <details class="go-battle-log">
-        <summary>查看完整战斗记录 <span>${Array.isArray(state.log) ? state.log.length : 0}</span></summary>
-        <div class="go-battle-log-content">${battleLogContentHTML(state)}</div>
-      </details>
-    </section>
-  `;
-}
 
 function showGameOver(s, meta = {}) {
   if (!s || typeof s !== 'object') return;
@@ -1977,140 +1382,11 @@ function curSubj() {
   const schedule = Array.isArray(S?.schedule) ? S.schedule : [];
   return schedule[S?.currentClassIndex] || schedule[schedule.length - 1] || '';
 }
-function pct(c,m) {
-  if (!Number.isFinite(c) || !Number.isFinite(m) || m <= 0) return 0;
-  return Math.max(0, Math.min(100, Math.round(c / m * 100)));
-}
-function getM(p,subj) {
-  if (!p?.card) return 1;
-  const base = getSkillMultiplier(p.card.subjects, subj);
-  return subj === 'geography' && base === 2
-    && (p.activeBlessings || []).some(card => card.id === 'card_geo_1')
-    ? 3
-    : base;
-}
-
-function getAuraClass(p) {
-  if (!p) return '';
-  if (p.lgpyForm) return 'aura-gpy-rage';
-  if (p.inDreamState) return 'aura-dream-domain';
-  if (p.chargeStacks > 0) return 'aura-zxs-water';
-  if (p.cardId === 'char_19') return 'aura-yzm-gold';
-  if (p.redHeat > 0) return 'aura-wyc-redheat';
-  if (p.buffs && p.buffs.find(b => b.id === 'sugar_crash')) return 'aura-whd-sugar';
-  return '';
-}
 
 function updateAura(el, p) {
   if (!el) return;
   const newAura = getAuraClass(p);
   vfxManager.triggerAuraEffect(el, newAura);
-}
-
-function multiTag(m) {
-  if (m===3) return '<span class="multiplier x3">×3</span>';
-  if (m===2) return '<span class="multiplier x2">×2</span>';
-  if (m===0.5) return '<span class="multiplier x05">×½</span>';
-  return '<span class="multiplier x1">×1</span>';
-}
-
-
-
-function phasePrompt(s) {
-  let p = '';
-  if (s.turnPhase === 'choose_target') p = s.isMyAttackTurn ? '选择目标' : '等待攻击方选择目标…';
-  if (s.turnPhase === 'waiting_atk') {
-    if (s.isMyAttackTurn) {
-      // 检查是否需要等待梦境盲选
-      if (isDreamBlocking(s)) {
-        p = '<span style="color:var(--accent);">等待对手完成梦境盲选…</span>';
-      } else {
-        p = '你的攻击回合';
-      }
-    } else {
-      p = '等待攻击…';
-    }
-  }
-  if (s.turnPhase === 'atk_rolled') p = s.isMyAttackTurn ? '选择骰子重投或确认' : '对手选择中…';
-  if (s.turnPhase === 'def_rolled') p = s.isMyDefendTurn ? '你的防御 — 重投或确认' : '对手防御中…';
-  
-  if (s.allergyTriggered && s.isMyAttackTurn) {
-    p = `<span style="color:var(--red); font-weight:bold;">过敏发作 — 伤害已锁定</span><br/>${p}`;
-  }
-  return p;
-}
-
-function isDreamBlocking(s) {
-  if (!s || !s.players) return false;
-  const fxr = s.players.find(p => (p.card?.positiveSkill?.id === 'dream_king' || p.cardId === 'char_fxr'));
-  return fxr && fxr.inDreamState && !fxr.lgpyForm && fxr.dreamTargetChoice === null;
-}
-
-function actionButtons(s) {
-  if (s.turnPhase === 'waiting_atk' && s.isMyAttackTurn) {
-    if (isDreamBlocking(s)) {
-      return '<button id="btn-roll" class="btn btn-primary btn-lg" disabled style="opacity:0.5;">等待盲选…</button>';
-    }
-    return '<button id="btn-roll" class="btn btn-primary btn-lg">掷骰</button>';
-  }
-  if (s.turnPhase === 'atk_rolled' && s.isMyAttackTurn) {
-    const attackSlots = s.me.effectiveAtkSlots ?? s.me.card.atkSlots;
-    const buyBtn = (s.me.cardId === 'char_14' && !s.me.skillsSealed && !s.hasAttackerRerolled && s.me.chargeStacks < 2)
-      ? '<button id="btn-buy-water" class="btn btn-secondary" style="margin-left:8px;">买水</button>' 
-      : '';
-    return `<div class="action-stack"><small class="dice-purpose">选择计入攻击的骰子</small>
-          <button id="btn-confirm" class="btn btn-success" disabled>✓ 确认</button>
-          ${buyBtn}
-        </div>`;
-  }
-  if (s.turnPhase === 'def_rolled' && s.isMyDefendTurn) {
-    const defenseSlots = s.me.effectiveDefSlots ?? s.me.card.defSlots;
-    const sacBtn = s.me.cardId === 'char_8' && !s.me.skillsSealed ? '<button id="btn-sacrifice" class="btn btn-secondary" style="display:none;" onclick="window._showSacrifice()">献祭回血</button>' : '';
-    return `<div class="action-stack"><small class="dice-purpose">选择计入防御的骰子</small>
-          <button id="btn-confirm" class="btn btn-primary" disabled>✓ 确认</button>
-          ${sacBtn}
-        </div>`;
-  }
-  return `<span style="color:var(--text-muted);font-size:.88rem">${phasePrompt(s)}</span>`;
-}
-
-function portraitInitials(name) {
-  const cleaned = Array.from(String(name || '?').replace(/[\[\]\s]/g, ''));
-  return cleaned.slice(-2).join('') || '?';
-}
-
-function portraitHTML(name, image) {
-  const safeName = escapeHTML(name || '角色');
-  return `
-    <span class="portrait-fallback" aria-hidden="true">${escapeHTML(portraitInitials(name))}</span>
-    ${image ? `<img src="${escapeHTML(image)}" alt="${safeName}" onerror="this.remove()">` : ''}
-  `;
-}
-
-function battleTopbarHTML(s) {
-  s = s && typeof s === 'object' ? s : {};
-  const canReschedule = !!s.me?.hasReschedule;
-  const day = Number.isInteger(s.currentDay) && s.currentDay > 0 ? s.currentDay : 1;
-  return `
-    <div class="battle-day">
-      <span>对局进度</span>
-      <strong>第 ${day} 天</strong>
-    </div>
-    <div class="battle-schedule-track">${scheduleHTML(s)}</div>
-    ${canReschedule ? '<button id="btn-reschedule" class="btn btn-secondary battle-reschedule">调课</button>' : ''}
-  `;
-}
-
-function scheduleHTML(s) {
-  const schedule = Array.isArray(s?.schedule) ? s.schedule : [];
-  return schedule.map((subj, i) => {
-    const info = SUBJECTS[subj];
-    const active = i === s.currentClassIndex;
-    const past = i < s.currentClassIndex;
-    return `<div class="sch-item${active ? ' active' : ''}${past ? ' past' : ''}" data-class-index="${i}">
-      <span>${escapeHTML(info?.icon || '📝')}</span><span class="sch-label">${escapeHTML(info?.label || subj || '未知课程')}</span>
-    </div>`;
-  }).join('');
 }
 
 function setHP(barId, hp, maxHp, txtId) {
@@ -2131,7 +1407,7 @@ function setHP(barId, hp, maxHp, txtId) {
         container.classList.remove('hp-loss', 'hp-gain');
         void container.offsetWidth;
         container.classList.add(feedbackClass);
-        setTimeout(() => container.classList.remove(feedbackClass), 620);
+        viewLifecycle.delay(() => container.classList.remove(feedbackClass), 620);
       }
     }
   }
@@ -2147,7 +1423,7 @@ function showBanner(text) {
   b.className = 'class-banner';
   b.textContent = text;
   document.body.appendChild(b);
-  setTimeout(() => b.classList.add('fade-out'), 1500);
-  setTimeout(() => b.remove(), 2000);
+  viewLifecycle.delay(() => b.classList.add('fade-out'), 1500);
+  viewLifecycle.delay(() => b.remove(), 2000);
 }
 function setText(id, html) { const e = document.getElementById(id); if(e) e.innerHTML = html; }

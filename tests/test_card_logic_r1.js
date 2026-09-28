@@ -1,4 +1,4 @@
-import { createGame, buyDraftCard, playTacticalCard } from '../server/game/engine.js';
+import { createGame, buyDraftCard, playTacticalCard, confirmDraftReady, selectCard, setReady } from '../server/game/engine.js';
 import { CARDS, getRandomCard } from '../shared/cards.js';
 import assert from 'assert';
 
@@ -46,7 +46,10 @@ const state = createGame([
   { id: 'player2', nickname: 'Bob' }
 ]);
 
-state.phase = 'battle';
+for (const player of state.players) {
+  selectCard(state, player.id, 'char_6');
+  setReady(state, player.id);
+}
 state.schedule = ['chinese', 'math', 'english'];
 state.currentClassIndex = 0;
 
@@ -60,6 +63,7 @@ assert.ok(card1Star, '1-star Chinese card must exist');
 state.draftShop = {
   active: true,
   players: {
+    player2: { slots: [], ready: false },
     player1: {
       slots: [
         { card: card1Star, refreshesLeft: 2 }
@@ -78,6 +82,8 @@ assert.strictEqual(p1.handCards[0].id, card1Star.id, 'Hand card ID must match pu
 console.log('✓ 1-Star card purchased for 1 TP. Remaining TP: 0');
 
 // Play card from hand with 0 TP
+assert.strictEqual(confirmDraftReady(state, 'player1').ok, true);
+assert.strictEqual(confirmDraftReady(state, 'player2').allReady, true);
 const playRes = playTacticalCard(state, 'player1', card1Star.id);
 assert.strictEqual(playRes.ok, true, 'Play card from hand with 0 TP must succeed');
 assert.strictEqual(p1.handCards.length, 0, 'Hand must be empty after playing card');

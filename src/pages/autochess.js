@@ -2,7 +2,7 @@
 // 校园战力党 — 货币战争 前端页面
 // ============================================================
 import { gameSocket } from '../net/socket.js';
-import { navigate } from '../main.js';
+import { navigate } from '../app/router.js';
 import { AC_CHAR_MAP, HEX_SUBJECTS, BEVERAGES, AC } from '../../shared/autochess-config.js';
 import { escapeHTML } from '../utils/html.js';
 
@@ -317,9 +317,17 @@ export function renderAutochess(container, data = {}) {
   }
 
   // ── Socket 事件 ──
-  function onRunUpdate(newRun) { run = newRun; render(); }
+  let stopReplay = null;
+  function onRunUpdate(newRun) {
+    stopReplay?.();
+    stopReplay = null;
+    run = newRun;
+    render();
+  }
 
   function onCombatResult(payload = {}) {
+    stopReplay?.();
+    stopReplay = null;
     const { combatLog, result } = payload && typeof payload === 'object' ? payload : {};
     if (!result || typeof result !== 'object') {
       showToast('战斗结果数据异常');
@@ -328,7 +336,7 @@ export function renderAutochess(container, data = {}) {
     const logEl = document.getElementById('ac-combat-log');
     if (logEl && Array.isArray(combatLog) && combatLog.length > 0) {
       logEl.style.display = 'flex';
-      playCombatLog(logEl, combatLog, () => { run = result; render(); });
+      stopReplay = playCombatLog(logEl, combatLog, () => { run = result; render(); });
     } else { run = result; render(); }
   }
 
@@ -391,6 +399,7 @@ export function renderAutochess(container, data = {}) {
   render();
 
   return () => {
+    stopReplay?.();
     gameSocket.off('ac_run_update', onRunUpdate);
     gameSocket.off('ac_combat_result', onCombatResult);
     gameSocket.off('ac_event_options', onEventOptions);
@@ -587,13 +596,14 @@ function playCombatLog(container, log, onDone) {
   const replayEl = container.querySelector('#ac-replay-content');
   const p1HP = container.querySelector('#ac-p1-hp');
   const p2HP = container.querySelector('#ac-p2-hp');
-  let idx = 0, timer = null;
+  let idx = 0, timer = null, finishTimer = null;
   let finished = false;
 
   function finish() {
     if (finished) return;
     finished = true;
     if (timer) clearInterval(timer);
+    if (finishTimer) clearTimeout(finishTimer);
     container.style.display = 'none';
     if (typeof onDone === 'function') onDone();
   }
@@ -603,7 +613,7 @@ function playCombatLog(container, log, onDone) {
   function showNext() {
     if (idx >= entries.length) {
       if (timer) clearInterval(timer);
-      setTimeout(finish, 500);
+      finishTimer = setTimeout(finish, 500);
       return;
     }
     const e = entries[idx++];
@@ -620,11 +630,16 @@ function playCombatLog(container, log, onDone) {
     if (e.redHeatApplied) html += `<span class="debuff">红温+${escapeHTML(e.redHeatApplied)}</span>`;
     html += `</div>`;
 
-    if (replayEl) replayEl.innerHTML = html + replayEl.innerHTML;
+    if (replayEl) replayEl.insertAdjacentHTML('afterbegin', html);
   }
 
   timer = setInterval(showNext, 450);
   showNext();
+  return () => {
+    finished = true;
+    clearInterval(timer);
+    clearTimeout(finishTimer);
+  };
 }
 
 function showToast(msg, type = 'error') {

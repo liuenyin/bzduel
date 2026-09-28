@@ -1,0 +1,117 @@
+/* ── 大厅信息展示 ──────────────────────── */.lobby-info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  width: 100%;
+  max-width: 800px;
+  margin-top: 30px;
+}.info-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--bg-inset);
+}.info-title {
+  font-size: 1.1rem;
+  color: var(--accent);
+  margin-bottom: 12px;
+  border-bottom: 2px solid var(--bg-inset);
+  padding-bottom: 6px;
+}.info-list {
+  list-style: none;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}.info-list li {
+  margin-bottom: 8px;
+  position: relative;
+  padding-left: 14px;
+}.info-list li::before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  color: var(--accent);
+  font-weight: bold;
+}/* 教程步骤样式 */.tutorial-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}.step {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}.step-num {
+  width: 20px;
+  height: 20px;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 900;
+  flex-shrink: 0;
+  margin-top: 2px;
+}.step p {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}/* 规则详解样式 */.rule-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}.rule-group h3 {
+  font-size: 0.95rem;
+  color: var(--text-main);
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}.rule-group p {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 8px;
+}.rule-list {
+  list-style: none;
+  padding-left: 0;
+}.rule-list li {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  padding-left: 12px;
+  position: relative;
+}.rule-list li::before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  color: var(--accent);
+}.rule-list code {
+  background: var(--bg-inset);
+  padding: 2px 4px;
+  border-radius: 4px;
+  color: var(--accent);
+}.changelog {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}.log-entry {
+  position: relative;
+  padding-left: 50px;
+}.log-ver {
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-size: 0.7rem;
+  font-weight: 900;
+  background: var(--bg-inset);
+  color: var(--text-muted);
+  padding: 2px 6px;
+  border-radius: 4px;
+}.log-entry p {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}@media(max-width:680px){
+  .lobby-info-grid { grid-template-columns: 1fr; }
+}

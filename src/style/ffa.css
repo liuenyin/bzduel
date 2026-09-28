@@ -1,0 +1,102 @@
+/* ── 结算画面 player-box ───────────────── */.go-stats .player-box {
+  display: flex; align-items: center; gap: 14px; flex: 1;
+}.go-stats .avatar-area {
+  position: relative; flex-shrink: 0;
+}.go-stats .avatar {
+  width: 72px; height: 72px; border-radius: 50%;
+  object-fit: cover; border: 3px solid var(--bg-inset);
+}.go-stats .badge-me {
+  position: absolute; bottom: -2px; right: -2px;
+  background: var(--accent); color: #fff; font-size: 0.65rem;
+  padding: 1px 6px; border-radius: 8px; font-weight: 700;
+}.go-stats .player-info { min-width: 0; flex: 1; }.go-stats .name-row {
+  display: flex; align-items: baseline; gap: 6px; margin-bottom: 6px;
+}.go-stats .nickname { font-weight: 700; font-size: 1rem; color: var(--text); }.go-stats .card-name { font-size: 0.8rem; color: var(--text-muted); }.go-stats .hp-container { margin-bottom: 4px; }.go-stats .hp-bar {
+  height: 8px; background: var(--bg-card); border-radius: 4px; overflow: hidden;
+  border: 1px solid var(--bg-inset);
+}.go-stats .hp-bar-fill {
+  height: 100%; border-radius: 4px;
+  background: linear-gradient(90deg, var(--green), #68d391);
+  transition: width 0.4s;
+}.go-stats .player-box.op .hp-bar-fill {
+  background: linear-gradient(90deg, var(--red), #fc8181);
+}.go-stats .hp-text { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }.go-stats .buffs-row { font-size: 0.7rem; color: var(--text-muted); }/* ── 移动端竖屏适配 ───────────────── */@media (max-width: 520px) {
+  .go-content {
+    padding: 28px 18px; width: 95%; max-width: none; border-radius: 16px;
+  }
+  .go-title {
+    font-size: 2rem; margin-bottom: 20px;
+  }
+  .go-stats {
+    flex-direction: column; gap: 12px; padding: 16px; margin-bottom: 24px;
+  }
+  .go-stats .player-box {
+    width: 100%;
+  }
+  .go-vs { padding: 10px 0; font-size: 1.5rem; }
+  .go-footer { flex-direction: column; }
+  .go-footer .btn { width: 100%; }
+  .go-review-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .go-review-metric:nth-child(4){border-left:0;border-top:1px solid var(--bg-inset)}
+  .go-review-metric:nth-child(5),.go-review-metric:nth-child(6){border-top:1px solid var(--bg-inset)}
+  .go-review-metric span{font-size:.62rem}
+  .go-battle-log-content{max-height:220px;padding-inline:8px}
+  .waiting-room-actions { grid-template-columns: 1fr; }
+}/* --- FFA Battle Grid --- */.ffa-opponents-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+  gap: 10px;
+  width: min(100%, 680px);
+  margin: 0 auto 12px;
+  padding: 2px;
+}.ffa-micro-card {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  background: var(--bg-card);
+  border: 1.5px solid var(--bg-inset);
+  border-radius: 8px;
+  padding: 8px 7px 7px;
+  text-align: center;
+  transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease, opacity .2s ease;
+  box-sizing: border-box;
+  overflow: visible;
+}.ffa-micro-card:hover { transform: translateY(-2px); }.ffa-card-topline { display:flex; align-items:center; justify-content:space-between; gap:5px; min-width:0; margin-bottom:6px; text-align:left; }.ffa-player-name { min-width:0; color:var(--text-main); font-size:.7rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.ffa-state-label { flex:0 0 auto; color:var(--text-muted); font-size:.55rem; font-weight:800; }.ffa-card-meta { display:flex; align-items:center; gap:5px; min-width:0; margin-top:6px; text-align:left; }.ffa-character-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text-secondary); font-size:.58rem; }.ffa-hp-row { display:flex; align-items:center; gap:5px; margin-top:6px; color:var(--text-main); font-size:.62rem; font-weight:800; }.ffa-hp-row > span:last-child { flex:0 0 auto; }.ffa-hp-track { flex:1; height:5px; overflow:hidden; border-radius:99px; background:var(--bg-inset); }.ffa-hp-track span { display:block; height:100%; border-radius:inherit; background:var(--red); transition:width .35s ease; }.micro-avatar-wrap { position:relative; width:48px; height:48px; margin:0 auto; }.micro-avatar-wrap img { display:block; width:48px; height:48px; border-radius:50%; object-fit:cover; border:2px solid rgba(255,255,255,.75); filter:var(--ffa-avatar-filter, none); }.atk-badge { position:absolute; left:50%; bottom:-5px; transform:translateX(-50%); padding:2px 5px; border-radius:4px; background:var(--red); color:#fff; font-size:.53rem; line-height:1; font-weight:900; white-space:nowrap; }.ffa-dead-mark { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; border-radius:50%; background:rgba(28,27,24,.58); color:#fff; font-size:.58rem; font-weight:900; }.ffa-micro-card.dead { --ffa-avatar-filter: grayscale(1); filter:grayscale(.8); opacity:.62; }.ffa-micro-card.dead .ffa-state-label { color:var(--red); }.ffa-micro-card.selectable-target { border-color:var(--accent); cursor:pointer; box-shadow:0 0 0 2px rgba(14,165,233,.12); }.ffa-micro-card.selectable-target:hover, .ffa-micro-card.selectable-target:focus-visible { transform:translateY(-3px); border-color:var(--gold); outline:none; box-shadow:0 0 0 3px rgba(192,154,80,.25), 0 8px 18px rgba(80,60,40,.12); }.ffa-micro-card.active-target { border-color:var(--red); box-shadow:0 0 0 2px rgba(196,92,92,.16), 0 0 14px rgba(196,92,92,.18); }.ffa-micro-card.active-target .ffa-state-label { color:var(--red); }.ffa-micro-card.active-attacker { border-color:var(--gold); animation:attacker-pulse 2s infinite; }.ffa-micro-card.active-attacker .ffa-state-label { color:#9a762c; }.ffa-micro-card.aoe-target-hit { animation:ffaAoeHit .42s ease both; }.ffa-opponents-grid.aoe-resolving .ffa-micro-card:not(.aoe-target-hit) { opacity:.68; }.ffa-targeting-hint { display:flex; align-items:baseline; justify-content:center; gap:8px; margin:0 auto 12px; color:var(--accent); }.ffa-targeting-hint strong { font-size:.9rem; }.ffa-targeting-hint span:last-child { color:var(--text-secondary); font-size:.7rem; }@keyframes ffaAoeHit {
+  0% { transform:scale(1); filter:brightness(1); }
+  35% { transform:scale(1.06); filter:brightness(1.35); }
+  55% { transform:translateX(-5px) scale(1.02); }
+  75% { transform:translateX(4px) scale(1.02); }
+  100% { transform:scale(1); filter:brightness(1); }
+}@keyframes attacker-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(192, 154, 80, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(192, 154, 80, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(192, 154, 80, 0); }
+}.identity-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: var(--bg-card);
+  border-radius: 10px;
+  font-size: 10px;
+  padding: 0 4px;
+  border: 1px solid var(--bg-inset);
+  box-shadow: var(--shadow);
+}.die-mini { width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-family: var(--font-display); font-weight: 800; font-size: 0.75rem; border-radius: 5px; background: #fff; border: 1.5px solid currentColor; margin: 0 2px; position: relative; vertical-align: middle; box-shadow: 0 1px 3px rgba(0,0,0,.1); }.die-mini-corner { position: absolute; top: -3px; right: -3px; font-size: 0.4rem; font-weight: 800; font-family: var(--font-body); padding: 0 2px; border-radius: 2px; border: 1px solid currentColor; line-height: 1; }.stats-matrix-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-top: 10px;
+  border-radius: var(--radius);
+  min-width: 0;
+  max-width: 100%;
+}.stats-modal {
+  min-width: 0;
+  max-width: 100%;
+}.stats-matrix { border-collapse: collapse; width: 100%; min-width: 800px; text-align: center; font-size: 0.85rem; }.stats-matrix th, .stats-matrix td { border: 1px solid var(--bg-inset); padding: 6px; }.stats-matrix th { background: var(--bg-inset); font-family: var(--font-display); position: sticky; top: 0; left: 0; z-index: 2; }.stats-matrix thead th { z-index: 3; }.stats-matrix td.win-high { background: rgba(106,158,109,0.2); color: #3d6e40; font-weight: 700; }.stats-matrix td.win-low { background: rgba(196,92,92,0.2); color: #944; font-weight: 700; }@media (max-width: 680px) {
+  .stats-matrix {
+    font-size: 0.75rem;
+  }
+  .stats-matrix th, .stats-matrix td {
+    padding: 4px 3px;
+  }
+}

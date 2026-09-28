@@ -1,10 +1,7 @@
 // ============================================================
 // 校园战力党 — 货币战争 Run 状态机
 // ============================================================
-import {
-  AC, SUBJECTS, HEX_SUBJECTS, AC_CHARS, AC_CHAR_MAP,
-  getSupportValue, SUPPORT_TYPE, BEVERAGES, STAR_SCALE,
-} from '../../shared/autochess-config.js';
+import { AC, SUBJECTS, HEX_SUBJECTS, AC_CHARS, AC_CHAR_MAP, getSupportValue, SUPPORT_TYPE, BEVERAGES } from '../../shared/autochess-config.js';
 import { createPool, refreshShop, scaleCharStats } from './shop.js';
 
 // ── 节点类型 ──

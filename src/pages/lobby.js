@@ -2,7 +2,8 @@
 // 校园战力党 — 大厅页面
 // ============================================================
 import { gameSocket } from '../net/socket.js';
-import { navigate, showGlobalChat } from '../main.js';
+import { navigate } from '../app/router.js';
+import { showGlobalChat } from '../components/chat.js';
 import { characters } from '../../shared/characters.js';
 import { escapeHTML } from '../utils/html.js';
 
@@ -43,7 +44,6 @@ export function renderLobby(container, data = {}) {
             <button id="btn-join" class="btn btn-secondary">加入 1v1</button>
           </div>
         </div>
-
 
         <div style="margin-top:12px; text-align:center;">
           <button id="btn-stats" class="btn btn-secondary" style="width:100%;">📊 查看全服角色胜率数据</button>
@@ -232,8 +232,6 @@ export function renderLobby(container, data = {}) {
     gameSocket.joinRoom(n, roomId);
   });
 
-
-
   const motionToggle = document.getElementById('motion-toggle');
   if (motionToggle) {
     motionToggle.checked = localStorage.getItem('dice_duel_reduced_motion') === '1';
@@ -333,6 +331,7 @@ export function renderLobby(container, data = {}) {
 
   const showWaitingRoom = ({ roomId, mode, isOwner = true, players = [] }) => {
     gameSocket.currentRoomId = roomId;
+    container.querySelectorAll('.lobby > .panel > .btn-group').forEach(group => { group.style.display = 'none'; });
     showGlobalChat(isOwner ? '房间已创建，等待对手加入...' : '已重新加入等待中的房间。');
     const modeName = mode === 'sanguosha' ? '大乱斗' : '1v1';
     const playerList = mode === 'sanguosha'
@@ -369,7 +368,16 @@ export function renderLobby(container, data = {}) {
       copyText(inviteUrl.toString(), '邀请链接已复制');
     });
     document.getElementById('btn-leave-waiting').addEventListener('click', () => {
-      gameSocket.leaveRoom(() => navigate('lobby'));
+      const button = document.getElementById('btn-leave-waiting');
+      button.disabled = true;
+      button.textContent = '正在离开…';
+      gameSocket.leaveRoom(result => {
+        if (result?.ok) navigate('lobby');
+        else {
+          button.disabled = false;
+          button.textContent = '重试离开';
+        }
+      });
     });
   };
 
@@ -396,7 +404,9 @@ export function renderLobby(container, data = {}) {
 
   gameSocket.on('match_found', (data) => {
     gameSocket.currentRoomId = data.roomId;
-    {
+    if (data.mode === 'autochess') {
+      navigate('autochess', data);
+    } else {
       showGlobalChat('已连接到对局！');
       navigate('preparation', data);
     }
@@ -410,6 +420,7 @@ export function renderLobby(container, data = {}) {
   gameSocket.on('room_closed', (data = {}) => {
     const reason = typeof data === 'string' ? data : data.reason;
     gameSocket.currentRoomId = null;
+    container.querySelectorAll('.lobby > .panel > .btn-group').forEach(group => { group.style.display = ''; });
     statusDiv.innerHTML = `<p style="color:var(--text-secondary);">${escapeHTML(reason || '房间已关闭')}</p>`;
   });
 
