@@ -4,6 +4,24 @@ import { createLifecycle } from '../src/utils/lifecycle.js';
 import { getTacticalCardUsability } from '../src/pages/battle/tactical.js';
 import { cardMap } from '../shared/cards.js';
 
+test('disposed views ignore late callbacks and remove event subscriptions once', () => {
+  const scope = createLifecycle();
+  const target = new EventTarget();
+  let calls = 0;
+  let cleaned = 0;
+  scope.listen(target, 'refresh', () => calls++);
+  scope.own(() => cleaned++);
+  const acknowledge = scope.guard(() => calls++);
+  target.dispatchEvent(new Event('refresh'));
+  assert.equal(calls, 1);
+  scope.dispose();
+  scope.dispose();
+  acknowledge();
+  target.dispatchEvent(new Event('refresh'));
+  assert.equal(calls, 1);
+  assert.equal(cleaned, 1);
+});
+
 test('disposing a page cancels pending and nested UI work', context => {
   context.mock.timers.enable({ apis: ['setTimeout'] });
   const scope = createLifecycle();

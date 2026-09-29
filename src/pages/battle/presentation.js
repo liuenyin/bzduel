@@ -50,7 +50,7 @@ export function phasePrompt(s) {
   }
   if (s.turnPhase === 'atk_rolled') p = s.isMyAttackTurn ? '选择骰子重投或确认' : '对手选择中…';
   if (s.turnPhase === 'def_rolled') p = s.isMyDefendTurn ? '你的防御 — 重投或确认' : '对手防御中…';
-  
+
   if (s.allergyTriggered && s.isMyAttackTurn) {
     p = `<span style="color:var(--red); font-weight:bold;">过敏发作 — 伤害已锁定</span><br/>${p}`;
   }
@@ -66,25 +66,25 @@ export function isDreamBlocking(s) {
 export function actionButtons(s) {
   if (s.turnPhase === 'waiting_atk' && s.isMyAttackTurn) {
     if (isDreamBlocking(s)) {
-      return '<button id="btn-roll" class="btn btn-primary btn-lg" disabled style="opacity:0.5;">等待盲选…</button>';
+      return '<button id="btn-roll" data-battle-action="roll" class="btn btn-primary btn-lg" disabled style="opacity:0.5;">等待盲选…</button>';
     }
-    return '<button id="btn-roll" class="btn btn-primary btn-lg">掷骰</button>';
+    return '<button id="btn-roll" data-battle-action="roll" class="btn btn-primary btn-lg">掷骰</button>';
   }
   if (s.turnPhase === 'atk_rolled' && s.isMyAttackTurn) {
     const attackSlots = s.me.effectiveAtkSlots ?? s.me.card.atkSlots;
     const buyBtn = (s.me.cardId === 'char_14' && !s.me.skillsSealed && !s.hasAttackerRerolled && s.me.chargeStacks < 2)
-      ? '<button id="btn-buy-water" class="btn btn-secondary" style="margin-left:8px;">买水</button>' 
+      ? '<button id="btn-buy-water" data-battle-action="buyWater" class="btn btn-secondary" style="margin-left:8px;">买水</button>'
       : '';
     return `<div class="action-stack"><small class="dice-purpose">选择计入攻击的骰子</small>
-          <button id="btn-confirm" class="btn btn-success" disabled>✓ 确认</button>
+          <button id="btn-confirm" data-battle-action="confirmDice" class="btn btn-success" disabled>✓ 确认</button>
           ${buyBtn}
         </div>`;
   }
   if (s.turnPhase === 'def_rolled' && s.isMyDefendTurn) {
     const defenseSlots = s.me.effectiveDefSlots ?? s.me.card.defSlots;
-    const sacBtn = s.me.cardId === 'char_8' && !s.me.skillsSealed ? '<button id="btn-sacrifice" class="btn btn-secondary" style="display:none;" onclick="window._showSacrifice()">献祭回血</button>' : '';
+    const sacBtn = s.me.cardId === 'char_8' && !s.me.skillsSealed ? '<button id="btn-sacrifice" class="btn btn-secondary" style="display:none;" data-battle-action="showSacrifice">献祭回血</button>' : '';
     return `<div class="action-stack"><small class="dice-purpose">选择计入防御的骰子</small>
-          <button id="btn-confirm" class="btn btn-primary" disabled>✓ 确认</button>
+          <button id="btn-confirm" data-battle-action="confirmDice" class="btn btn-primary" disabled>✓ 确认</button>
           ${sacBtn}
         </div>`;
   }
@@ -114,7 +114,7 @@ export function battleTopbarHTML(s) {
       <strong>第 ${day} 天</strong>
     </div>
     <div class="battle-schedule-track">${scheduleHTML(s)}</div>
-    ${canReschedule ? '<button id="btn-reschedule" class="btn btn-secondary battle-reschedule">调课</button>' : ''}
+    ${canReschedule ? '<button id="btn-reschedule" data-battle-action="reschedule" class="btn btn-secondary battle-reschedule">调课</button>' : ''}
   `;
 }
 

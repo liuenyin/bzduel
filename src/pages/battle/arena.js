@@ -84,12 +84,12 @@ export function buildArena(s, tacticalHandOpen = false) {
           <div class="battle-control-strip" id="sidebar-reroll">
             <div class="reroll-count" id="reroll-count">重投 <strong>${me.rerolls}</strong> 次</div>
             <p class="reroll-hint" id="reroll-hint">选中骰子后可重投</p>
-            <button id="btn-reroll" class="btn btn-secondary" style="display:none;">重投选中</button>
-            ${s.gameMode === '1v1' ? '<button id="btn-surrender" class="btn btn-secondary battle-surrender">投降</button>' : ''}
+            <button id="btn-reroll" data-battle-action="reroll" class="btn btn-secondary" style="display:none;">重投选中</button>
+            ${s.gameMode === '1v1' ? '<button id="btn-surrender" data-battle-action="surrender" class="btn btn-secondary battle-surrender">投降</button>' : ''}
             <details class="battle-menu">
               <summary aria-label="更多对局操作" title="更多对局操作">&#8943;</summary>
               <div class="battle-menu-popover">
-                <button id="btn-leave-battle" class="btn btn-secondary">退出对局</button>
+                <button id="btn-leave-battle" data-battle-action="leaveBattle" class="btn btn-secondary">退出对局</button>
               </div>
             </details>
           </div>
@@ -123,7 +123,7 @@ export function buildFfaGrid(s) {
 
     html += `
       <div data-pid="${escapeHTML(p.id)}" class="ffa-micro-card ${getAuraClass(p)} ${isDefender ? 'active-target' : ''} ${isAttacker ? 'active-attacker' : ''} ${p.isDead ? 'dead' : ''} ${canBeTargeted ? 'selectable-target' : ''}"
-           role="${cardRole}" ${canBeTargeted ? `tabindex="0" onclick="window.selectFfaTarget('${escapeHTML(p.id)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();window.selectFfaTarget('${escapeHTML(p.id)}')}"` : ''}
+           role="${cardRole}" ${canBeTargeted ? `tabindex="0" data-battle-action="selectFfaTarget" data-value="${escapeHTML(p.id)}"` : ''}
            aria-label="${safeName}${targetLabel}">
         <div class="ffa-card-topline">
           <strong class="ffa-player-name">${safeName}</strong>
@@ -190,7 +190,7 @@ export function tacticalBarHTML(s, tacticalHandOpen = false) {
 
       return `
         <button type="button" class="hand-card-kards ${canPlay ? '' : 'disabled'}" data-card-id="${escapeHTML(c.id)}"
-                ${canPlay ? `onclick="window._playTacticalCard('${escapeHTML(c.id)}'); window._toggleHand(false)"` : 'disabled'}
+                ${canPlay ? `data-battle-action="playTacticalCard" data-value="${escapeHTML(c.id)}"` : 'disabled'}
                 aria-label="${escapeHTML(canPlay ? `打出${c.name}` : `${c.name}，${disableReason}`)}">
           <div class="card-tag-row">
             <span class="card-tag-type ${escapeHTML(typeClass)}">${escapeHTML(scopeLabel)}</span>
@@ -217,14 +217,14 @@ export function tacticalBarHTML(s, tacticalHandOpen = false) {
   return `
     <div class="hand-fab-container">
       ${blessingsHtml}
-      <button type="button" class="hand-fab" id="hand-fab" onclick="window._toggleHand()"
+      <button type="button" class="hand-fab" id="hand-fab" data-battle-action="toggleHand"
               aria-controls="hand-fan-container" aria-expanded="${tacticalHandOpen}" title="查看战术手牌">
         <span class="fab-icon" aria-hidden="true"></span>
         <span class="fab-count">${handCards.length}</span>
         <span class="fab-tp">${tp} TP</span>
       </button>
       <button type="button" class="hand-tray-backdrop ${tacticalHandOpen ? 'expanded' : ''}" id="hand-tray-backdrop"
-              onclick="window._toggleHand(false)" aria-label="关闭战术手牌" tabindex="-1"></button>
+              data-battle-action="closeHand" aria-label="关闭战术手牌" tabindex="-1"></button>
       <section class="hand-fan-container ${tacticalHandOpen ? 'expanded' : ''}" id="hand-fan-container"
                aria-label="战术手牌" aria-hidden="${!tacticalHandOpen}" ${tacticalHandOpen ? '' : 'inert'}>
         <header class="hand-tray-header">
@@ -234,7 +234,7 @@ export function tacticalBarHTML(s, tacticalHandOpen = false) {
           </div>
           <div class="hand-tray-meta">
             <span>${tp} TP</span>
-            <button type="button" class="hand-tray-close" onclick="window._toggleHand(false)" aria-label="关闭战术手牌" title="关闭">×</button>
+            <button type="button" class="hand-tray-close" data-battle-action="closeHand" aria-label="关闭战术手牌" title="关闭">×</button>
           </div>
         </header>
         <div class="hand-tray-cards">${cardsHtml}</div>
