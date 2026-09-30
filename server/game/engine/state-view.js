@@ -102,7 +102,7 @@ export function getStateView(state, playerId) {
     defenderIdx: state.turnData?.defenderIdx,
     turnPhase: state.turnPhase,
     isMyAttackTurn: isAtk && !isDraftShopActive(state) && (state.turnPhase === TURN.WAITING_ATK || state.turnPhase === TURN.ATK_ROLLED || state.turnPhase === TURN.CHOOSE_TARGET),
-    isMyDefendTurn: !isAtk && !isDraftShopActive(state) && state.turnPhase === TURN.DEF_ROLLED && (state.turnData?.isAoE ? !!state.turnData?.aoeDefenses?.[playerId] : state.turnData?.defenderIdx === myIdx),
+    isMyDefendTurn: !isAtk && !players[myIdx]?.isDead && !isDraftShopActive(state) && state.turnPhase === TURN.DEF_ROLLED && (state.turnData?.isAoE ? !!state.turnData?.aoeDefenses?.[playerId] && !state.turnData.aoeDefenses[playerId].confirmed : state.turnData?.defenderIdx === myIdx),
     // 殷泽轩屏蔽点数逻辑：如果是 YZX 在掷骰且不是我，点数显示为 null
     attackRolls: (state.turnData?.attackRolls) ? (
       shouldHideRolls(state.players[state.turnData.attackerIdx], state.turnData.attackerIdx)
@@ -141,6 +141,7 @@ export function getStateView(state, playerId) {
     hasDefenderRerolled: state.turnData?.hasDefenderRerolled || false,
     draftShop: state.draftShop ? {
       active: !!state.draftShop.active,
+      pendingPlayerIds: players.filter(p => !p.isDead && p.hp > 0 && !state.draftShop.players?.[p.id]?.ready).map(p => p.id),
       players: state.draftShop.players?.[playerId]
         ? { [playerId]: cloneCard(state.draftShop.players[playerId]) }
         : {},

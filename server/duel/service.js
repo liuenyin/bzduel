@@ -270,9 +270,14 @@ export function registerGameServer(io) {
     socketToRoom.delete(playerId);
     socket.leave(roomId);
 
+    if (room.game.phase === 'battle' && room.game.gameMode === 'sanguosha') {
+      const result = eliminateDisconnectedPlayer(room.game, playerId);
+      if (result.ok && (result.gameOver || result.advanced)) emitImmediateTurnResolution(room, result);
+      else emitStateToAll(room);
+    }
     broadcastToOpponent(room, playerId, 'opponent_left_room', { playerId });
     if (room.isAI || room.playerSockets.filter(Boolean).length === 0) cleanupRoom(roomId);
-    else scheduleFinishedRoomCleanup(room);
+    else if (room.game.phase === 'game_over') scheduleFinishedRoomCleanup(room);
     return { ok: true };
   }
 
@@ -384,7 +389,9 @@ export function registerGameServer(io) {
 
     room.disconnectTimers?.delete(playerId);
     room.disconnectedPlayers?.delete(playerId);
-    socketToRoom.delete(playerId);
+    // FFA elimination keeps membership so a returning player can spectate.
+    // Explicitly leaving still removes membership through leavePlayerRoom.
+    if (room.game.gameMode !== 'sanguosha') socketToRoom.delete(playerId);
 
     if (room.isAI) {
       cleanupRoom(roomId);
@@ -453,7 +460,7 @@ export function registerGameServer(io) {
     }
     if (room && room.playerSockets) {
       for (const sid of room.playerSockets) {
-        if (sid) socketToRoom.delete(sid);
+        if (sid && socketToRoom.get(sid) === rid) socketToRoom.delete(sid);
       }
     }
     rooms.delete(rid);

@@ -2,8 +2,19 @@ import { cloneCard, findPlayer } from './primitives.js';
 import { PHASE } from '../../../shared/rules.js';
 import { getRandomCard } from '../../../shared/cards.js';
 
+function validateDraftAction(state, playerId) {
+  if (state.phase !== PHASE.BATTLE || !state.draftShop?.active) return { ok: false, error: '商店未开启' };
+  const player = findPlayer(state, playerId);
+  if (!player || player.isDead || player.hp <= 0) return { ok: false, error: '已淘汰，无法补给' };
+  const draft = state.draftShop.players?.[playerId];
+  if (!draft) return { ok: false, error: '补给信息不存在' };
+  if (draft.ready) return { ok: false, error: '已完成选牌，等待其他玩家' };
+  return { ok: true };
+}
+
 export function refreshDraftSlot(state, playerId, slotIndex) {
-  if (!state.draftShop || !state.draftShop.active) return { ok: false, error: '商店未开启' };
+  const validation = validateDraftAction(state, playerId);
+  if (!validation.ok) return validation;
   if (!Number.isInteger(slotIndex)) return { ok: false, error: '槽位不存在' };
   const pDraft = state.draftShop.players[playerId];
   if (!pDraft || !pDraft.slots[slotIndex]) return { ok: false, error: '槽位不存在' };
@@ -18,7 +29,8 @@ export function refreshDraftSlot(state, playerId, slotIndex) {
 }
 
 export function buyDraftCard(state, playerId, slotIndex) {
-  if (!state.draftShop || !state.draftShop.active) return { ok: false, error: '商店未开启' };
+  const validation = validateDraftAction(state, playerId);
+  if (!validation.ok) return validation;
   if (!Number.isInteger(slotIndex)) return { ok: false, error: '槽位不存在' };
   const pDraft = state.draftShop.players[playerId];
   if (!pDraft || !pDraft.slots[slotIndex]) return { ok: false, error: '槽位不存在' };

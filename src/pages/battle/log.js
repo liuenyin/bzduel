@@ -1,6 +1,15 @@
 import { escapeHTML } from '../../utils/html.js';
 import { SUBJECTS } from '../../../shared/rules.js';
 
+function damageExplanationHTML(calculation) {
+  if (!calculation || !Array.isArray(calculation.steps)) return '';
+  return `<details class="damage-explanation"><summary>查看伤害计算</summary>
+    <p>攻击 ${escapeHTML(calculation.attack)} · 防御 ${escapeHTML(calculation.defense)}</p>
+    <ol>${calculation.steps.map(step => `<li>${escapeHTML(step.label)}：<strong>${escapeHTML(step.value)}</strong></li>`).join('')}</ol>
+    <p>本次攻击伤害：${escapeHTML(calculation.damage)}。独立自伤、反击及治疗另行结算。</p>
+  </details>`;
+}
+
 export function getLogSummary(entry) {
   if (!entry) return '尚无战斗记录';
   const details = entry.details || {};
@@ -34,6 +43,7 @@ export function logEntryHTML(entry) {
             <span>${escapeHTML(details.actorName || '攻击方')} → ${escapeHTML(target.targetName || '目标')}</span>
             <strong class="${Number(target.damage) > 0 ? 'damage' : 'miss'}">${Number(target.damage) > 0 ? `-${target.damage} HP` : '无伤害'}</strong>
             ${targetNotes.length ? `<small>${escapeHTML(targetNotes.join(' · '))}</small>` : ''}
+            ${damageExplanationHTML(target.damageBreakdown)}
           </div>
         `;
       }).join('');
@@ -48,6 +58,7 @@ export function logEntryHTML(entry) {
           <strong class="${damage > 0 ? 'damage' : 'miss'}">${damage > 0 ? `-${damage} HP` : '无伤害'}</strong>
         </div>
         ${notes.length ? `<div class="log-entry-notes">${escapeHTML(notes.join(' · '))}</div>` : ''}
+        ${damageExplanationHTML(details.damageBreakdown)}
       </article>
     `;
   }

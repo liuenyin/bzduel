@@ -11,9 +11,10 @@ export function getTacticalCardMoment(card) {
 
 export function getTacticalCardUsability(card, state) {
   const me = state.me;
-  if (state.phase !== 'battle' || state.draftShop?.active || me.isDead) {
-    return { canPlay: false, reason: '当前无法使用战术卡' };
-  }
+  if (state.phase !== 'battle') return { canPlay: false, reason: '对局尚未开始或已结束' };
+  if (me.isDead) return { canPlay: false, reason: '已淘汰，正在观战' };
+  if (state.draftShop?.active) return { canPlay: false, reason: '补给结束后才可出牌' };
+  if (state.aoeDefenses?.[me.id]?.confirmed) return { canPlay: false, reason: '已确认防御，等待其他玩家' };
   const isAttacker = state.attackerIdx === state.myIndex;
   const isDefender = state.aoeDefenses
     ? !!state.aoeDefenses[me.id] && !state.aoeDefenses[me.id].confirmed
@@ -32,7 +33,8 @@ export function getTacticalCardUsability(card, state) {
     return { canPlay: false, reason: '同类效果已生效' };
   }
 
-  const opponent = state.opponent || (state.players || []).find(player => player.id !== me.id && !player.isDead);
+  const opponentIndex = isAttacker ? state.defenderIdx : state.attackerIdx;
+  const opponent = state.opponent || state.players?.[opponentIndex];
   if (['card_eng_2', 'card_gen_03'].includes(card.id) && me.hp >= me.maxHp) {
     return { canPlay: false, reason: '生命值已满' };
   }

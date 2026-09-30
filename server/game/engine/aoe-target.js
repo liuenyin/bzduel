@@ -7,7 +7,7 @@ import { appendBattleLog } from './battle-log.js';
 import { getCourseMultiplier, findPlayer } from './primitives.js';
 import { SKILL } from '../../../shared/characters.js';
 import { getRandomCard } from '../../../shared/cards.js';
-import { calculateTacticalDamage } from './damage.js';
+import { calculateDamageSteps, finalizeDamageExplanation } from './damage.js';
 
 export function resolveAoeTarget(state, pid, { atk, ar, atkMulti, selectedAttackFaces, finalBaseAtk, eatTriggeredBy }) {
   const subj = state.schedule[state.currentClassIndex];
@@ -58,7 +58,8 @@ export function resolveAoeTarget(state, pid, { atk, ar, atkMulti, selectedAttack
     else if (atkMulti === 2) targetFinalBaseAtk = Math.floor(finalBaseAtk * 0.66);
   }
 
-  let damage = calculateTacticalDamage(targetFinalBaseAtk, pFinalFinalDef, ar.pierce, tac);
+  const damageCalculation = calculateDamageSteps(targetFinalBaseAtk, pFinalFinalDef, ar.pierce, tac);
+  let damage = damageCalculation.damage;
 
   // 殷泽轩负面: 受到伤害时，最终伤害额外 +2 × 倍率
   if (damage > 0 && p.card.neutralSkill?.id === SKILL.VULNERABLE) {
@@ -187,6 +188,7 @@ export function resolveAoeTarget(state, pid, { atk, ar, atkMulti, selectedAttack
 
   return {
     playerId: pid,
+    damageBreakdown: finalizeDamageExplanation(damageCalculation, damage, atk, p),
     damage, finalDef: pFinalFinalDef, penalty, baseDef: pBaseDef,
     defNegTriggered: defNeg.triggered,
     defNegName: defNeg.triggered ? negativeSkillName : null,

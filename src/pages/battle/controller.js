@@ -1,20 +1,24 @@
+import { createDraftShop } from './draft-shop.js';
+import { createDiceSelection } from './dice-selection.js';
+import { createBattleChoices } from './choices.js';
+import { createBattleResults } from './results.js';
 import { configureCombatControls } from './controls.js';
 import { buildAlerts } from './feedback.js';
 import { playTurnResolution } from './animation.js';
-import { buildArena, buildFfaGrid, getTurnFlow, hpLabel, tacticalBarHTML, identityName } from './arena.js';
+import { buildArena, buildFfaGrid, getTurnFlow, hpLabel, tacticalBarHTML } from './arena.js';
 import { OPPONENT_TARGET_TACTICAL_CARDS } from '../../../shared/tactical-rules.js';
 import { createLifecycle } from '../../utils/lifecycle.js';
 import { pct, getM, getAuraClass, multiTag, phasePrompt, actionButtons, battleTopbarHTML } from './presentation.js';
 
-import { getLogSummary, battleLogContentHTML, battleSummaryHTML } from './log.js';
-import { getStatusEffects, statusEffectHTML, buffIcons } from './status.js';
+import { getLogSummary, battleLogContentHTML } from './log.js';
+import { getStatusEffects, statusEffectHTML } from './status.js';
 import { escapeHTML } from '../../utils/html.js';
 // ============================================================
 // 校园战力党 — 对战页面 (阶段制 · 卡牌动画)
 // ============================================================
 import { gameSocket } from '../../net/socket.js';
 import { navigate } from '../../app/router.js';
-import { SUBJECTS, CORE_SUBJECTS, ELECTIVE_SUBJECTS, MINOR_SUBJECTS, DICE_COLORS } from '../../../shared/rules.js';
+import { SUBJECTS } from '../../../shared/rules.js';
 
 import { vfxManager } from '../../utils/vfx.js';
 
@@ -23,6 +27,8 @@ import { bindBattleActions } from './actions.js';
 export function createBattleView(container, data) {
   const actions = Object.create(null);
   const overlays = new Set();
+  let shop, renderDice, updateActionButtons, showSacrifice, doSacrifice;
+  let checkDreamTargetModal, showRescheduleModal, showGameOver;
   let S; // State belongs only to this mounted view.
   let animLock = false; // prevent state_update during animations
   let pendingState = null;
@@ -33,7 +39,6 @@ export function createBattleView(container, data) {
   let lastTurnSignature = null;
   let pendingTacticalFeedback = null;
   let tacticalHandOpen = false;
-  let draftInteraction = null;
   let viewLifecycle = createLifecycle();
   let lastLogContent = null;
 
@@ -146,8 +151,11 @@ export function createBattleView(container, data) {
     activeBattleViewEpoch = viewEpoch;
     cancelBattleAnimations();
     S = data.state;
+    shop = createDraftShop({ actions, viewLifecycle, appendOverlay });
+    ({ renderDice, updateActionButtons, showSacrifice, doSacrifice } = createDiceSelection({ getState: () => S, appendOverlay }));
+    ({ checkDreamTargetModal, showRescheduleModal } = createBattleChoices({ getState: () => S, actions, appendOverlay }));
+    ({ showGameOver } = createBattleResults({ actions, viewLifecycle, appendOverlay }));
     tacticalHandOpen = false;
-    draftInteraction = null;
     document.body.classList.remove('tactical-hand-open');
     let localConnectionLost = false;
     const socketListeners = [];
@@ -160,48 +168,6 @@ export function createBattleView(container, data) {
       gameSocket.on(event, guardedHandler);
     };
 
-    actions.refreshDraftSlot = (value) => {
-      const idx = Number(value);
-      if (draftInteraction) return;
-      const slot = document.querySelector(`.draft-slot-card[data-slot-index="${idx}"]`);
-      draftInteraction = {
-        type: 'refresh',
-        index: idx,
-        previousCardId: slot?.dataset.cardId || '',
-      };
-      slot?.classList.add('is-refreshing');
-      gameSocket.refreshDraftSlot(idx);
-      viewLifecycle.delay(() => {
-        if (draftInteraction?.type === 'refresh' && draftInteraction.index === idx) {
-          draftInteraction = null;
-          slot?.classList.remove('is-refreshing');
-        }
-      }, 1400);
-    };
-    actions.buyDraftCard = (value) => {
-      const idx = Number(value);
-      if (draftInteraction) return;
-      const slot = document.querySelector(`.draft-slot-card[data-slot-index="${idx}"]`);
-      draftInteraction = { type: 'buy', index: idx };
-      slot?.classList.add('is-buying');
-      slot?.setAttribute('aria-busy', 'true');
-      gameSocket.buyDraftCard(idx, (result) => {
-        if (!viewLifecycle.active) return;
-        if (!isBattleViewActive(viewEpoch)) return;
-        if (result?.ok) {
-          actions.showToast('已加入手牌');
-          viewLifecycle.delay(() => {
-            if (draftInteraction?.type === 'buy' && draftInteraction.index === idx) draftInteraction = null;
-          }, 900);
-        } else {
-          draftInteraction = null;
-          slot?.classList.remove('is-buying');
-          slot?.removeAttribute('aria-busy');
-          actions.showToast(result?.error || '购买失败');
-        }
-      });
-    };
-    actions.confirmDraftReady = () => { gameSocket.confirmDraftReady(); };
     actions.showSacrifice = showSacrifice;
     actions.doSacrifice = value => doSacrifice(Number(value));
     actions.playTacticalCard = (id) => {
@@ -450,7 +416,7 @@ export function createBattleView(container, data) {
     revealCurrentClass();
     // Check dream target modal
     checkDreamTargetModal(S);
-    checkDraftShopModal(S);
+    shop.render(S);
     playTurnTransitionIfNeeded();
   }
 
@@ -485,44 +451,6 @@ export function createBattleView(container, data) {
     }
   }
 
-  function checkDreamTargetModal(s) {
-    const existing = document.getElementById('dream-target-modal');
-    const fxr = s.players?.find(p => (p.card?.positiveSkill?.id === 'dream_king' || p.cardId === 'char_fxr'));
-    if (s.phase === 'battle' && fxr && fxr.inDreamState && !fxr.lgpyForm && s.me.id !== fxr.id && fxr.dreamTargetChoice === null) {
-      if (existing) return;
-      const overlay = document.createElement('div');
-      overlay.className = 'result-overlay';
-      overlay.id = 'dream-target-modal';
-      overlay.style.zIndex = '10000';
-      overlay.innerHTML = `
-        <div class="dream-target-modal-panel">
-          <h2 style="color:var(--accent); margin-bottom:6px; font-size:1.35rem; font-family:var(--font-display);">梦境之王 - 盲选真身</h2>
-          <p style="font-size:0.88rem; color:var(--text); margin-bottom:14px; line-height:1.4;">付修然展开了梦境领域！出现 1 个本体与 2 个分身，请盲选本节课的攻击目标：</p>
-          <div class="dream-target-cards-container">
-            <button class="dream-target-btn" data-battle-action="pickDreamTarget" data-value="0">
-              目标 A
-            </button>
-            <button class="dream-target-btn" data-battle-action="pickDreamTarget" data-value="1">
-              目标 B
-            </button>
-            <button class="dream-target-btn" data-battle-action="pickDreamTarget" data-value="2">
-              目标 C
-            </button>
-          </div>
-          <p style="font-size:0.75rem; color:var(--text-secondary);">* 选错分身：分身使用超强骰池 (D7+D9+D9+D9+D11) 且无法伤及本体！</p>
-        </div>
-      `;
-      appendOverlay(overlay);
-      actions.pickDreamTarget = (value) => {
-      const idx = Number(value);
-        gameSocket.chooseDreamTarget(idx);
-        overlay.remove();
-      };
-    } else {
-      if (existing) existing.remove();
-    }
-  }
-
   // ── 战术卡 & 补给站 Modal ──
   actions.toggleHand = (force) => {
     tacticalHandOpen = typeof force === 'boolean' ? force : !tacticalHandOpen;
@@ -549,299 +477,9 @@ export function createBattleView(container, data) {
     viewLifecycle.delay(() => t.remove(), 2500);
   };
 
-  function checkDraftShopModal(s) {
-    const existing = document.getElementById('draft-shop-modal');
-    if (s.draftShop && s.draftShop.active && s.me) {
-      const pDraft = s.draftShop.players?.[s.me.id];
-      if (!pDraft) return;
-
-      const renderSlots = () => {
-        return pDraft.slots.map((slot, idx) => {
-          const c = slot.card;
-          if (!c) {
-            const justPurchased = draftInteraction?.type === 'buy' && draftInteraction.index === idx;
-            return `
-              <div class="draft-slot-card empty ${justPurchased ? 'just-purchased' : ''}" data-slot-index="${idx}">
-                <span class="draft-purchased-mark" aria-hidden="true">✓</span>
-                <strong>已加入手牌</strong>
-                <small>此位置已购买</small>
-              </div>
-            `;
-          }
-          const typeClass = c.type || 'buff';
-          const scopeLabel = c.subject === 'universal' ? '通用' : (SUBJECTS[c.subject]?.label || c.subject);
-          const isHandFull = (s.me.handCards || []).length >= 3;
-          const isAfford = s.me.tp >= c.tpCost;
-          const buyDisabled = isHandFull || !isAfford;
-          let disableReason = '';
-          if (isHandFull) disableReason = '手牌已满';
-          else if (!isAfford) disableReason = 'TP不足';
-
-          const stars = '★'.repeat(c.tpCost) + '☆'.repeat(Math.max(0, 3 - c.tpCost));
-          const isRefreshing = draftInteraction?.type === 'refresh' && draftInteraction.index === idx;
-          const justRefreshed = isRefreshing && draftInteraction.previousCardId && draftInteraction.previousCardId !== c.id;
-          const cardState = justRefreshed ? 'just-refreshed' : (isRefreshing ? 'is-refreshing' : '');
-          const actionLabel = buyDisabled ? disableReason : `购买 · ${c.tpCost} TP`;
-
-          return `
-            <div class="draft-slot-card ${buyDisabled ? 'disabled' : 'clickable'} ${cardState}" data-slot-index="${idx}" data-card-id="${escapeHTML(c.id)}"
-                 ${buyDisabled ? '' : `role="button" tabindex="0" data-battle-action="buyDraftCard" data-value="${idx}"`}
-                 aria-label="${escapeHTML(`${c.name}，${actionLabel}`)}">
-              <button type="button" class="btn-icon-refresh" ${slot.refreshesLeft > 0 && !isRefreshing ? '' : 'disabled'}
-                      data-battle-action="refreshDraftSlot" data-value="${idx}" title="刷新卡牌，剩余 ${slot.refreshesLeft} 次" aria-label="刷新卡牌，剩余 ${slot.refreshesLeft} 次">
-                <span aria-hidden="true">↻</span><small>${slot.refreshesLeft}</small>
-              </button>
-              <div class="draft-card-header">
-                <span class="card-tag-type ${escapeHTML(typeClass)}">${escapeHTML(scopeLabel)}</span>
-                <span class="draft-card-star" aria-label="${c.tpCost} 点战术点">${stars}</span>
-              </div>
-              <div class="draft-card-title">${escapeHTML(c.name)}</div>
-              <div class="draft-card-desc">${escapeHTML(c.desc)}</div>
-              <div class="draft-card-footer">
-                <span class="draft-card-cost">${c.tpCost} TP</span>
-                <span class="draft-card-action">${escapeHTML(actionLabel)}</span>
-              </div>
-            </div>
-          `;
-        }).join('');
-      };
-
-      const statusHTML = `
-        <div class="draft-shop-status-copy">
-          <span class="draft-shop-kicker">下一节课开始前</span>
-          <strong>选一张卡，或刷新你不需要的卡</strong>
-        </div>
-        <div class="draft-shop-metrics" aria-label="补给站资源">
-          <span class="draft-metric"><small>手牌</small><b>${s.me.handCards?.length || 0}/3</b></span>
-          <span class="draft-metric tp"><small>战术点</small><b>${s.me.tp} TP</b></span>
-        </div>
-      `;
-
-      if (pDraft.ready) {
-        if (existing) {
-          existing.querySelector('.draft-shop-panel').innerHTML = `
-            <div class="draft-shop-title-row"><div><span class="draft-shop-eyebrow">课间补给</span><h2>战术补给站</h2></div><span class="draft-ready-mark">✓</span></div>
-            <div class="draft-waiting-state"><span class="draft-waiting-dot" aria-hidden="true"></span><strong>已完成选牌</strong><span>等待对方完成选择…</span></div>
-          `;
-        }
-        return;
-      }
-
-      if (existing) {
-        const slotsWrap = existing.querySelector('#draft-slots-wrap');
-        if (slotsWrap) slotsWrap.innerHTML = renderSlots();
-        const status = existing.querySelector('#draft-shop-status');
-        if (status) status.innerHTML = statusHTML;
-        if (draftInteraction?.type === 'refresh' && draftInteraction.previousCardId && pDraft.slots[draftInteraction.index]?.card?.id !== draftInteraction.previousCardId) {
-          viewLifecycle.delay(() => { if (draftInteraction?.type === 'refresh') draftInteraction = null; }, 450);
-        }
-        return;
-      }
-
-      const overlay = document.createElement('div');
-      overlay.className = 'result-overlay';
-      overlay.id = 'draft-shop-modal';
-      overlay.style.zIndex = '9999';
-
-      overlay.innerHTML = `
-        <div class="draft-shop-panel">
-          <div class="draft-shop-title-row">
-            <div><span class="draft-shop-eyebrow">课间补给</span><h2>战术补给站</h2></div>
-            <span class="draft-shop-icon" aria-hidden="true">✦</span>
-          </div>
-          <div class="draft-shop-status" id="draft-shop-status">${statusHTML}</div>
-          <div class="draft-slots-container" id="draft-slots-wrap">
-            ${renderSlots()}
-          </div>
-          <div class="draft-shop-footer">
-            <span>最多持有 3 张战术卡</span>
-            <button class="btn btn-primary btn-lg" data-battle-action="confirmDraftReady">
-              完成选牌
-            </button>
-          </div>
-        </div>
-      `;
-
-      appendOverlay(overlay);
-    } else {
-      if (existing) existing.remove();
-    }
-  }
-
   // ── 掷骰展示 ──
-  function renderDice() {
-    const area = document.getElementById('dice-area');
-    if (!area) return;
-
-    const isMeAtk = S.myIndex === S.attackerIdx;
-    const isMeDef = S.myIndex === S.defenderIdx;
-
-    let atkPlayer, defPlayer;
-    if (S.gameMode === '1v1') {
-      atkPlayer = isMeAtk ? S.me : S.opponent;
-      defPlayer = isMeAtk ? S.opponent : S.me;
-    } else {
-      atkPlayer = (S.players && S.attackerIdx !== null && S.attackerIdx !== undefined) ? S.players[S.attackerIdx] : null;
-      defPlayer = (S.players && S.defenderIdx !== null && S.defenderIdx !== undefined) ? S.players[S.defenderIdx] : null;
-    }
-
-    // 使用 effectiveDicePool 以正确反映状态覆盖后的骰池
-    const atkPool = atkPlayer?.effectiveDicePool || atkPlayer?.card?.dicePool || [];
-    const defPool = defPlayer?.effectiveDicePool || defPlayer?.card?.dicePool || [];
-
-    let html = '';
-    if (S.attackRolls) {
-      // 攻击骰：由 attackerIdx 掷出
-      const canSelect = S.turnPhase === 'atk_rolled' && S.isMyAttackTurn;
-      html += `<div class="dice-row"><span class="dice-label" style="color:var(--gold)">攻</span>`;
-      html += S.attackRolls.map((v, i) => {
-        const isKept = S.atkResult?.keptIndices?.includes(i);
-        let face = atkPool[i] || 6;
-        if (S.isExtraTurn && S.extraTurnFaceBoost) {
-          face += S.extraTurnFaceBoost;
-        }
-        // 殷泽轩屏蔽：如果不是我掷出的且对方是 YZX
-        const isYzx = v === -1 || (atkPlayer && atkPlayer.stealthActive);
-        const color = DICE_COLORS[face];
-        let style = color ? `border-color:${color.border}; color:${color.border};` : '';
-        if (S.atkResult && !isKept) style += 'opacity:0.3;';
-        const displayVal = isYzx ? '?' : v;
-        return `<div class="die attack${canSelect ? ' selectable' : ''}${canSelect ? ' rolling' : ''}" style="${style}" data-idx="${i}" data-val="${v}">
-          ${color && !isYzx ? `<div class="die-corner" style="color:${color.border};background:${color.bg}">${color.label}</div>` : ''}
-          ${displayVal}
-        </div>`;
-      }).join('');
-      if (S.atkResult) {
-        const sum = S.atkResult.baseAtk;
-        const bonus = S.atkResult.bonusDamage ? `+${S.atkResult.bonusDamage}` : '';
-        html += `<span class="dice-sum" style="color:var(--gold)">= ${sum}${bonus}</span></div>`;
-      } else {
-        html += `</div>`;
-      }
-    }
-    const myAoeDefense = S.aoeDefenses?.[S.me?.id] || null;
-    if (Array.isArray(S.defenseRolls) || Array.isArray(myAoeDefense?.rolls)) {
-      // 防御骰
-      const canSelect = S.turnPhase === 'def_rolled' && S.isMyDefendTurn;
-      const rollsToRender = myAoeDefense ? myAoeDefense.rolls : S.defenseRolls;
-      const isConfirmed = !!myAoeDefense?.confirmed;
-
-      html += `<div class="dice-row"><span class="dice-label" style="color:var(--blue)">守</span>`;
-      if (Array.isArray(rollsToRender)) {
-        html += rollsToRender.map((v, i) => {
-          const face = defPool[i] || 6;
-          const color = DICE_COLORS[face];
-          // 如果点数是 -1，说明被后端屏蔽了
-          const isYzx = v === -1 || (defPlayer && defPlayer.stealthActive);
-          let style = color ? `border-color:${color.border}; color:${color.border};` : '';
-          if (isConfirmed) style += 'opacity:0.5;';
-          const displayVal = isYzx ? '?' : v;
-          return `<div class="die defense${(canSelect && !isConfirmed) ? ' selectable' : ''}" style="${style}" data-idx="${i}" data-val="${v}">
-            ${color && !isYzx ? `<div class="die-corner" style="color:${color.border};background:${color.bg}">${color.label}</div>` : ''}
-            ${displayVal}
-          </div>`;
-        }).join('');
-      }
-      html += `<span class="dice-sum" style="color:var(--blue)">${isConfirmed ? ' 已确认' : ''}</span></div>`;
-    }
-    area.innerHTML = html;
-    const diceEls = area.querySelectorAll('.die.rolling, .die.selectable');
-    if (diceEls.length > 0) {
-      const vals = Array.from(diceEls).map(d => parseInt(d.dataset.val || '0'));
-      vfxManager.rollDice(diceEls, vals);
-    }
-    area.querySelectorAll('.die.selectable').forEach(d => {
-      d.dataset.battleAction = 'selectDie';
-      d.setAttribute('role', 'button');
-      d.tabIndex = 0;
-      d.setAttribute('aria-label', `骰子 ${d.dataset.val}`);
-      d.setAttribute('aria-pressed', String(d.classList.contains('selected')));
-    });
-    updateActionButtons();
-  }
-
-  function updateActionButtons() {
-    const area = document.getElementById('dice-area');
-    const btnReroll = document.getElementById('btn-reroll');
-    const btnConfirm = document.getElementById('btn-confirm');
-    if (!area) return;
-
-    const sel = area.querySelectorAll('.die.selected');
-    const count = sel.length;
-
-    let currentSum = 0;
-    sel.forEach(d => {
-      currentSum += parseInt(d.dataset.val || '0');
-    });
-
-    if (btnReroll) {
-      btnReroll.style.display = count > 0 && S.me.rerolls > 0 ? 'block' : 'none';
-      if ((S.me.buffs && S.me.buffs.find(b => b.id === 'sugar_crash')) || btnReroll.dataset.rerolling === 'true') {
-        btnReroll.disabled = true;
-        if (S.me.buffs && S.me.buffs.find(b => b.id === 'sugar_crash')) btnReroll.innerHTML = '🚫 犯糖';
-      } else {
-        btnReroll.disabled = false;
-        btnReroll.innerHTML = `重投 ${count} 颗`;
-      }
-    }
-
-    if (btnConfirm) {
-      const isAtk = S.turnPhase === 'atk_rolled' && S.isMyAttackTurn;
-      const isDef = S.turnPhase === 'def_rolled' && S.isMyDefendTurn;
-      const target = isAtk
-        ? (S.me.effectiveAtkSlots ?? S.me.card.atkSlots)
-        : (isDef ? (S.me.effectiveDefSlots ?? S.me.card.defSlots) : 99);
-
-      // 李灿献祭逻辑
-      const btnSacrifice = document.getElementById('btn-sacrifice');
-      if (btnSacrifice) {
-        if (isDef && S.me.cardId === 'char_8' && !S.me.skillsSealed && count === target) {
-          btnSacrifice.style.display = 'block';
-        } else {
-          btnSacrifice.style.display = 'none';
-        }
-      }
-
-      if (target === -1) {
-        // ... same
-        if (count > 0) {
-          btnConfirm.disabled = false;
-          btnConfirm.innerHTML = `✓ 确认 (已选 ${count} 颗) 总和:${currentSum}`;
-        } else {
-          btnConfirm.disabled = true;
-          btnConfirm.innerHTML = `至少选 1 颗`;
-        }
-      } else {
-        if (count === target) {
-          btnConfirm.disabled = false;
-          btnConfirm.innerHTML = `✓ 确认 (${count}/${target}) 总和:${currentSum}`;
-        } else {
-          btnConfirm.disabled = true;
-          btnConfirm.innerHTML = `需选 ${target} 颗 (已选 ${count})`;
-        }
-      }
-    }
-  }
 
   // 献祭弹窗
-  function showSacrifice() {
-    const sel = document.querySelectorAll('.die.defense.selected');
-    let opts = '';
-    sel.forEach(d => {
-      opts += `<button class="btn btn-secondary" data-battle-action="doSacrifice" data-value="${d.dataset.idx}">献祭 ${d.dataset.val}</button>`;
-    });
-    const m = document.createElement('div');
-    m.className = 'result-overlay';
-    m.id = 'sacrifice-modal';
-    m.innerHTML = `<div class="panel"><h3>选择一个骰子进行献祭</h3><p>该骰子变1，回复其点数-1的HP</p>${opts}</div>`;
-    appendOverlay(m);
-  }
-
-  function doSacrifice(idx) {
-    const indices = Array.from(document.querySelectorAll('.die.defense.selected')).map(d => parseInt(d.dataset.idx));
-    gameSocket.confirmDice(indices, { sacrificeIndex: idx });
-    document.getElementById('sacrifice-modal')?.remove();
-  }
 
   // ── 攻击确认回调 ──
   function onAtkConfirmed(data) {
@@ -892,175 +530,8 @@ export function createBattleView(container, data) {
     }, 2500);
   }
 
-  // ── 调课权弹窗 ──
-  function showRescheduleModal() {
-    const overlay = document.createElement('div');
-    overlay.className = 'result-overlay';
-    overlay.id = 'reschedule-modal';
-    overlay.style.zIndex = '9999';
-
-    let options = '';
-    for(let i = S.currentClassIndex; i < S.schedule.length; i++) {
-      options += `<option value="${i}">第 ${i+1} 节课 (${SUBJECTS[S.schedule[i]]?.label || S.schedule[i]})</option>`;
-    }
-
-    const makeBtn = (arr) => arr.map(id => {
-      const s = SUBJECTS[id];
-      return `<button data-battle-action="pickSubj" data-value="${id}">${s.icon} ${s.label}</button>`;
-    }).join('');
-
-    overlay.innerHTML = `
-      <div class="panel" style="max-width:360px;width:90%;">
-        <p class="section-title" style="margin-bottom:8px;">使用调课权</p>
-        <div style="text-align:center; margin-bottom:12px;">
-          <select id="reschedule-idx-select" style="padding:4px 8px; border-radius:4px; font-family:var(--font-body); font-size:0.85rem; border:1.5px solid var(--bg-inset); background:var(--bg-warm); outline:none;">
-            ${options}
-          </select>
-        </div>
-        <div class="subject-picker">
-          <div class="picker-section-label">主科</div>${makeBtn(CORE_SUBJECTS)}
-          <div class="picker-section-label">选科</div>${makeBtn(ELECTIVE_SUBJECTS)}
-          <div class="picker-section-label">副科</div>${makeBtn(MINOR_SUBJECTS)}
-        </div>
-        <div style="text-align:center;margin-top:14px;">
-          <button class="btn btn-secondary" data-battle-action="closeModal">取消</button>
-        </div>
-      </div>
-    `;
-    appendOverlay(overlay);
-    actions.pickSubj = (id) => {
-      const targetIdx = parseInt(document.getElementById('reschedule-idx-select').value);
-      gameSocket.useReschedule(targetIdx, id);
-      overlay.remove();
-    };
-  }
 
   // ── 结算 ──
-
-  function showGameOver(s, meta = {}) {
-    if (!s || typeof s !== 'object') return;
-    meta = meta && typeof meta === 'object' ? meta : {};
-    if (document.querySelector('.game-over-screen')) return;
-    const o = document.createElement('div');
-    o.className = 'game-over-screen';
-
-    let isWin = false;
-    let statusStr = '';
-
-    if (s.gameMode === '1v1') {
-      isWin = s.winner === s.myIndex;
-      const isDraw = s.winner === 'draw';
-      statusStr = isDraw ? '平 局' : (isWin ? '胜 利' : '败 北');
-    } else {
-      // FFA
-      if (s.winner === 'lord') {
-        isWin = s.me?.identity === 'lord' || s.me?.identity === 'loyalist';
-        statusStr = isWin ? '胜 利 (主公/忠臣 赢)' : '败 北 (主公/忠臣 赢)';
-      } else if (s.winner === 'rebel') {
-        isWin = s.me?.identity === 'rebel';
-        statusStr = isWin ? '胜 利 (反贼 赢)' : '败 北 (反贼 赢)';
-      } else if (s.winner === 'spy') {
-        isWin = s.me?.identity === 'spy';
-        statusStr = isWin ? '胜 利 (内奸 赢)' : '败 北 (内奸 赢)';
-      }
-    }
-
-    const statusClass = (s.gameMode === '1v1' && s.winner === 'draw') ? 'draw' : (isWin ? 'win' : 'lose');
-    const endReason = meta.reason || s.endReason;
-    const surrenderedPlayer = s.players?.find(player => player.id === (meta.surrenderedId || s.surrenderedId));
-    const reasonText = endReason === 'surrender'
-      ? `${surrenderedPlayer?.nickname || '一名玩家'} 投降`
-      : (endReason === 'red_heat'
-        ? '红温伤害致死'
-        : (endReason === 'dice_self_damage'
-          ? '掷骰自伤致死'
-          : (endReason === 'tactical_card' ? '战术卡造成致命伤害' : '对局结束')));
-
-    function renderPlayer(p, index) {
-      if (!p) return '';
-      const isMe = index === s.myIndex;
-      const card = p.card && typeof p.card === 'object'
-        ? p.card
-        : { name: '未知角色', image: '' };
-      const isYzx = (p.cardId === 'char_10' || p.stealthActive) && !isMe;
-      const hpText = isYzx ? '??' : p.hp;
-      const maxHpText = isYzx ? '??' : p.maxHp;
-      const hpPercent = isYzx ? 100 : pct(Number(p.hp), Number(p.maxHp));
-      const identityHtml = s.gameMode === 'sanguosha' ? `<div style="color:var(--accent);font-size:0.8rem;margin-top:4px;">身份: ${escapeHTML(p.identity === '?' ? '未知' : identityName(p.identity))}</div>` : '';
-
-      return `
-        <div class="player-box ${isMe ? 'me' : 'op'} ${isYzx ? 'stealth' : ''}" style="${s.gameMode === 'sanguosha' ? 'width:45%; margin-bottom:10px;' : ''}">
-          <div class="avatar-area">
-            ${card.image ? `<img src="${escapeHTML(card.image)}" class="avatar" alt="${escapeHTML(card.name || '角色')}" onerror="this.remove()" />` : ''}
-            ${isMe ? `<div class="badge-me">我</div>` : ''}
-          </div>
-          <div class="player-info">
-            <div class="name-row">
-              <span class="nickname">${escapeHTML(p.nickname)}</span>
-              <span class="card-name">${escapeHTML(card.name)}</span>
-            </div>
-            ${identityHtml}
-            <div class="hp-container">
-              <div class="hp-bar">
-                <div class="hp-bar-fill" style="width:${hpPercent}%"></div>
-              </div>
-              <div class="hp-text">${escapeHTML(hpText)} / ${escapeHTML(maxHpText)}</div>
-            </div>
-            <div class="buffs-row">${buffIcons(p, s)}</div>
-          </div>
-        </div>
-      `;
-    }
-
-    let statsHtml = '';
-    if (s.gameMode === '1v1') {
-      statsHtml = `
-        ${renderPlayer(s.me, s.myIndex)}
-        <div class="go-vs">VS</div>
-        ${renderPlayer(s.opponent, (s.myIndex + 1) % 2)}
-      `;
-    } else {
-      statsHtml = `<div style="display:flex; flex-wrap:wrap; justify-content:space-between; max-height:400px; overflow-y:auto; width:100%;">`;
-      (s.players || []).forEach((p, idx) => {
-        statsHtml += renderPlayer(p, idx);
-      });
-      statsHtml += `</div>`;
-    }
-
-    o.innerHTML = `
-      <div class="go-content ${statusClass}" style="${s.gameMode==='sanguosha'?'width:90%; max-width:800px;':''}">
-        <h1 class="go-title">${statusStr}</h1>
-        <p class="go-reason">${escapeHTML(reasonText)}</p>
-        <div class="go-stats" style="${s.gameMode==='sanguosha'?'flex-direction:row; flex-wrap:wrap;':''}">
-          ${statsHtml}
-        </div>
-        ${battleSummaryHTML(s)}
-        <div class="go-footer">
-          ${s.gameMode === '1v1' ? '<button class="btn btn-primary btn-lg" id="btn-rematch">再来一局</button>' : ''}
-          <button class="btn btn-secondary btn-lg" id="btn-back">返回大厅</button>
-        </div>
-      </div>
-    `;
-    appendOverlay(o);
-    viewLifecycle.listen(document.getElementById('btn-rematch'), 'click', () => {
-      const button = document.getElementById('btn-rematch');
-      button.disabled = true;
-      button.textContent = s.opponent?.id?.startsWith('AI_') ? '正在重开…' : '等待对手（1/2）';
-      gameSocket.requestRematch((result) => {
-        if (!viewLifecycle.active) return;
-        if (!result?.ok) {
-          button.disabled = false;
-          button.textContent = '再来一局';
-          actions.showToast(result?.error || '无法重赛');
-        }
-      });
-    });
-    viewLifecycle.listen(document.getElementById('btn-back'), 'click', () => {
-      gameSocket.leaveRoom();
-      o.remove();
-      navigate('lobby');
-    });
-  }
 
   // ── 辅助 ──
   function curSubj() {
@@ -1098,7 +569,6 @@ export function createBattleView(container, data) {
     }
     if (txt) txt.textContent = hpLabel(hp, maxHp);
   }
-
 
   function showBanner(text) {
     const b = document.createElement('div');

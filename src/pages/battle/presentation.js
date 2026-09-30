@@ -33,9 +33,27 @@ export function multiTag(m) {
   return '<span class="multiplier x1">×1</span>';
 }
 
+export function waitingNames(s, ids) {
+  return (ids || []).map(id => s.players?.find(player => player.id === id)?.nickname || '玩家').join('、');
+}
+
 export function phasePrompt(s) {
+  if (s.me?.isDead) return '你已淘汰，正在观战';
+  if (s.draftShop?.active) {
+    const ready = s.draftShop.players?.[s.me?.id]?.ready;
+    const names = escapeHTML(waitingNames(s, s.draftShop.pendingPlayerIds));
+    return ready ? `补给已完成，等待${names || '其他玩家'}选牌…` : '课间补给：购买卡牌后点击完成选牌';
+  }
+  const attacker = escapeHTML(s.players?.[s.attackerIdx]?.nickname || '攻击方');
+  if (s.turnPhase === 'def_rolled' && s.aoeDefenses) {
+    const pending = Object.keys(s.aoeDefenses).filter(id => !s.aoeDefenses[id].confirmed && !s.players?.find(p => p.id === id)?.isDead);
+    const names = escapeHTML(waitingNames(s, pending));
+    if (s.isMyDefendTurn) return '群攻防御：选择骰子后确认';
+    const prefix = s.aoeDefenses[s.me?.id]?.confirmed ? '防御已确认，' : '';
+    return `${prefix}等待${names || '其他玩家'}完成防御…`;
+  }
   let p = '';
-  if (s.turnPhase === 'choose_target') p = s.isMyAttackTurn ? '选择目标' : '等待攻击方选择目标…';
+  if (s.turnPhase === 'choose_target') p = s.isMyAttackTurn ? '选择目标' : `等待${attacker}选择目标…`;
   if (s.turnPhase === 'waiting_atk') {
     if (s.isMyAttackTurn) {
       // 检查是否需要等待梦境盲选
@@ -45,11 +63,11 @@ export function phasePrompt(s) {
         p = '你的攻击回合';
       }
     } else {
-      p = '等待攻击…';
+      p = `等待${attacker}攻击…`;
     }
   }
-  if (s.turnPhase === 'atk_rolled') p = s.isMyAttackTurn ? '选择骰子重投或确认' : '对手选择中…';
-  if (s.turnPhase === 'def_rolled') p = s.isMyDefendTurn ? '你的防御 — 重投或确认' : '对手防御中…';
+  if (s.turnPhase === 'atk_rolled') p = s.isMyAttackTurn ? '选择骰子重投或确认' : `等待${attacker}确认攻击骰…`;
+  if (s.turnPhase === 'def_rolled') p = s.isMyDefendTurn ? '你的防御 — 重投或确认' : `等待${escapeHTML(s.players?.[s.defenderIdx]?.nickname || '防守方')}完成防御…`;
 
   if (s.allergyTriggered && s.isMyAttackTurn) {
     p = `<span style="color:var(--red); font-weight:bold;">过敏发作 — 伤害已锁定</span><br/>${p}`;

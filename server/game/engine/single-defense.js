@@ -7,7 +7,7 @@ import { reviveNineLives, resolveDefenderNegativeSkill } from './skills.js';
 import { appendBattleLog } from './battle-log.js';
 import { getCourseMultiplier } from './primitives.js';
 import { SKILL } from '../../../shared/characters.js';
-import { calculateTacticalDamage } from './damage.js';
+import { calculateDamageSteps, finalizeDamageExplanation } from './damage.js';
 import { applySingleDefenseEffects } from './single-defense-effects.js';
 import { settleDefenseDeaths } from './defense-outcome.js';
 
@@ -104,7 +104,8 @@ export function resolveSingleDefense(state, playerId, keepIndices, options, { at
   }
 
   let isPierce = ar.pierce || atkTurnCards.some(c => c.id === 'card_mat_3' || c.id === 'card_it_3');
-  let damage = calculateTacticalDamage(finalBaseAtk, finalFinalDef, isPierce, tac);
+  const damageCalculation = calculateDamageSteps(finalBaseAtk, finalFinalDef, isPierce, tac);
+  let damage = damageCalculation.damage;
 
   const effects = applySingleDefenseEffects(state, {
     atk, def, ar, subj, atkMulti, defMulti, keptRolls, finalFinalDef,
@@ -153,6 +154,7 @@ export function resolveSingleDefense(state, playerId, keepIndices, options, { at
       pierce: !!isPierce,
       counterDamage: lcCounterDamage || 0,
       healAmount: healAmount || 0,
+      damageBreakdown: finalizeDamageExplanation(damageCalculation, damage, atk, def),
     },
   });
   advanceAttackerTimedStates(state, atk);

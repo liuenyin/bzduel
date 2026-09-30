@@ -134,6 +134,7 @@ export function resolveAoeDefense(state, playerId, keepIndices, options, { atk, 
           damage: result.damage || 0,
           counterDamage: result.lcCounterDamage || 0,
           healAmount: result.healAmount || 0,
+          damageBreakdown: result.damageBreakdown,
         };
       }),
     },
