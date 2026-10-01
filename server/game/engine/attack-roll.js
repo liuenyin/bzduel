@@ -2,7 +2,7 @@ import { resolvePhaseEnd } from './phase.js';
 import { reviveNineLives } from './skills.js';
 import { getRollingPool } from './dice.js';
 import { appendBattleLog } from './battle-log.js';
-import { rollDiceGroup, invertDieValue, canPlayBattleAction, getCourseMultiplier } from './primitives.js';
+import { rollDiceGroup, maximizeDieValue, canPlayBattleAction, getCourseMultiplier } from './primitives.js';
 import { TURN } from '../../../shared/turn.js';
 import { SKILL } from '../../../shared/characters.js';
 import { finishSelfKill } from './immediate-deaths.js';
@@ -148,7 +148,7 @@ export function rollAttack(state) {
     }
   }
 
-  // 廖展韬正面: 字斟句酌 — 攻击掷骰后反转最小骰子
+  // 廖展韬正面: 字斟句酌 — 攻击掷骰后将最小骰子变为最大值
   let invertTriggered = false;
   if (atk.card.positiveSkill?.id === SKILL.INVERT_DIE) {
     let minVal = Infinity, minIdx = -1;
@@ -157,7 +157,7 @@ export function rollAttack(state) {
     }
     if (minIdx >= 0) {
       const face = rollingPool[minIdx];
-      rolls[minIdx] = invertDieValue(rolls[minIdx], face);
+      rolls[minIdx] = maximizeDieValue(rolls[minIdx], face);
       invertTriggered = true;
       // 深度思考: 初始掷骰不触发，仅重投时触发（见 rerollDice）
     }

@@ -135,3 +135,11 @@ export function getRandomCard(currentSubject, playerSubjects = []) {
   }
   return clone(CARDS[Math.floor(Math.random() * CARDS.length)]);
 }
+
+/** 学科奖励不混入通用卡；返回副本，避免污染卡牌模板。 */
+export function getRandomSubjectCard(currentSubject, playerSubjects = []) {
+  const subjectCards = CARDS.filter(card => card.subject !== 'universal');
+  const eligible = subjectCards.filter(card => card.subject === currentSubject || playerSubjects.includes(card.subject));
+  const pool = eligible.length ? eligible : subjectCards;
+  return structuredClone(pool[Math.floor(Math.random() * pool.length)]);
+}

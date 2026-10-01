@@ -105,8 +105,8 @@ test('shared victory rules cover FFA alliances and leave living opponents in pla
 test('damage explanation records ordered rounding, caps, final bonuses and skill changes', () => {
   const tactical = { isNoFixedBonus: false, flatPierce: 2, damageMultiplier: 0.5, maxDmgCap: 3, finalBonusDamage: 2, finalDamageReduction: 1 };
   const calculation = calculateDamageSteps(18, 5, false, tactical);
-  assert.equal(calculation.damage, 4);
-  assert.deepEqual(calculation.steps.map(step => step.value), [13, 15, 7, 3, 5, 4]);
+  assert.equal(calculation.damage, 3);
+  assert.deepEqual(calculation.steps.map(step => step.value), [13, 15, 7, 9, 8, 3]);
   const result = finalizeDamageExplanation(calculation, 2, {}, {});
   assert.equal(result.steps.at(-1).value, 2);
   const html = logEntryHTML({ type: 'turn', details: { damage: 2, damageBreakdown: result } });

@@ -1,6 +1,7 @@
+import { getTacticalOpponent } from './tactical-effects.js';
 import { reviveNineLives } from './skills.js';
 import { getRollingPool } from './dice.js';
-import { rollDie, invertDieValue, canPlayBattleAction, areValidDiceIndices, findPlayer } from './primitives.js';
+import { rollDie, maximizeDieValue, canPlayBattleAction, areValidDiceIndices, findPlayer } from './primitives.js';
 import { TURN } from '../../../shared/turn.js';
 import { SKILL } from '../../../shared/characters.js';
 import { finishSelfKill } from './immediate-deaths.js';
@@ -9,7 +10,7 @@ export function rerollDice(state, playerId, indices) {
   if (!canPlayBattleAction(state)) return { ok: false, error: '非战斗阶段' };
   const p = findPlayer(state, playerId);
   if (!p?.card || p.isDead || p.hp <= 0 || p.rerolls <= 0) return { ok: false };
-  const opp = state.players.find(x => x.id !== playerId && !x.isDead);
+  const opp = getTacticalOpponent(state, p);
   const oppTurnCards = opp ? (opp.playedTurnCards || (opp.playedTurnCard ? [opp.playedTurnCard] : [])) : [];
   if (oppTurnCards.some(c => c.id === 'card_gen_09')) return { ok: false, error: '对方使用了【重投锁死】，无法重投！' };
   if (oppTurnCards.some(c => c.id === 'card_mat_3')) return { ok: false, error: '对方使用了【数学-减益】，无法重投！' };
@@ -62,7 +63,7 @@ export function rerollDice(state, playerId, indices) {
     }
   }
 
-  // 廖展韬: 重投后重新反转最小骰子
+  // 廖展韬: 重投后将最小骰子变为最大值
   if (p.card.positiveSkill?.id === SKILL.INVERT_DIE) {
     let minVal = Infinity, minIdx = -1;
     for (let i = 0; i < rolls.length; i++) {
@@ -73,7 +74,7 @@ export function rerollDice(state, playerId, indices) {
       if (state.turnData.isExtraTurn && p.card.positiveSkill?.id === SKILL.EXTRA_TURN && state.turnData.extraTurnFaceBoost) {
         face += state.turnData.extraTurnFaceBoost;
       }
-      rolls[minIdx] = invertDieValue(rolls[minIdx], face);
+      rolls[minIdx] = maximizeDieValue(rolls[minIdx], face);
       // 深度思考: 仅攻击阶段反转给对方+1永久减伤
       if (p.card.negativeSkill?.id === SKILL.DEEP_THOUGHT && state.turnPhase === TURN.ATK_ROLLED) {
         const defIdx = state.turnData.defenderIdx;

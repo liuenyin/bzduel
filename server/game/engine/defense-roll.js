@@ -1,7 +1,7 @@
 import { reviveNineLives } from './skills.js';
 import { getRollingPool } from './dice.js';
 
-import { rollDiceGroup, invertDieValue } from './primitives.js';
+import { rollDiceGroup, maximizeDieValue } from './primitives.js';
 import { TURN } from '../../../shared/turn.js';
 import { GAME_MODE } from '../../../shared/rules.js';
 import { SKILL } from '../../../shared/characters.js';
@@ -27,6 +27,8 @@ export function rollDefense(state, atk, def) {
             rollSelfDamage += ones;
           }
         }
+
+        applyDefenseRollSkills(state, atk, p, rolls);
 
         state.turnData.aoeDefenses[p.id] = {
           rolls,
@@ -87,6 +89,15 @@ export function rollDefense(state, atk, def) {
       }
     }
 
+    applyDefenseRollSkills(state, atk, def, defRolls);
+
+    state.turnData.defenseRolls = defRolls;
+    state.turnPhase = TURN.DEF_ROLLED;
+    return { ok: true, atkResult: state.turnData.atkResult, defenseRolls: [...defRolls] };
+  }
+}
+
+function applyDefenseRollSkills(state, atk, def, defRolls) {
     // 廖展韬正面附加: 对方骰子无法投出最大值
     if (atk.card.positiveSkill?.id === SKILL.INVERT_DIE) {
       const effectivePool = getRollingPool(def, state);
@@ -95,7 +106,7 @@ export function rollDefense(state, atk, def) {
       }
     }
 
-    // 廖展韬正面: 字斟句酌 — 防御掷骰后反转最小骰子 (不叠加减伤)
+    // 廖展韬正面: 字斟句酌 — 防御掷骰后将最小骰子变为最大值 (不叠加减伤)
     if (def.card.positiveSkill?.id === SKILL.INVERT_DIE) {
       let minVal = Infinity, minIdx = -1;
       for (let i = 0; i < defRolls.length; i++) {
@@ -103,7 +114,7 @@ export function rollDefense(state, atk, def) {
       }
       if (minIdx >= 0) {
         const effectivePool = getRollingPool(def, state);
-        defRolls[minIdx] = invertDieValue(defRolls[minIdx], effectivePool[minIdx]);
+        defRolls[minIdx] = maximizeDieValue(defRolls[minIdx], effectivePool[minIdx]);
       }
     }
 
@@ -112,8 +123,4 @@ export function rollDefense(state, atk, def) {
       def.rerolls += 1;
     }
 
-    state.turnData.defenseRolls = defRolls;
-    state.turnPhase = TURN.DEF_ROLLED;
-    return { ok: true, atkResult: state.turnData.atkResult, defenseRolls: [...defRolls] };
-  }
 }

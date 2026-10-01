@@ -25,7 +25,7 @@ export function buildAlerts(data) {
     if (res.detonateTriggered) addAlert('negative', `红温引爆 — ${Number(res.detonateDamage) || 0}伤害！`);
     if (Number(res.redHeatApplied) > 0) addAlert('negative', `红温 +${Number(res.redHeatApplied)}层`);
     if (res.extraTurnTriggered) addAlert('positive', '死磕 — 获得额外攻击回合！');
-    if (res.nineLivesTriggered || data.nineLivesTriggered) addAlert('positive', '九条命 — 满血复活！');
+    if (res.nineLivesTriggered || data.nineLivesTriggered) addAlert('positive', '九条命 — 恢复至 9 点生命！');
   });
 
   if (data.firstBloodTriggered) addAlert('negative', '偏科 — 防御选骰数 -1！');

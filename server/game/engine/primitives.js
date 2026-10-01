@@ -4,9 +4,9 @@ export function rollDie(faces) { return Math.floor(Math.random() * faces) + 1; }
 
 export function rollDiceGroup(arr) { return arr.map(f => rollDie(f)); }
 
-export function invertDieValue(value, faces) {
+export function maximizeDieValue(value, faces) {
   const face = Math.max(1, Math.floor(Number(faces) || 1));
-  return Math.max(1, Math.min(face, face + 1 - value));
+  return face;
 }
 
 export function shuffle(a) {

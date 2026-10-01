@@ -8,6 +8,8 @@ export function calcTacticalCardEffects(state, atk, def, keptRolls, defKeptRolls
   let atkBonus = 0;
   let defBonus = 0;
   let flatPierce = 0;
+  let trueDamage = 0;
+  let ignoreReduction = false;
   let finalBonusDamage = 0;
   let finalDamageReduction = 0;
   let defMultiplier = 1;
@@ -17,7 +19,7 @@ export function calcTacticalCardEffects(state, atk, def, keptRolls, defKeptRolls
   let halveFirstDamage = false;
   const curSubj = state.schedule[state.currentClassIndex];
 
-  if (!atk || !def) return { atkBonus, defBonus, flatPierce, finalBonusDamage, finalDamageReduction, defMultiplier, isNoFixedBonus, maxDmgCap, damageMultiplier, halveFirstDamage };
+  if (!atk || !def) return { atkBonus, defBonus, trueDamage, ignoreReduction, flatPierce, finalBonusDamage, finalDamageReduction, defMultiplier, isNoFixedBonus, maxDmgCap, damageMultiplier, halveFirstDamage };
 
   // 1. 检查攻击者的祝福与单轮卡 (Attacker's cards)
   const atkPlayedTurn = atk.playedTurnCards || (atk.playedTurnCard ? [atk.playedTurnCard] : []);
@@ -39,13 +41,13 @@ export function calcTacticalCardEffects(state, atk, def, keptRolls, defKeptRolls
           atkBonus += evens * 2;
         }
         break;
-      case 'card_phy_2': flatPierce += 3; break;
+      case 'card_phy_2': trueDamage += 3; break;
       case 'card_phy_3': defMultiplier *= 0.7; break;
-      case 'card_pol_3': maxDmgCap = Math.min(maxDmgCap, 8); break;
+      case 'card_mat_3': ignoreReduction = true; break;
       case 'card_pol_1': if (curSubj === 'politics') isNoFixedBonus = true; break;
       case 'card_his_2': atkBonus += (atk.prevUnusedDiceSum || 0); break;
       case 'card_art_2': atkBonus += (def.lastMaxRoll || 6); break;
-      case 'card_it_3': atkBonus -= 5; break;
+      case 'card_it_3': finalBonusDamage -= 5; break;
       case 'card_mus_1':
         if (curSubj === 'music' && keptRolls && keptRolls.length >= 2) {
           const maxR = Math.max(...keptRolls), minR = Math.min(...keptRolls);
@@ -79,6 +81,7 @@ export function calcTacticalCardEffects(state, atk, def, keptRolls, defKeptRolls
         defBonus += 3;
         break;
       case 'card_pol_1': if (curSubj === 'politics') isNoFixedBonus = true; break;
+      case 'card_pol_3': maxDmgCap = Math.min(maxDmgCap, 8); break;
       case 'card_pol_2': defBonus += 3; break;
       
       // 通用增益卡 (Buffs played by defender)
@@ -96,7 +99,7 @@ export function calcTacticalCardEffects(state, atk, def, keptRolls, defKeptRolls
     }
   });
 
-  return { atkBonus, defBonus, flatPierce, finalBonusDamage, finalDamageReduction, defMultiplier, isNoFixedBonus, maxDmgCap, damageMultiplier, halveFirstDamage };
+  return { atkBonus, defBonus, trueDamage, ignoreReduction, flatPierce, finalBonusDamage, finalDamageReduction, defMultiplier, isNoFixedBonus, maxDmgCap, damageMultiplier, halveFirstDamage };
 }
 
 export function applyOpponentAttackRollDebuffs(state, attacker) {

@@ -8,7 +8,7 @@ import { appendBattleLog } from './battle-log.js';
 import { getCourseMultiplier } from './primitives.js';
 import { SKILL } from '../../../shared/characters.js';
 import { calculateDamageSteps, finalizeDamageExplanation } from './damage.js';
-import { applySingleDefenseEffects } from './single-defense-effects.js';
+import { applyDefenseEffects } from './defense-effects.js';
 import { settleDefenseDeaths } from './defense-outcome.js';
 
 export function resolveSingleDefense(state, playerId, keepIndices, options, { atk, subj, atkMulti, ar, finalBaseAtk }) {
@@ -103,11 +103,11 @@ export function resolveSingleDefense(state, playerId, keepIndices, options, { at
     finalFinalDef = Math.floor(finalFinalDef / (1 + state.turnData.chargeConsumed));
   }
 
-  let isPierce = ar.pierce || atkTurnCards.some(c => c.id === 'card_mat_3' || c.id === 'card_it_3');
-  const damageCalculation = calculateDamageSteps(finalBaseAtk, finalFinalDef, isPierce, tac);
+  let isPierce = ar.pierce || atkTurnCards.some(c => c.id === 'card_it_3');
+  const damageCalculation = calculateDamageSteps(finalBaseAtk, finalFinalDef, isPierce, tac, true);
   let damage = damageCalculation.damage;
 
-  const effects = applySingleDefenseEffects(state, {
+  const effects = applyDefenseEffects(state, {
     atk, def, ar, subj, atkMulti, defMulti, keptRolls, finalFinalDef,
     finalBaseAtk, isPierce, tac, defTurnCards, atkTurnCards, damage,
   });
