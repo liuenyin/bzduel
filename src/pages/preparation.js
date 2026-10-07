@@ -145,6 +145,11 @@ export function renderPreparation(container, data) {
         modalContainer.innerHTML = '';
       });
     });
+    avatarEl.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      avatarEl.click();
+    });
   });
 
   // ── 准备按钮 ──
@@ -242,8 +247,11 @@ function renderSchedule(schedule) {
 
 function renderAvatar(char, gameMode) {
   const disabled = char.ffaOnly && gameMode === '1v1';
+  const interactionAttrs = disabled
+    ? 'aria-disabled="true"'
+    : `role="button" tabindex="0" aria-label="选择${escapeHTML(char.name)}"`;
   return `
-    <div class="avatar-cell ${disabled ? 'disabled' : ''}" data-id="${char.id}" style="${disabled ? 'opacity: 0.5; filter: grayscale(1); cursor: not-allowed; position: relative;' : ''}">
+    <div class="avatar-cell ${disabled ? 'disabled' : ''}" data-id="${char.id}" ${interactionAttrs} style="${disabled ? 'opacity: 0.5; filter: grayscale(1); cursor: not-allowed; position: relative;' : ''}">
       ${portraitFrame(char, 'avatar-img')}
       <div class="avatar-name">${escapeHTML(char.name)}</div>
       ${disabled ? `<div style="position:absolute; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6); border-radius:12px; display:flex; align-items:center; justify-content:center; color:white; font-size:10px; font-weight:bold;">仅大乱斗</div>` : ''}

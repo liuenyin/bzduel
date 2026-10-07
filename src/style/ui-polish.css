@@ -46,6 +46,12 @@ body {
   box-shadow: 0 12px 24px rgba(80,60,40,.16), 0 0 0 2px rgba(192,154,80,.18);
 }
 
+.avatar-cell:not(.disabled):focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--focus-ring), 0 12px 24px rgba(80,60,40,.16);
+}
+
 .pve-opponent-panel,
 .modal-content-card {
   border: 1px solid var(--line-soft);
