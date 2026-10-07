@@ -6,6 +6,9 @@ import { SKILL } from '../../../shared/characters.js';
 
 export function chooseDreamTarget(state, playerId, targetIndex) {
   if (!canPlayBattleAction(state)) return { ok: false };
+  if (state.turnPhase !== TURN.WAITING_ATK && state.turnPhase !== TURN.CHOOSE_TARGET) {
+    return { ok: false, error: 'invalid_phase' };
+  }
   if (!Number.isInteger(targetIndex) || targetIndex < 0 || targetIndex > 2) {
     return { ok: false, error: 'invalid_index' };
   }

@@ -1,5 +1,6 @@
 export function canChooseDreamTarget(state) {
   if (!state || state.phase !== 'battle' || state.draftShop?.active) return false;
+  if (state.turnPhase !== 'waiting_atk' && state.turnPhase !== 'choose_target') return false;
   const me = state.me;
   const attacker = state.players?.[state.attackerIdx];
   const fxr = state.players?.find(player => (player?.card?.positiveSkill?.id === 'dream_king' || player?.cardId === 'char_fxr')

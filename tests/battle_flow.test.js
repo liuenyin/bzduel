@@ -121,6 +121,9 @@ test('dream target modal only appears for an eligible living chooser', () => {
   state.turnData.attackerIdx = 1;
   state.attackerIdx = 1;
   assert.equal(canChooseDreamTarget(state), true);
+  state.turnPhase = 'def_rolled';
+  assert.equal(canChooseDreamTarget(state), false);
+  state.turnPhase = 'choose_target';
   state.me = { ...state.players[1], id: 'spectator', isDead: true, hp: 0 };
   assert.equal(canChooseDreamTarget(state), false);
 });
@@ -139,6 +142,12 @@ test('server dream target permissions match single and FFA chooser rules', () =>
   assert.equal(chooseDreamTarget(state, state.players[0].id, 1).ok, true);
   dreamKing.dreamTargetChoice = null;
   assert.equal(chooseDreamTarget(state, state.players[2].id, 1).ok, false);
+
+  // A delayed modal response must not rewrite the choice after dice have
+  // already been rolled or while defense is being resolved.
+  state.turnPhase = 'def_rolled';
+  assert.equal(chooseDreamTarget(state, state.players[0].id, 1).ok, false);
+  state.turnPhase = 'waiting_atk';
 
   // Dream King attacking: any living opponent may choose, but the first
   // accepted choice closes the window for everyone else.
