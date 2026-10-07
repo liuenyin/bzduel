@@ -703,8 +703,11 @@ export const vfxManager = {
    * @param {string} [color='var(--accent)'] - Particle color hex/var
    */
   spawnParticles(x, y, count = 12, color = 'var(--accent)') {
-    if (!canAnimate()) return null;
-    const numParticles = (count === null || count === undefined) ? 12 : count;
+    if (!canAnimate() || prefersReducedMotion()) return null;
+    const requestedCount = (count === null || count === undefined) ? 12 : Number(count);
+    const mobileLimit = window.matchMedia?.('(max-width: 680px)').matches ? 12 : 30;
+    const numParticles = Math.min(mobileLimit, Math.max(0, Math.floor(Number.isFinite(requestedCount) ? requestedCount : 12)));
+    if (numParticles === 0) return null;
     const particleColor = color || 'var(--accent)';
 
     const container = document.createElement('div');
