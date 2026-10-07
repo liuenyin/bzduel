@@ -134,6 +134,31 @@ function snapshotState(state) {
 
 function restoreState(state, snapshot) {
   if (!snapshot || !state || typeof state !== 'object') return;
-  for (const key of Object.keys(state)) delete state[key];
-  Object.assign(state, snapshot);
+  restoreValue(state, snapshot);
+}
+
+function restoreValue(target, source) {
+  if (Array.isArray(target) && Array.isArray(source)) {
+    target.length = source.length;
+    source.forEach((value, index) => {
+      target[index] = restoreValue(target[index], value);
+    });
+    return target;
+  }
+  if (isRecord(target) && isRecord(source)) {
+    for (const key of Object.keys(target)) {
+      if (!Object.prototype.hasOwnProperty.call(source, key)) delete target[key];
+    }
+    for (const [key, value] of Object.entries(source)) {
+      target[key] = restoreValue(target[key], value);
+    }
+    return target;
+  }
+  return typeof structuredClone === 'function'
+    ? structuredClone(source)
+    : JSON.parse(JSON.stringify(source));
+}
+
+function isRecord(value) {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
 }
