@@ -12,6 +12,46 @@ body {
     var(--bg);
 }
 
+.lobby .title-main {
+  letter-spacing: .08em;
+  text-shadow: 0 4px 18px rgba(192, 96, 64, .16);
+}
+
+.lobby .panel {
+  position: relative;
+  border: 1px solid var(--line-soft);
+  background: linear-gradient(145deg, rgba(255,255,255,.98), rgba(250,248,245,.9));
+  box-shadow: 0 16px 36px rgba(80, 60, 40, .1), 0 1px 0 rgba(255,255,255,.8) inset;
+}
+
+.lobby .panel::before {
+  content: '';
+  position: absolute;
+  inset: 0 24% auto;
+  height: 3px;
+  border-radius: 0 0 999px 999px;
+  background: linear-gradient(90deg, transparent, var(--accent-soft), transparent);
+}
+
+.schedule-item.active {
+  background: linear-gradient(135deg, var(--accent), var(--accent-deep));
+}
+
+.avatar-cell:not(.disabled) {
+  border-color: rgba(80,60,40,.1);
+  box-shadow: 0 7px 18px rgba(80,60,40,.1);
+}
+
+.avatar-cell:not(.disabled):hover {
+  box-shadow: 0 12px 24px rgba(80,60,40,.16), 0 0 0 2px rgba(192,154,80,.18);
+}
+
+.pve-opponent-panel,
+.modal-content-card {
+  border: 1px solid var(--line-soft);
+  box-shadow: 0 20px 56px rgba(50, 35, 25, .18), 0 1px 0 rgba(255,255,255,.75) inset;
+}
+
 button,
 [role='button'],
 summary {
