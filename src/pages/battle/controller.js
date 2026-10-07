@@ -243,6 +243,9 @@ export function createBattleView(container, data) {
     queueMicrotask(viewLifecycle.guard(revealCurrentClass));
 
     listen('state_update', (s) => {
+      if (pendingFfaTarget && (s?.turnPhase !== 'choose_target' || !s?.isMyAttackTurn)) {
+        pendingFfaTarget = null;
+      }
       if (s?.phase === 'game_over') {
         cancelBattleAnimations();
         S = s;
