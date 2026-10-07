@@ -1,5 +1,5 @@
-import { SUBJECTS } from '../../../shared/rules.js';
-import { ATTACK_TACTICAL_CARDS, DEFENSE_TACTICAL_CARDS, CLASH_TACTICAL_CARDS, OPPONENT_TARGET_TACTICAL_CARDS } from '../../../shared/tactical-rules.js';
+import { GAME_MODE, SUBJECTS } from '../../../shared/rules.js';
+import { ATTACK_TACTICAL_CARDS, DEFENSE_TACTICAL_CARDS, CLASH_TACTICAL_CARDS, DIRECT_OPPONENT_TACTICAL_CARDS, OPPONENT_TARGET_TACTICAL_CARDS } from '../../../shared/tactical-rules.js';
 
 /** Hidden dice remain targetable by position without exposing their values. */
 export function getRerollTargetChoices(state) {
@@ -45,6 +45,12 @@ export function getTacticalCardUsability(card, state) {
     ? !!state.aoeDefenses[me.id] && !state.aoeDefenses[me.id].confirmed
     : state.defenderIdx === state.myIndex;
   if (!isAttacker && !isDefender) return { canPlay: false, reason: '等待自己的交锋' };
+  if (state.gameMode === GAME_MODE.MODE_FFA
+    && isAttacker
+    && state.defenderIdx == null
+    && DIRECT_OPPONENT_TACTICAL_CARDS.has(card.id)) {
+    return { canPlay: false, reason: '请先选择攻击目标' };
+  }
   const currentSubject = state.schedule[state.currentClassIndex];
   const subject = SUBJECTS[card.subject];
   if (card.subject !== 'universal' && card.subject !== currentSubject) {

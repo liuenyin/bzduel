@@ -17,3 +17,10 @@ export const OPPONENT_TARGET_TACTICAL_CARDS = new Set([
   'card_gen_07', 'card_gen_08', 'card_gen_09', 'card_gen_10',
 ]);
 
+// These effects need one specific opponent immediately. In FFA the attacker
+// has no opponent until a target is selected, so allowing them earlier would
+// make the engine fall back to an arbitrary living player.
+export const DIRECT_OPPONENT_TACTICAL_CARDS = new Set([
+  'card_it_1', 'card_che_3', 'card_bio_3', 'card_it_2', 'card_pe_3',
+  'card_gen_07', 'card_gen_09', 'card_gen_10',
+]);

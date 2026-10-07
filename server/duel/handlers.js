@@ -16,6 +16,7 @@ const ACTION_ERROR_LABELS = {
   already_ready: '你已经完成选牌',
   already_chosen: '目标已被其他玩家选择',
   invalid_index: '目标编号无效',
+  target_required: '请先选择攻击目标',
 };
 
 function readableActionError(error, fallback) {

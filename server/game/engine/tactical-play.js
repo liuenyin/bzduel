@@ -1,8 +1,8 @@
 import { getTacticalOpponent, applyInstantCardEffect } from './tactical-effects.js';
 import { appendBattleLog } from './battle-log.js';
 import { isDraftShopActive, cloneCard, findPlayer } from './primitives.js';
-import { ATTACK_TACTICAL_CARDS, DEFENSE_TACTICAL_CARDS, CLASH_TACTICAL_CARDS } from '../../../shared/tactical-rules.js';
-import { PHASE } from '../../../shared/rules.js';
+import { ATTACK_TACTICAL_CARDS, DEFENSE_TACTICAL_CARDS, CLASH_TACTICAL_CARDS, DIRECT_OPPONENT_TACTICAL_CARDS } from '../../../shared/tactical-rules.js';
+import { GAME_MODE, PHASE } from '../../../shared/rules.js';
 import { cardMap, CARD_TYPE } from '../../../shared/cards.js';
 import { resolveImmediateCardDeaths } from './immediate-deaths.js';
 
@@ -60,6 +60,12 @@ function playTacticalCardUnsafe(state, playerId, cardId, options = {}) {
   }
   if (CLASH_TACTICAL_CARDS.has(card.id) && !isAttacker && !isDefender) {
     return { ok: false, error: '仅交锋中的玩家可使用' };
+  }
+  if (state.gameMode === GAME_MODE.MODE_FFA
+    && isAttacker
+    && state.turnData?.defenderIdx == null
+    && DIRECT_OPPONENT_TACTICAL_CARDS.has(card.id)) {
+    return { ok: false, error: 'target_required' };
   }
   if (card.type === CARD_TYPE.BLESSING && (p.activeBlessings || []).some(active => active.id === card.id)) {
     return { ok: false, error: '本节课已激活此祝福' };

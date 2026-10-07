@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGame, selectCard, setReady, confirmAttack, chooseDreamTarget, getStateView, buyDraftCard, refreshDraftSlot, confirmDraftReady, playTacticalCard } from '../server/game/engine.js';
+import { createGame, selectCard, setReady, selectTarget, confirmAttack, chooseDreamTarget, getStateView, buyDraftCard, refreshDraftSlot, confirmDraftReady, playTacticalCard } from '../server/game/engine.js';
 import { settleWinner } from '../server/game/engine/outcome.js';
 import { calculateDamageSteps, finalizeDamageExplanation } from '../server/game/engine/damage.js';
 import { getTacticalCardUsability, getRerollTargetChoices } from '../src/pages/battle/tactical.js';
@@ -100,6 +100,18 @@ test('targeted reroll card is disabled before any dice are available', () => {
   assert.deepEqual(getTacticalCardUsability(cardMap.card_gen_01, view), {
     canPlay: false, reason: '当前没有可指定的骰子',
   });
+});
+
+test('FFA direct-opponent cards are disabled until the attacker chooses a target', () => {
+  const state = battle();
+  state.schedule[state.currentClassIndex] = 'it';
+  const view = getStateView(state, 'a');
+  assert.deepEqual(getTacticalCardUsability(cardMap.card_it_1, view), {
+    canPlay: false, reason: '请先选择攻击目标',
+  });
+  selectTarget(state, 'a', 'b');
+  const selectedView = getStateView(state, 'a');
+  assert.equal(getTacticalCardUsability(cardMap.card_it_1, selectedView).canPlay, true);
 });
 
 test('dream target modal only appears for an eligible living chooser', () => {

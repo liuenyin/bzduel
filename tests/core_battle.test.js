@@ -272,6 +272,46 @@ function createFfaBattle(cardIds = ['char_6', 'char_6', 'char_6']) {
   return game;
 }
 
+test('FFA direct-opponent cards wait for an explicit target', () => {
+  const game = createFfaBattle();
+  game.schedule[game.currentClassIndex] = 'it';
+  const attacker = game.players[0];
+  const firstOpponent = game.players[1];
+  const secondOpponent = game.players[2];
+  attacker.card.positiveSkill = { id: 'attacker-skill' };
+  firstOpponent.card.positiveSkill = { id: 'first-skill' };
+  secondOpponent.card.positiveSkill = { id: 'second-skill' };
+  attacker.handCards = [structuredClone(cardMap.card_it_1)];
+
+  const before = structuredClone(attacker);
+  const blocked = playTacticalCard(game, attacker.id, 'card_it_1');
+  assert.deepEqual(blocked, { ok: false, error: 'target_required' });
+  assert.deepEqual(attacker.handCards, before.handCards);
+  assert.equal(attacker.card.positiveSkill.id, 'attacker-skill');
+  assert.equal(firstOpponent.card.positiveSkill.id, 'first-skill');
+  assert.equal(secondOpponent.card.positiveSkill.id, 'second-skill');
+
+  assert.equal(selectTarget(game, attacker.id, secondOpponent.id).ok, true);
+  const allowed = playTacticalCard(game, attacker.id, 'card_it_1');
+  assert.equal(allowed.ok, true);
+  assert.equal(attacker.card.positiveSkill.id, 'second-skill');
+});
+
+test('every direct-opponent tactical card is gated before FFA target selection', () => {
+  for (const cardId of [
+    'card_it_1', 'card_che_3', 'card_bio_3', 'card_it_2', 'card_pe_3',
+    'card_gen_07', 'card_gen_09', 'card_gen_10',
+  ]) {
+    const game = createFfaBattle();
+    game.schedule[game.currentClassIndex] = cardMap[cardId].subject;
+    const attacker = game.players[0];
+    attacker.handCards = [structuredClone(cardMap[cardId])];
+    const result = playTacticalCard(game, attacker.id, cardId);
+    assert.deepEqual(result, { ok: false, error: 'target_required' }, cardId);
+    assert.equal(attacker.handCards.length, 1, cardId);
+  }
+});
+
 function withRandom(value, callback) {
   const originalRandom = Math.random;
   Math.random = () => value;
