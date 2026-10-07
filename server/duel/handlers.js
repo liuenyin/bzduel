@@ -7,7 +7,7 @@ import { recordMatch } from '../statsManager.js';
 
 import { payloadObject, normalizeNickname, validRoomId, rejectInvalidNickname } from '../validation.js';
 
-const ACTION_ERROR_LABELS = {
+export const ACTION_ERROR_LABELS = {
   invalid_phase: '当前不在可操作阶段',
   invalid_schedule: '课程安排无效',
   ffa_only: '该角色仅限大乱斗模式',
@@ -17,10 +17,20 @@ const ACTION_ERROR_LABELS = {
   already_chosen: '目标已被其他玩家选择',
   invalid_index: '目标编号无效',
   target_required: '请先选择攻击目标',
+  dream_target_required: '梦境盲选尚未完成，请等待对手选择目标。',
+  invalid_slots: '请选择有效的骰子',
+  invalid_indices: '请选择有效的骰子',
+  invalid_turn_state: '当前回合状态已变化，请重新操作',
+  sugar_crash_locked: '当前回合无法重投',
+  zww_d10_limit: '曾无畏的限制：防御时最多只能选中一个 D10 骰子！',
+  already_rerolled: '已经重投过了，无法买水！',
+  max_charges: '蓄势已满（最多2层）！',
 };
 
-function readableActionError(error, fallback) {
-  return ACTION_ERROR_LABELS[error] || error || fallback;
+export function readableActionError(error, fallback) {
+  if (ACTION_ERROR_LABELS[error]) return ACTION_ERROR_LABELS[error];
+  if (typeof error === 'string' && /[\u3400-\u9fff]/u.test(error)) return error;
+  return fallback;
 }
 
 export function registerDuelHandlers(socket, {
@@ -344,8 +354,9 @@ export function registerDuelHandlers(socket, {
     }
     const result = selectTarget(room.game, playerId, targetId);
     if (!result.ok) {
-      if (typeof acknowledge === 'function') acknowledge({ ok: false, error: result.error || '无法选择目标' });
-      else socket.emit('error_msg', { message: result.error || '无法选择目标' });
+      const error = readableActionError(result.error, '无法选择目标');
+      if (typeof acknowledge === 'function') acknowledge({ ok: false, error });
+      else socket.emit('error_msg', { message: error });
       return;
     }
     if (typeof acknowledge === 'function') acknowledge({ ok: true });
@@ -458,10 +469,9 @@ export function registerDuelHandlers(socket, {
     }
     const res = rollAttack(g);
     if (!res.ok) {
-      if (res.error === 'dream_target_required' && typeof acknowledge !== 'function') {
-        socket.emit('error_msg', { message: '梦境盲选尚未完成，请等待对手选择目标。' });
-      }
-      reply({ ok: false, error: res.error || '暂时无法掷骰' });
+      const error = readableActionError(res.error, '暂时无法掷骰');
+      if (typeof acknowledge !== 'function') socket.emit('error_msg', { message: error });
+      reply({ ok: false, error });
       return;
     }
     reply({ ok: true });
@@ -481,7 +491,9 @@ export function registerDuelHandlers(socket, {
     if (!room) { reply({ ok: false, error: '对局不存在' }); return; }
     const res = rerollDice(room.game, playerId, indices);
     if (!res.ok) {
-      reply({ ok: false, error: res.error || '暂时无法重投' });
+      const error = readableActionError(res.error, '暂时无法重投');
+      if (typeof acknowledge !== 'function') socket.emit('error_msg', { message: error });
+      reply({ ok: false, error });
       return;
     }
     reply({ ok: true });
@@ -497,11 +509,7 @@ export function registerDuelHandlers(socket, {
     const g = room.game;
     const res = buyWater(g, playerId);
     if (!res.ok) {
-      const message = res.error === 'already_rerolled'
-        ? '已经重投过了，无法买水！'
-        : res.error === 'max_charges'
-          ? '蓄势已满（最多2层）！'
-          : (res.error || '暂时无法买水');
+      const message = readableActionError(res.error, '暂时无法买水');
       if (typeof acknowledge !== 'function') socket.emit('error_msg', { message });
       reply({ ok: false, error: message });
       return;
@@ -537,7 +545,9 @@ export function registerDuelHandlers(socket, {
     if (g.turnPhase === TURN.ATK_ROLLED && getCurrentAttackerId(g) === playerId) {
       const res = confirmAttack(g, indices);
       if (!res.ok) {
-        reply({ ok: false, error: res.error || '无效的攻击选骰' });
+        const error = readableActionError(res.error, '无效的攻击选骰');
+        if (typeof acknowledge !== 'function') socket.emit('error_msg', { message: error });
+        reply({ ok: false, error });
         return;
       }
       if (res.selfKill) {
@@ -574,14 +584,11 @@ export function registerDuelHandlers(socket, {
 
       const res = confirmDefense(g, playerId, indices, options);
       if (!res.ok) {
+        const error = readableActionError(res.error, '无效的防守选骰');
         if (typeof acknowledge !== 'function') {
-          if (res.error === 'zww_d10_limit') {
-            socket.emit('error_msg', { message: '曾无畏的限制：防御时最多只能选中一个 D10 骰子！' });
-          } else {
-            socket.emit('error_msg', { message: '无效的选骰' });
-          }
+          socket.emit('error_msg', { message: error });
         }
-        reply({ ok: false, error: res.error || '无效的防守选骰' });
+        reply({ ok: false, error });
         return;
       }
 
