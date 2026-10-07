@@ -74,6 +74,9 @@ export function getTacticalCardUsability(card, state) {
   if (card.id === 'card_gen_11' && (me.handCards || []).length < 2) {
     return { canPlay: false, reason: '至少需要另一张手牌才能弃置' };
   }
+  if (card.id === 'card_gen_01' && getRerollTargetChoices(state).length === 0) {
+    return { canPlay: false, reason: '当前没有可指定的骰子' };
+  }
   if (card.id === 'card_che_3' && !(opponent?.redHeat > 0)) {
     return { canPlay: false, reason: '对手没有红温' };
   }

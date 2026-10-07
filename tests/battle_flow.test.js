@@ -91,6 +91,16 @@ test('reroll choices preserve hidden dice and restrict FFA opponents', () => {
     .map(choice => choice.value), ['?', '?', '?']);
 });
 
+test('targeted reroll card is disabled before any dice are available', () => {
+  const state = battle();
+  state.turnPhase = 'waiting_atk';
+  state.turnData = { attackerIdx: 0, defenderIdx: 1, attackRolls: null, defenseRolls: null };
+  const view = getStateView(state, 'a');
+  assert.deepEqual(getTacticalCardUsability(cardMap.card_gen_01, view), {
+    canPlay: false, reason: '当前没有可指定的骰子',
+  });
+});
+
 test('both primary and secondary AoE defenders cannot play cards after confirming', () => {
   for (const playerId of ['b', 'c']) {
     const state = battle();
