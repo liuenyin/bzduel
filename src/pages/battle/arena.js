@@ -202,6 +202,7 @@ export function tacticalBarHTML(s, tacticalHandOpen = false) {
             <span class="card-tp-cost" title="仅为补给站购入价格，打出不消耗 TP">补给价 ${c.tpCost} TP</span>
             <span class="hand-card-action">${canPlay ? '打出' : escapeHTML(disableReason)}</span>
           </div>
+          ${canPlay ? '' : `<span class="card-disable-overlay" aria-hidden="true"><span class="card-disable-badge">${escapeHTML(disableReason)}</span></span>`}
         </button>
       `;
     }).join('');

@@ -125,6 +125,7 @@ export function createDraftShop({ actions, viewLifecycle, appendOverlay }) {
                 <span class="draft-card-cost">${c.tpCost} TP</span>
                 <span class="draft-card-action">${escapeHTML(actionLabel)}</span>
               </div>
+              ${buyDisabled ? `<span class="card-disable-overlay" aria-hidden="true"><span class="card-disable-badge">${escapeHTML(disableReason)}</span></span>` : ''}
             </div>
           `;
         }).join('');

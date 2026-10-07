@@ -52,7 +52,9 @@ check(/@media\s*\(max-width:\s*680px\)/i.test(css), 'mobile card layout has a na
 check(/\.hand-card-kards\.disabled[^{}]*,?[^{}]*\.hand-card-kards:disabled/i.test(css), 'disabled hand cards have a readable state');
 check(handSource.includes('class="hand-card-kards') && handSource.includes('class="card-title-text"'), 'battle arena renders hand card titles');
 check(handSource.includes('class="card-desc-text"'), 'battle arena renders hand card descriptions');
+check(handSource.includes('class="card-disable-overlay"') && handSource.includes('class="card-disable-badge"'), 'battle arena renders disabled-card explanation overlays');
 check(draftSource.includes('class="draft-slot-card') && draftSource.includes('class="draft-card-title"'), 'draft shop renders supply card titles');
+check(draftSource.includes('class="card-disable-overlay"') && draftSource.includes('class="card-disable-badge"'), 'draft shop renders disabled-card explanation overlays');
 check(draftSource.includes('data-battle-action="buyDraftCard"'), 'draft shop uses delegated buy actions');
 
 console.log(`\nVerification complete: ${passed} passed, ${failed} failed.`);
