@@ -73,7 +73,7 @@ export const CARDS = [
 
   // ── 美术 (art) ──
   { id: 'card_art_1', name: '美术-祝福', subject: 'art', type: CARD_TYPE.BLESSING, tpCost: 1, desc: '当天美术课：选骰槽位+1' },
-  { id: 'card_art_2', name: '美术-增益', subject: 'art', type: CARD_TYPE.BUFF, tpCost: 1, desc: '本回合：复制对方上一轮投出的最大骰点' },
+  { id: 'card_art_2', name: '美术-增益', subject: 'art', type: CARD_TYPE.BUFF, tpCost: 1, desc: '本回合：复制对方上一轮防守时投出的最大骰点（含未选骰）' },
   { id: 'card_art_3', name: '美术-减益', subject: 'art', type: CARD_TYPE.DEBUFF, tpCost: 1, desc: '本回合：隐藏自身投掷的点数 1 轮' },
 
   // ── 信息 (it) ──
