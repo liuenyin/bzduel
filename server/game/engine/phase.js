@@ -1,6 +1,6 @@
 import { settleWinner } from './outcome.js';
 import { clearResolvedTurnState } from './turn-state.js';
-import { removePositiveSkill } from './skills.js';
+import { removePositiveSkill, restorePlayerSkills } from './skills.js';
 import { generateSchedule } from './preparation.js';
 import { appendBattleLog } from './battle-log.js';
 import { TURN } from '../../../shared/turn.js';
@@ -71,6 +71,7 @@ export function resolvePhaseEnd(state) {
       
       if (state.currentSubRound >= GAME_CONFIG.SUBROUNDS_PER_CLASS) {
         const completedSubject = state.schedule[state.currentClassIndex];
+        const completedClassIndex = state.currentClassIndex;
         state.currentSubRound = 0;
         state.currentClassIndex++;
         const completedClassNumber = state.currentClassIndex;
@@ -89,6 +90,13 @@ export function resolvePhaseEnd(state) {
           p.tp = Math.min(10, (p.tp || 0) + 1);
           p.tempSlotBonus = 0;
           p.stealthActive = false;
+          if (p.lgpyForm && p.lgpyClassIndex === completedClassIndex) {
+            p.lgpyForm = false;
+            p.lgpyTurnsLeft = 0;
+            p.lgpyActivatedAtRound = null;
+            p.lgpyClassIndex = null;
+          }
+          if (p.skillsSealed && p.skillsSealedClassIndex === completedClassIndex) restorePlayerSkills(p);
           p.activeBlessings = (p.activeBlessings || []).filter(card => card.subject !== completedSubject);
           if (p.copiedPositiveSkill) {
             p.card.positiveSkill = p.copiedPositiveSkill.original || null;

@@ -5,7 +5,7 @@ import { SKILL } from '../../../shared/characters.js';
 export function advanceAttackerTimedStates(state, attacker) {
   if (!attacker) return;
 
-  if (attacker.lgpyForm && attacker.lgpyActivatedAtRound !== state.totalRound) {
+  if (attacker.lgpyForm && attacker.lgpyClassIndex == null && attacker.lgpyActivatedAtRound !== state.totalRound) {
     attacker.lgpyTurnsLeft = Math.max(0, (attacker.lgpyTurnsLeft || 0) - 1);
     if (attacker.lgpyTurnsLeft === 0) {
       attacker.lgpyForm = false;
@@ -13,7 +13,7 @@ export function advanceAttackerTimedStates(state, attacker) {
     }
   }
 
-  if (attacker.skillsSealed && attacker.skillsSealedAtRound !== state.totalRound) {
+  if (attacker.skillsSealed && attacker.skillsSealedClassIndex == null && attacker.skillsSealedAtRound !== state.totalRound) {
     attacker.skillsSealedTurnsLeft = Math.max(0, (attacker.skillsSealedTurnsLeft || 0) - 1);
     if (attacker.skillsSealedTurnsLeft === 0) restorePlayerSkills(attacker);
   }
@@ -37,6 +37,7 @@ export function checkElephantCondemn(state, player, opponent) {
   opponent.lgpyForm = true;
   opponent.lgpyTurnsLeft = 1;
   opponent.lgpyActivatedAtRound = state.totalRound;
+  opponent.lgpyClassIndex = state.currentClassIndex;
   player.inDreamState = false;
   player.pendingDreamState = false;
   player.dreamTargetChoice = null;

@@ -48,19 +48,22 @@ export function resolveAoeTarget(state, pid, { atk, ar, atkMulti, selectedAttack
     pFinalFinalDef = Math.floor(pFinalFinalDef / (1 + state.turnData.chargeConsumed));
   }
 
-  let targetFinalBaseAtk = finalBaseAtk;
+  let targetDamageMultiplier = 1;
   if (!isPrimary) {
-    if (atkMulti === 0.5) targetFinalBaseAtk = Math.floor(finalBaseAtk * 0.33);
-    else if (atkMulti === 1) targetFinalBaseAtk = Math.floor(finalBaseAtk * 0.5);
-    else if (atkMulti === 2) targetFinalBaseAtk = Math.floor(finalBaseAtk * 0.66);
+    if (atkMulti === 0.5) targetDamageMultiplier = 0.33;
+    else if (atkMulti === 1) targetDamageMultiplier = 0.5;
+    else if (atkMulti === 2) targetDamageMultiplier = 0.66;
   }
 
   const isPierce = ar.pierce || atkTurnCards.some(c => c.id === 'card_it_3');
-  const damageCalculation = calculateDamageSteps(targetFinalBaseAtk, pFinalFinalDef, isPierce, tac, true);
+  const targetTac = targetDamageMultiplier === 1
+    ? tac
+    : { ...tac, damageMultiplier: tac.damageMultiplier * targetDamageMultiplier };
+  const damageCalculation = calculateDamageSteps(finalBaseAtk, pFinalFinalDef, isPierce, targetTac, true);
   const effects = applyDefenseEffects(state, {
     atk, def: p, ar, subj, atkMulti, defMulti: pMulti, keptRolls: pKeptRolls,
-    finalFinalDef: pFinalFinalDef, finalBaseAtk: targetFinalBaseAtk,
-    isPierce, tac, defTurnCards, atkTurnCards, damage: damageCalculation.damage,
+    finalFinalDef: pFinalFinalDef, finalBaseAtk,
+    isPierce, tac: targetTac, defTurnCards, atkTurnCards, damage: damageCalculation.damage,
     hasDefenderRerolled: ds.hasRerolled, selfDamage: 0,
   });
   const { damage, talentTriggered, lcCounterTriggered, lcCounterDamage,

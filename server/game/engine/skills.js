@@ -15,6 +15,7 @@ export function sealPlayerSkills(player, state) {
   player.skillsSealed = true;
   player.skillsSealedTurnsLeft = 1;
   player.skillsSealedAtRound = state.totalRound;
+  player.skillsSealedClassIndex = state.currentClassIndex;
 }
 
 export function restorePlayerSkills(player) {
@@ -27,6 +28,7 @@ export function restorePlayerSkills(player) {
   player.skillsSealed = false;
   player.skillsSealedTurnsLeft = 0;
   player.skillsSealedAtRound = null;
+  player.skillsSealedClassIndex = null;
   player.sealedSkills = null;
 }
 

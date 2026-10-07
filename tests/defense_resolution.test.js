@@ -137,7 +137,7 @@ for (const aoe of [false, true]) {
     assert.equal(def.hp, 40);
     assert.equal(def.tp, 2);
     assert.equal(def.redHeat || 0, 0);
-    assert.equal(atk.handCards.length, 0);
+    assert.equal(atk.handCards.length, aoe ? 1 : 0);
   });
 
   test(`overflow healing combines biology and mama with HP cap (${mode})`, () => {
@@ -242,6 +242,16 @@ for (const aoe of [false, true]) {
     atk.card.positiveSkill = { id: SKILL.STAR_SHOWOFF };
     state.turnData.atkResult.finalAtk = 20;
     assert.equal(resolveTarget(state, aoe).damage, 27);
+  });
+
+  if (aoe) test('AoE secondary target scales the finished damage, not attack before defense', () => {
+    const state = defenseState(true);
+    state.players[0].card.subjects = ['chinese'];
+    state.turnData.atkResult.finalAtk = 20;
+    assert.equal(confirmDefense(state, 'p1', [0, 1, 2]).waitingForOthers, true);
+    const result = confirmDefense(state, 'p2', [0, 1, 2]);
+    assert.equal(result.ok, true);
+    assert.equal(result.aoeResults.find(target => target.playerId === 'p2').damage, 7);
   });
 }
 

@@ -68,10 +68,12 @@ export function makePlayer(id, name) {
     lgpyForm: false,          // 是否处于 lgpy 斩杀形态
     lgpyTurnsLeft: 0,         // lgpy 形态剩余攻击回合
     lgpyActivatedAtRound: null,
+    lgpyClassIndex: null,
     lgpyTriggered: false,     // 是否已触发过 lgpy 形态
     skillsSealed: false,
     skillsSealedTurnsLeft: 0,
     skillsSealedAtRound: null,
+    skillsSealedClassIndex: null,
     sealedSkills: null,
   };
 }

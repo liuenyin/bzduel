@@ -348,7 +348,7 @@ test('elephant condemn seals skills and guarantees one lgpy attack before restor
   assert.equal(game.players[1].skillsSealed, false);
   assert.equal(game.players[1].card.positiveSkill.id, 'talented');
   assert.equal(game.players[1].card.negativeSkill.id, 'hjc_neg');
-  assert.equal(game.players[0].skillsSealed, true);
+  assert.equal(game.players[0].skillsSealed, false);
 });
 
 test('extra turns clear one-turn tactical cards and stealth before the bonus attack', () => {

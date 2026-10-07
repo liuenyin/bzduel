@@ -60,6 +60,7 @@ export function getStateView(state, playerId) {
       tempSlotBonus: p.tempSlotBonus || 0,
       skillsSealed: !!p.skillsSealed,
       skillsSealedTurnsLeft: p.skillsSealedTurnsLeft || 0,
+      skillsSealedClassIndex: p.skillsSealedClassIndex,
       // 战术卡与 TP
       tp: p.tp || 0,
       handCards: isMe ? (p.handCards || []).map(cloneCard) : Array((p.handCards || []).length).fill({ hidden: true }),
@@ -73,6 +74,7 @@ export function getStateView(state, playerId) {
       realTargetIdx: isMe ? p.realTargetIdx : (p.dreamTargetChoice !== null ? p.realTargetIdx : null),
       lgpyForm: !!p.lgpyForm,
       lgpyTurnsLeft: p.lgpyTurnsLeft || 0,
+      lgpyClassIndex: p.lgpyClassIndex,
     };
   };
 
