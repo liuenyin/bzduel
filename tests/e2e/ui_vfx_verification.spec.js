@@ -169,6 +169,68 @@ test.describe('School Dice Duel - UI/UX & VFX Verification', () => {
       expect(consoleErrors).toEqual([]);
     });
 
+    test('1.3a Dream target dialog keeps the eligible attacker inside the chooser', async ({ page }) => {
+      const { pageErrors, consoleErrors } = setupErrorTracking(page);
+
+      await page.goto('/');
+      await page.waitForSelector('#nickname-input');
+      await page.fill('#nickname-input', 'Tester_Dream_Dialog');
+      await page.click('#btn-pve');
+      await page.waitForSelector('#card-selector');
+      await page.click('.avatar-cell[data-id="char_6"]');
+      await page.click('#modal-select-btn');
+      await page.waitForSelector('#btn-ready:not([disabled])');
+      await page.click('#btn-ready');
+      await page.waitForSelector('.arena');
+
+      const listenerCount = await page.evaluate(async () => {
+        const { gameSocket } = await import('/src/net/socket.js');
+        const state = await new Promise((resolve, reject) => {
+          const timer = setTimeout(() => reject(new Error('未收到战斗状态')), 5000);
+          gameSocket.socket.once('state_update', nextState => {
+            clearTimeout(timer);
+            resolve(nextState);
+          });
+          gameSocket.socket.emit('request_state');
+        });
+        const myIndex = state.myIndex;
+        const dreamIndex = myIndex === 0 ? 1 : 0;
+        state.phase = 'battle';
+        state.draftShop = { active: false };
+        state.attackerIdx = myIndex;
+        state.defenderIdx = dreamIndex;
+        state.isMyAttackTurn = true;
+        state.isMyDefendTurn = false;
+        state.me = { ...state.me, isDead: false, hp: Math.max(1, state.me.hp || 30) };
+        state.players[myIndex] = { ...state.players[myIndex], isDead: false, hp: Math.max(1, state.players[myIndex].hp || 30) };
+        state.players[dreamIndex] = {
+          ...state.players[dreamIndex],
+          cardId: 'char_fxr',
+          inDreamState: true,
+          dreamTargetChoice: null,
+          isDead: false,
+          hp: Math.max(1, state.players[dreamIndex].hp || 30),
+          lgpyForm: false,
+        };
+        const { canChooseDreamTarget } = await import('/src/pages/battle/dream.js');
+        const listeners = gameSocket.socket.listeners('state_update');
+        listeners.forEach(listener => listener(state));
+        return { count: listeners.length, eligible: canChooseDreamTarget(state), me: state.me.id, attacker: state.players[myIndex].id };
+      });
+
+      expect(listenerCount.count).toBeGreaterThan(0);
+      expect(listenerCount.eligible).toBe(true);
+      await expect(page.locator('#dream-target-modal')).toBeVisible();
+      await expect(page.locator('.dream-target-btn').first()).toBeFocused();
+      await page.locator('.dream-target-btn').first().focus();
+      await page.keyboard.press('Shift+Tab');
+      await expect(page.locator('.dream-target-btn').last()).toBeFocused();
+      await page.evaluate(() => document.getElementById('dream-target-modal')?.remove());
+
+      expect(pageErrors).toEqual([]);
+      expect(consoleErrors).toEqual([]);
+    });
+
     test('1.3b Battle page reload resumes the same session', async ({ page }) => {
       const { pageErrors, consoleErrors } = setupErrorTracking(page);
 
