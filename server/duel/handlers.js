@@ -173,9 +173,14 @@ export function registerDuelHandlers(socket, {
     }
   });
 
-  socket.on('cancel_matchmaking', () => {
+  socket.on('cancel_matchmaking', (_payload = {}, acknowledge) => {
+    if (socketToRoom.has(playerId)) {
+      if (typeof acknowledge === 'function') acknowledge({ ok: false, error: '已进入房间，请在房间内离开' });
+      return;
+    }
     const idx = matchQueue.findIndex(p => p.playerId === playerId);
     if (idx !== -1) matchQueue.splice(idx, 1);
+    if (typeof acknowledge === 'function') acknowledge({ ok: true });
   });
 
   // ── FFA 大乱斗房间 ──

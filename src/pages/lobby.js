@@ -133,6 +133,19 @@ export function renderLobby(container, data = {}) {
   const nicknameInput = document.getElementById('nickname-input');
   const statusDiv = document.getElementById('status');
 
+  function showLobbyError(message) {
+    if (!statusDiv.isConnected) return;
+    let notice = statusDiv.querySelector('.status-msg');
+    if (!notice) {
+      notice = document.createElement('p');
+      notice.className = 'status-msg';
+      statusDiv.appendChild(notice);
+    }
+    notice.setAttribute('role', 'alert');
+    notice.style.color = 'var(--red)';
+    notice.textContent = `✗ ${message || '操作失败'}`;
+  }
+
   const saved = localStorage.getItem('dice_duel_nickname');
   if (saved) nicknameInput.value = saved;
 
@@ -363,10 +376,10 @@ export function renderLobby(container, data = {}) {
         button.disabled = true;
         button.textContent = '正在开始…';
         gameSocket.startFfaGame(result => {
-          if (result?.ok) return;
+          if (result?.ok || !button.isConnected) return;
           button.disabled = false;
           button.textContent = '全员准备完毕，开始游戏';
-          statusDiv.innerHTML = `<p style="color:var(--red);">✗ ${escapeHTML(result?.error || '暂时无法开始游戏')}</p>`;
+          showLobbyError(result?.error || '暂时无法开始游戏');
         });
       });
     }
@@ -417,9 +430,17 @@ export function renderLobby(container, data = {}) {
       const button = event.currentTarget;
       button.disabled = true;
       button.textContent = '正在取消…';
-      gameSocket.cancelMatchmaking();
-      statusDiv.innerHTML = '<p class="status-msg">已取消匹配</p>';
-      container.querySelectorAll('.lobby > .panel > .btn-group').forEach(group => { group.style.display = ''; });
+      gameSocket.cancelMatchmaking(result => {
+        if (!button.isConnected) return;
+        if (!result?.ok) {
+          button.disabled = false;
+          button.textContent = '取消匹配';
+          showLobbyError(result?.error || '取消失败，请重试');
+          return;
+        }
+        statusDiv.innerHTML = '<p class="status-msg">已取消匹配</p>';
+        container.querySelectorAll('.lobby > .panel > .btn-group').forEach(group => { group.style.display = ''; });
+      });
     });
   };
 
@@ -441,7 +462,7 @@ export function renderLobby(container, data = {}) {
       customPveStartButton.disabled = false;
       customPveStartButton.textContent = '开始对战';
     }
-    statusDiv.innerHTML = `<p style="color:var(--red);">✗ ${escapeHTML(message || '发生错误')}</p>`;
+    showLobbyError(message || '发生错误');
   });
 
   gameSocket.on('room_closed', (data = {}) => {

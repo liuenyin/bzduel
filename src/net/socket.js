@@ -105,7 +105,7 @@ class GameSocket {
   createRoom(n) { this.socket.emit('create_room', { nickname: n }); }
   joinRoom(n, r) { this.socket.emit('join_room', { nickname: n, roomId: r }); }
   joinMatchmaking(n) { this.socket.emit('join_matchmaking', { nickname: n }); }
-  cancelMatchmaking() { this.socket.emit('cancel_matchmaking'); }
+  cancelMatchmaking(acknowledge) { this.emitWithAck('cancel_matchmaking', {}, acknowledge); }
 
   createFfaRoom(n) { this.socket.emit('create_ffa_room', { nickname: n }); }
   joinFfaRoom(n, r) { this.socket.emit('join_ffa_room', { nickname: n, roomId: r }); }
