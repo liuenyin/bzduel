@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGame, selectCard, setReady, selectTarget, confirmAttack, chooseDreamTarget, getStateView, buyDraftCard, refreshDraftSlot, confirmDraftReady, playTacticalCard } from '../server/game/engine.js';
+import { createGame, selectCard, setReady, selectTarget, confirmAttack, chooseDreamTarget, rollAttack, getStateView, buyDraftCard, refreshDraftSlot, confirmDraftReady, playTacticalCard } from '../server/game/engine.js';
 import { settleWinner } from '../server/game/engine/outcome.js';
 import { calculateDamageSteps, finalizeDamageExplanation } from '../server/game/engine/damage.js';
 import { getTacticalCardUsability, getRerollTargetChoices } from '../src/pages/battle/tactical.js';
@@ -171,6 +171,27 @@ test('server dream target permissions match single and FFA chooser rules', () =>
   state.players[0].hp = 0;
   dreamKing.dreamTargetChoice = null;
   assert.equal(chooseDreamTarget(state, state.players[0].id, 0).ok, false);
+});
+
+test('four-player FFA dream flow accepts one opponent choice before attack', () => {
+  const state = createGame(
+    ['a', 'b', 'c', 'd'].map(id => ({ id, nickname: id })),
+    'sanguosha',
+  );
+  state.players.forEach((player, index) => {
+    assert.equal(selectCard(state, player.id, index === 0 ? 'char_fxr' : 'char_6').ok, true);
+    assert.equal(setReady(state, player.id).ok, true);
+  });
+  const dreamKing = state.players[0];
+  dreamKing.inDreamState = true;
+  dreamKing.dreamTargetChoice = null;
+  dreamKing.realTargetIdx = 2;
+
+  assert.deepEqual(chooseDreamTarget(state, 'b', 1), { ok: true, isReal: false });
+  assert.deepEqual(chooseDreamTarget(state, 'c', 0), { ok: false, error: 'already_chosen' });
+  assert.equal(selectTarget(state, 'a', 'd').ok, true);
+  assert.equal(rollAttack(state).ok, true);
+  assert.equal(state.turnPhase, 'atk_rolled');
 });
 
 test('both primary and secondary AoE defenders cannot play cards after confirming', () => {
