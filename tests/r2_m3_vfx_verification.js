@@ -1,5 +1,14 @@
 console.log('=== Starting R2-M3 VFX & Battle Engine Verification ===\n');
 
+const originalWarn = console.warn;
+const originalError = console.error;
+const suppressGsapNotice = (original) => (...args) => {
+  if (args.map(String).join(' ').includes('Missing plugin?')) return;
+  original(...args);
+};
+console.warn = suppressGsapNotice(originalWarn);
+console.error = suppressGsapNotice(originalError);
+
 let isModuleLoading = true;
 
 // 1. Setup minimal DOM polyfill BEFORE module imports
