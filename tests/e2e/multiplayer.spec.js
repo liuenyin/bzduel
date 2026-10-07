@@ -102,6 +102,11 @@ test('three browsers confirm an AoE concurrently and receive exactly one settlem
       expect(state.log.filter(entry => entry.type === 'turn')).toHaveLength(1);
       expect(state.totalRound).toBe(2);
     }
+    // AoE results have per-target defenses, so the shared defense summary
+    // must remain readable instead of being overwritten with "undefined".
+    await defenders[0].waitForTimeout(1000);
+    const summaryTexts = await defenders[0].locator('.dice-sum').allTextContents();
+    expect(summaryTexts.every(text => !text.includes('undefined'))).toBe(true);
     const viewer = party.pages[0];
     await viewer.click('#battle-log > summary');
     const explanation = viewer.locator('#battle-log .damage-explanation').first();

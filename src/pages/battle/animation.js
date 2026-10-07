@@ -34,7 +34,7 @@ export function playTurnResolution(data, { state: S, lifecycle: viewLifecycle, i
   playResolvedSkillFeedback(data, newState, getPlayerCardElement);
 
   const dArea = document.getElementById('dice-area');
-  if (dArea) {
+  if (dArea && !(data.isAoE && Array.isArray(data.aoeResults))) {
     const defSumEl = dArea.querySelector('.dice-row:last-child .dice-sum');
     if (defSumEl) defSumEl.innerHTML = `= ${finalDef}${penalty ? ` <small>(−${penalty})</small>` : ''}`;
   }
