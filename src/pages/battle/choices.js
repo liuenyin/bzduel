@@ -1,6 +1,7 @@
 import { gameSocket } from '../../net/socket.js';
 import { SUBJECTS, CORE_SUBJECTS, ELECTIVE_SUBJECTS, MINOR_SUBJECTS } from '../../../shared/rules.js';
 import { canChooseDreamTarget } from './dream.js';
+import { trapFocus } from '../../utils/a11y.js';
 
 export function createBattleChoices({ getState, actions, appendOverlay }) {
   function checkDreamTargetModal(s) {
@@ -32,6 +33,8 @@ export function createBattleChoices({ getState, actions, appendOverlay }) {
         </div>
       `;
       appendOverlay(overlay);
+      const dialog = overlay.querySelector('.dream-target-modal-panel');
+      overlay.addEventListener('keydown', event => trapFocus(event, dialog));
       overlay.querySelector('.dream-target-btn')?.focus();
       actions.pickDreamTarget = (value) => {
         const idx = Number(value);

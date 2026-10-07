@@ -71,6 +71,8 @@ test.describe('School Dice Duel - UI/UX & VFX Verification', () => {
       await firstAvatar.click();
       await expect(page.locator('#char-modal')).toHaveAttribute('role', 'dialog');
       await expect(page.locator('#modal-close-btn')).toBeFocused();
+      await page.keyboard.press('Shift+Tab');
+      await expect(page.locator('#modal-select-btn')).toBeFocused();
       await page.keyboard.press('Escape');
       await expect(page.locator('#char-modal')).toHaveCount(0);
 
@@ -87,6 +89,13 @@ test.describe('School Dice Duel - UI/UX & VFX Verification', () => {
       await page.click('#btn-pve-custom');
 
       await expect(page.locator('#pve-opponent-modal')).toBeVisible();
+      await expect(page.locator('.pve-opponent-option').first()).toBeFocused();
+      await page.locator('#btn-close-pve-opponent').focus();
+      await page.keyboard.press('Shift+Tab');
+      await expect(page.locator('.pve-opponent-option').last()).toBeFocused();
+      await page.keyboard.press('Escape');
+      await expect(page.locator('#btn-pve-custom')).toBeFocused();
+      await page.click('#btn-pve-custom');
       await expect(page.locator('.pve-opponent-option')).toHaveCount(17);
       await page.click('.pve-opponent-option[data-character-id="char_fxr"]');
       await expect(page.locator('#pve-opponent-selection')).toContainText('付修然');

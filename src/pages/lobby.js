@@ -6,6 +6,7 @@ import { navigate } from '../app/router.js';
 import { showGlobalChat, hideGlobalChat } from '../components/chat.js';
 import { characters } from '../../shared/characters.js';
 import { escapeHTML } from '../utils/html.js';
+import { trapFocus } from '../utils/a11y.js';
 
 function portraitInitials(name) {
   return Array.from(String(name || '?').replace(/[\[\]\s]/g, '')).slice(-2).join('') || '?';
@@ -191,12 +192,19 @@ export function renderLobby(container, data = {}) {
 
   const closePveOpponentModal = () => {
     pveOpponentModal.classList.remove('is-open');
+    if (pveOpponentReturnFocus?.isConnected) pveOpponentReturnFocus.focus();
+    pveOpponentReturnFocus = null;
   };
 
+  let pveOpponentReturnFocus = null;
   const handleLobbyKeydown = (event) => {
-    if (event.key === 'Escape' && pveOpponentModal.classList.contains('is-open')) {
+    if (!pveOpponentModal.classList.contains('is-open')) return;
+    if (event.key === 'Escape') {
+      event.preventDefault();
       closePveOpponentModal();
+      return;
     }
+    trapFocus(event, pveOpponentModal);
   };
   document.addEventListener('keydown', handleLobbyKeydown);
 
@@ -205,9 +213,10 @@ export function renderLobby(container, data = {}) {
     lobbyAction(event.currentTarget, '正在创建对局…', acknowledge => gameSocket.startPVE(n, acknowledge), '创建对局失败');
   });
 
-  document.getElementById('btn-pve-custom').addEventListener('click', () => {
+  document.getElementById('btn-pve-custom').addEventListener('click', event => {
     const n = getNick(); if (!n) return;
     customPveNickname = n;
+    pveOpponentReturnFocus = event.currentTarget;
     pveOpponentModal.classList.add('is-open');
     pveOpponentOptions[0]?.focus();
   });
@@ -310,9 +319,12 @@ export function renderLobby(container, data = {}) {
 
   statsCloseButton.addEventListener('click', closeStats);
   statsModal.addEventListener('keydown', event => {
-    if (event.key !== 'Escape') return;
-    event.preventDefault();
-    closeStats();
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeStats();
+      return;
+    }
+    trapFocus(event, statsModal);
   });
   statsModal.addEventListener('click', event => {
     if (event.target === statsModal) closeStats();

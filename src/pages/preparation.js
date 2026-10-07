@@ -6,6 +6,7 @@ import { navigate } from '../app/router.js';
 import { characters } from '../../shared/characters.js';
 import { SUBJECTS, getSubjectIcon, getSkillMultiplier, DICE_COLORS } from '../../shared/rules.js';
 import { escapeHTML } from '../utils/html.js';
+import { trapFocus } from '../utils/a11y.js';
 
 function portraitInitials(name) {
   return Array.from(String(name || '?').replace(/[\[\]\s]/g, '')).slice(-2).join('') || '?';
@@ -139,7 +140,9 @@ export function renderPreparation(container, data) {
         if (event.key === 'Escape') {
           event.preventDefault();
           closeModal();
+          return;
         }
+        trapFocus(event, modal);
       });
       closeButton.focus();
 
