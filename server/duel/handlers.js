@@ -677,7 +677,7 @@ export function registerDuelHandlers(socket, {
     }
     const res = playTacticalCard(room.game, playerId, cardId, options);
     if (!res.ok) {
-      const error = res.error || '无法打出此战术卡';
+      const error = readableActionError(res.error, '无法打出此战术卡');
       if (typeof acknowledge === 'function') acknowledge({ ok: false, error });
       else socket.emit('error_msg', { message: error });
       return;
@@ -724,7 +724,7 @@ export function registerDuelHandlers(socket, {
     }
     const res = buyDraftCard(room.game, playerId, slotIndex);
     if (!res.ok) {
-      const error = res.error || '购买失败';
+      const error = readableActionError(res.error, '购买失败');
       if (typeof acknowledge === 'function') acknowledge({ ok: false, error });
       else socket.emit('error_msg', { message: error });
       return;
