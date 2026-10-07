@@ -110,7 +110,10 @@ class GameSocket {
   buyWater() { this.socket.emit('buy_water'); }
   chooseDreamTarget(idx) { this.socket.emit('choose_dream_target', { targetIndex: idx }); }
 
-  playTacticalCard(id, acknowledge) { this.socket.emit('play_tactical_card', { cardId: id }, acknowledge); }
+  playTacticalCard(id, options, acknowledge) {
+    if (typeof options === 'function') { acknowledge = options; options = {}; }
+    this.socket.emit('play_tactical_card', { cardId: id, ...(options || {}) }, acknowledge);
+  }
   refreshDraftSlot(idx) { this.socket.emit('refresh_draft_slot', { slotIndex: idx }); }
   buyDraftCard(idx, acknowledge) { this.socket.emit('buy_draft_card', { slotIndex: idx }, acknowledge); }
   confirmDraftReady() { this.socket.emit('draft_ready'); }

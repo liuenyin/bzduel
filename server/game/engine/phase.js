@@ -40,6 +40,12 @@ export function resolvePhaseEnd(state) {
   ({ gameOver, winner } = settleWinner(state));
 
   if (!gameOver) {
+    if (phaseAttacker && state.schedule[state.currentClassIndex] === 'study'
+      && (phaseAttacker.activeBlessings || []).some(card => card.id === 'card_stu_1')
+      && (phaseAttacker.handCards || []).length < 3) {
+      phaseAttacker.handCards.push(getRandomCard('study', phaseAttacker.card?.subjects || []));
+      appendBattleLog(state, { text: `【自习-祝福】${phaseAttacker.nickname} 攻击回合结束，获得 1 张战术卡！`, type: 'skill', actorId: phaseAttacker.id });
+    }
     clearResolvedTurnState(state);
     let extraTurnSet = false;
     while (state.extraTurnQueue && state.extraTurnQueue.length > 0) {
@@ -83,7 +89,6 @@ export function resolvePhaseEnd(state) {
           p.tp = Math.min(10, (p.tp || 0) + 1);
           p.tempSlotBonus = 0;
           p.stealthActive = false;
-          p.hpLastRound = p.hp;
           p.activeBlessings = (p.activeBlessings || []).filter(card => card.subject !== completedSubject);
           if (p.copiedPositiveSkill) {
             p.card.positiveSkill = p.copiedPositiveSkill.original || null;

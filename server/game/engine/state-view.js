@@ -29,7 +29,8 @@ export function getStateView(state, playerId) {
     // 殷泽轩 (char_10) 技能：对方无法查看你的 HP 与掷骰点数
     const isYZX = p.cardId === 'char_10';
     const isMe = pIdx === myIdx;
-    const hideHP = (isYZX || p.stealthActive) && !isMe && state.phase !== PHASE.GAME_OVER;
+    // 战术隐蔽只隐藏骰面；只有角色技能 char_10 同时隐藏生命。
+    const hideHP = isYZX && !isMe && state.phase !== PHASE.GAME_OVER;
     
     // 身份隐藏逻辑 (大乱斗模式下，非主公且非自己的身份对他人隐藏)
     const hideIdentity = state.gameMode === GAME_MODE.MODE_FFA && !isMe && p.identity !== IDENTITY.LORD && !p.isDead && state.phase !== PHASE.GAME_OVER;

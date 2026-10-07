@@ -6,12 +6,13 @@ import { PHASE } from '../../../shared/rules.js';
 import { cardMap, CARD_TYPE } from '../../../shared/cards.js';
 import { resolveImmediateCardDeaths } from './immediate-deaths.js';
 
-export function playTacticalCard(state, playerId, cardId) {
+export function playTacticalCard(state, playerId, cardId, options = {}) {
   if (state.phase !== PHASE.BATTLE) return { ok: false, error: '非战斗阶段' };
   if (isDraftShopActive(state)) return { ok: false, error: '请先完成补给' };
   const p = findPlayer(state, playerId);
   if (!p || p.isDead) return { ok: false, error: '玩家不存在或已阵亡' };
   if (typeof cardId !== 'string') return { ok: false, error: '无效卡牌' };
+  if (!options || typeof options !== 'object' || Array.isArray(options)) return { ok: false, error: '无效目标' };
 
   const canonicalCard = cardMap[cardId];
   if (!canonicalCard) return { ok: false, error: '无效卡牌' };
@@ -53,6 +54,10 @@ export function playTacticalCard(state, playerId, cardId) {
     return { ok: false, error: '同类效果已生效' };
   }
 
+  if (card.id === 'card_gen_11' && (p.handCards || []).length < 2) {
+    return { ok: false, error: '至少需要另一张手牌才能弃置' };
+  }
+
   p.handCards.splice(cIdx, 1);
 
   if (card.type === CARD_TYPE.BLESSING) {
@@ -77,6 +82,7 @@ export function playTacticalCard(state, playerId, cardId) {
     }
   } else {
     if (!p.playedTurnCards) p.playedTurnCards = [];
+    const previousTurnCard = p.playedTurnCard;
     p.playedTurnCards.push(card);
     p.playedTurnCard = card;
     appendBattleLog(state, {
@@ -85,7 +91,14 @@ export function playTacticalCard(state, playerId, cardId) {
       actorId: p.id,
       details: { cardId: card.id, cardName: card.name, cardType: card.type },
     });
-    applyInstantCardEffect(state, p, card);
+    const instantResult = applyInstantCardEffect(state, p, card, options);
+    if (instantResult?.ok === false) {
+      p.handCards.splice(cIdx, 0, card);
+      p.playedTurnCards.pop();
+      p.playedTurnCard = previousTurnCard || null;
+      state.log.pop();
+      return instantResult;
+    }
   }
 
   const deathResolution = state.players.some(player => player.hp <= 0)

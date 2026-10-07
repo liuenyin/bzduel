@@ -39,6 +39,16 @@ export function getRollingPool(player, state = null) {
     }
   }
 
+  // 音乐-其他：被替换的骰子在本回合后续重投中仍保持 D8。
+  const temporaryFaces = state?.turnData?.temporaryDiceFaces?.[player.id];
+  if (temporaryFaces && typeof temporaryFaces === 'object') {
+    for (const [index, face] of Object.entries(temporaryFaces)) {
+      if (Number.isInteger(Number(index)) && Number(index) >= 0 && Number(index) < pool.length) {
+        pool[Number(index)] = Math.max(1, Number(face) || 8);
+      }
+    }
+  }
+
   return pool.map(face => Math.max(1, Math.floor(Number(face) || 1)));
 }
 

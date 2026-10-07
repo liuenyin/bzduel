@@ -24,6 +24,7 @@ export function clearResolvedTurnState(state) {
     player.playedTurnCard = null;
     player.playedTurnCards = [];
     player.stealthActive = false;
+    player.prevMaxRoll = player.lastMaxRoll || 0;
     player.prevUnusedDiceSum = player.unusedDiceSum || 0;
   });
 }

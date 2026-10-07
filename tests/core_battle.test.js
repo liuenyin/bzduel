@@ -17,6 +17,7 @@ import {
   selectCard,
   selectTarget,
   setReady,
+  resolvePhaseEnd,
 } from '../server/game/engine.js';
 import { cardMap } from '../shared/cards.js';
 import { GAME_MODE, IDENTITY } from '../shared/rules.js';
@@ -56,6 +57,78 @@ test('tactical cards cannot mutate a battle during the draft shop', () => {
   const before = structuredClone(game);
   assert.equal(playTacticalCard(game, 'player-a', 'card_gen_01').ok, false);
   assert.deepEqual(game, before);
+});
+
+test('generic reroll card honors an explicit enemy die target', () => {
+  const game = createBattle();
+  game.players[1].handCards = [structuredClone(cardMap.card_gen_01)];
+  game.turnPhase = 'def_rolled';
+  game.turnData.attackRolls = [2, 3, 4];
+  game.turnData.defenseRolls = [5, 5, 5];
+  const beforeAttack = [...game.turnData.attackRolls];
+  const result = withRandom(0.99, () => playTacticalCard(game, 'player-b', 'card_gen_01', { targetId: 'player-a', dieIndex: 1 }));
+  assert.equal(result.ok, true);
+  assert.notEqual(game.turnData.attackRolls[1], beforeAttack[1]);
+  assert.deepEqual(game.turnData.defenseRolls, [5, 5, 5]);
+});
+
+test('invalid generic reroll target does not consume the card', () => {
+  const game = createBattle();
+  game.players[1].handCards = [structuredClone(cardMap.card_gen_01)];
+  game.turnPhase = 'def_rolled';
+  game.turnData.attackRolls = [2, 3, 4];
+  game.turnData.defenseRolls = [5, 5, 5];
+  const result = playTacticalCard(game, 'player-b', 'card_gen_01', { targetId: 'missing', dieIndex: 99 });
+  assert.equal(result.ok, false);
+  assert.equal(game.players[1].handCards.length, 1);
+  assert.equal(game.players[1].playedTurnCards.length, 0);
+});
+
+test('music D8 replacement persists for later rerolls in the same turn', () => {
+  const game = createBattle();
+  game.schedule[0] = 'music';
+  game.players[1].handCards = [structuredClone(cardMap.card_mus_3)];
+  game.turnPhase = 'def_rolled';
+  game.turnData.attackRolls = [2, 3, 4];
+  game.turnData.defenseRolls = [1, 1, 1];
+  withRandom(0.99, () => playTacticalCard(game, 'player-b', 'card_mus_3'));
+  assert.equal(game.turnData.defenseRolls[2], 8);
+  withRandom(0.99, () => rerollDice(game, 'player-b', [2]));
+  assert.equal(game.turnData.defenseRolls[2], 8);
+});
+
+test('chemical cleanse removes every tracked negative status', () => {
+  const game = createBattle();
+  game.schedule[0] = 'chemistry';
+  const player = game.players[0];
+  player.handCards = [structuredClone(cardMap.card_che_2)];
+  Object.assign(player, {
+    buffs: [{ id: 'sugar_crash', expireRound: 99 }], redHeat: 4, stickers: 2,
+    selfStickers: 2, permanentDefPenalty: 6,
+  });
+  assert.equal(playTacticalCard(game, player.id, 'card_che_2').ok, true);
+  assert.deepEqual({ buffs: player.buffs, redHeat: player.redHeat, stickers: player.stickers,
+    selfStickers: player.selfStickers, permanentDefPenalty: player.permanentDefPenalty },
+  { buffs: [], redHeat: 0, stickers: 0, selfStickers: 0, permanentDefPenalty: 0 });
+});
+
+test('discard and draw requires another card in hand', () => {
+  const game = createBattle();
+  game.players[0].handCards = [structuredClone(cardMap.card_gen_11)];
+  const before = structuredClone(game);
+  assert.equal(playTacticalCard(game, 'player-a', 'card_gen_11').ok, false);
+  assert.deepEqual(game, before);
+});
+
+test('study blessing draws after the attack turn resolves', () => {
+  const game = createBattle();
+  game.schedule[0] = 'study';
+  game.players[0].activeBlessings = [structuredClone(cardMap.card_stu_1)];
+  game.players[0].handCards = [];
+  game.turnData = { attackerIdx: 0, defenderIdx: 1 };
+  resolvePhaseEnd(game);
+  assert.equal(game.players[0].handCards.length, 1);
+  assert.equal(game.log.at(-1).type, 'skill');
 });
 
 function createFfaBattle(cardIds = ['char_6', 'char_6', 'char_6']) {

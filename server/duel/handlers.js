@@ -259,6 +259,7 @@ export function registerDuelHandlers(socket, {
 
   socket.on('select_card', (payload = {}) => {
     const cardId = payloadObject(payload).cardId;
+    const options = payloadObject(payload);
     const room = getRoom(playerId); if (!room) return;
     if (selectCard(room.game, playerId, cardId).ok) {
       socket.emit('state_update', getStateView(room.game, playerId));
@@ -471,7 +472,7 @@ export function registerDuelHandlers(socket, {
       if (typeof acknowledge === 'function') acknowledge({ ok: false, error: '对局不存在' });
       return;
     }
-    const res = playTacticalCard(room.game, playerId, cardId);
+    const res = playTacticalCard(room.game, playerId, cardId, options);
     if (!res.ok) {
       const error = res.error || '无法打出此战术卡';
       if (typeof acknowledge === 'function') acknowledge({ ok: false, error });

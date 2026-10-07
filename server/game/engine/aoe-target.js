@@ -1,7 +1,7 @@
 import { prepareDefenseDice, sacrificeDefenseDie } from './defense-dice.js';
 import { applyDefenseEffects } from './defense-effects.js';
 import { calcTacticalCardEffects } from './tactical-effects.js';
-import { reviveNineLives, resolveDefenderNegativeSkill } from './skills.js';
+import { reviveNineLives, resolveDefenderNegativeSkill, hasNegativeImmunity } from './skills.js';
 
 import { getCourseMultiplier, findPlayer } from './primitives.js';
 import { SKILL } from '../../../shared/characters.js';
@@ -27,7 +27,7 @@ export function resolveAoeTarget(state, pid, { atk, ar, atkMulti, selectedAttack
 
   const turnDataSimulated = { hasDefenderRerolled: ds.hasRerolled };
   const negativeSkillName = p.card.negativeSkill?.name ?? null;
-  const defNeg = defTurnCards.some(c => c.id === 'card_stu_2') ? { triggered: false } : resolveDefenderNegativeSkill(p.card.negativeSkill, pMulti, state.totalRound, turnDataSimulated);
+  const defNeg = hasNegativeImmunity(p, state, p.card.negativeSkill?.id === SKILL.REROLL_PENALTY) ? { triggered: false } : resolveDefenderNegativeSkill(p.card.negativeSkill, pMulti, state.totalRound, turnDataSimulated);
   if (defNeg.addPermanentPenalty) p.permanentDefPenalty = (p.permanentDefPenalty || 0) + defNeg.addPermanentPenalty;
 
   const tac = calcTacticalCardEffects(state, atk, p, selectedAttackFaces, pKeptRolls);

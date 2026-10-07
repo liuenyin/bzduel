@@ -2,7 +2,7 @@ import { prepareDefenseDice, sacrificeDefenseDie, validateDefenseSelection } fro
 import { resolvePhaseEnd } from './phase.js';
 import { advanceAttackerTimedStates } from './turn-state.js';
 import { calcTacticalCardEffects } from './tactical-effects.js';
-import { reviveNineLives, resolveDefenderNegativeSkill } from './skills.js';
+import { reviveNineLives, resolveDefenderNegativeSkill, hasNegativeImmunity } from './skills.js';
 
 import { appendBattleLog } from './battle-log.js';
 import { getCourseMultiplier } from './primitives.js';
@@ -33,8 +33,7 @@ export function resolveSingleDefense(state, playerId, keepIndices, options, { at
   const baseDef = adjustedDefRolls.reduce((s, v) => s + v, 0);
 
   const negativeSkillName = def.card.negativeSkill?.name ?? null;
-  const hasStu2Def = defTurnCards.some(c => c.id === 'card_stu_2');
-  const defNeg = hasStu2Def ? { triggered: false } : resolveDefenderNegativeSkill(def.card.negativeSkill, defMulti, state.totalRound, state.turnData);
+  const defNeg = hasNegativeImmunity(def, state, def.card.negativeSkill?.id === SKILL.REROLL_PENALTY) ? { triggered: false } : resolveDefenderNegativeSkill(def.card.negativeSkill, defMulti, state.totalRound, state.turnData);
 
   if (defNeg.addPermanentPenalty) {
     def.permanentDefPenalty = (def.permanentDefPenalty || 0) + defNeg.addPermanentPenalty;

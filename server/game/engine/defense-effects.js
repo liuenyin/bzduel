@@ -2,14 +2,15 @@ import { checkElephantCondemn } from './turn-state.js';
 import { appendBattleLog } from './battle-log.js';
 import { SKILL } from '../../../shared/characters.js';
 import { getRandomSubjectCard } from '../../../shared/cards.js';
+import { hasNegativeImmunity } from './skills.js';
 
 export function applyDefenseEffects(state, {
   atk, def, ar, subj, atkMulti, defMulti, keptRolls, finalFinalDef,
   finalBaseAtk, isPierce, tac, defTurnCards, atkTurnCards, damage,
   hasDefenderRerolled = state.turnData.hasDefenderRerolled, selfDamage = ar.selfDamage || 0,
 }) {
-  const attackerNegative = atkTurnCards.some(c => c.id === 'card_stu_2') ? null : atk.card.negativeSkill?.id;
-  const defenderNegative = defTurnCards.some(c => c.id === 'card_stu_2') ? null : def.card.negativeSkill?.id;
+  const attackerNegative = hasNegativeImmunity(atk) ? null : atk.card.negativeSkill?.id;
+  const defenderNegative = hasNegativeImmunity(def) ? null : def.card.negativeSkill?.id;
 
   // 生物-增益 (card_bio_2): 防守溢出数值×1.5转化为生命回复
   if (defTurnCards.some(c => c.id === 'card_bio_2') && finalFinalDef > finalBaseAtk && !isPierce) {

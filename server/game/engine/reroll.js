@@ -10,6 +10,9 @@ export function rerollDice(state, playerId, indices) {
   if (!canPlayBattleAction(state)) return { ok: false, error: '非战斗阶段' };
   const p = findPlayer(state, playerId);
   if (!p?.card || p.isDead || p.hp <= 0 || p.rerolls <= 0) return { ok: false };
+  const negativeRerollImmune = (state.schedule[state.currentClassIndex] === 'english'
+    && (p.activeBlessings || []).some(card => card.id === 'card_eng_1'))
+    || (p.playedTurnCards || (p.playedTurnCard ? [p.playedTurnCard] : [])).some(card => card.id === 'card_stu_2');
   const opp = getTacticalOpponent(state, p);
   const oppTurnCards = opp ? (opp.playedTurnCards || (opp.playedTurnCard ? [opp.playedTurnCard] : [])) : [];
   if (oppTurnCards.some(c => c.id === 'card_gen_09')) return { ok: false, error: '对方使用了【重投锁死】，无法重投！' };
@@ -76,7 +79,7 @@ export function rerollDice(state, playerId, indices) {
       }
       rolls[minIdx] = maximizeDieValue(rolls[minIdx], face);
       // 深度思考: 仅攻击阶段反转给对方+1永久减伤
-      if (p.card.negativeSkill?.id === SKILL.DEEP_THOUGHT && state.turnPhase === TURN.ATK_ROLLED) {
+      if (p.card.negativeSkill?.id === SKILL.DEEP_THOUGHT && state.turnPhase === TURN.ATK_ROLLED && !negativeRerollImmune) {
         const defIdx = state.turnData.defenderIdx;
         if (defIdx != null) {
           state.players[defIdx].invertReduction = (state.players[defIdx].invertReduction || 0) + 1;
@@ -106,8 +109,8 @@ export function rerollDice(state, playerId, indices) {
 
   // 闫紫铭负面: Inelegant! 重投出1自伤 (英语-祝福 card_eng_1 / 自习-增益 card_stu_2 可免疫)
   const curSubjReroll = state.schedule[state.currentClassIndex];
-  const hasEng1 = curSubjReroll === 'english' && (p.activeBlessings || []).some(c => c.id === 'card_eng_1');
-  const hasStu2 = (p.playedTurnCards || (p.playedTurnCard ? [p.playedTurnCard] : [])).some(c => c.id === 'card_stu_2');
+  const hasEng1 = negativeRerollImmune && curSubjReroll === 'english';
+  const hasStu2 = negativeRerollImmune && curSubjReroll !== 'english';
   if (p.card.negativeSkill?.id === SKILL.ROYAL_ETIQUETTE && !hasEng1 && !hasStu2) {
     const newlyRolledOnes = rolledIndices.map(idx => rolls[idx]).filter(r => r === 1).length;
     if (newlyRolledOnes > 0) {

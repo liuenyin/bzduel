@@ -234,6 +234,15 @@ for (const aoe of [false, true]) {
     assert.equal(state.players[0].handCards.length, 1);
     assert.notEqual(state.players[0].handCards[0].subject, 'universal');
   });
+
+  test(`star showoff multiplies final damage after defense (${mode})`, () => {
+    const state = defenseState(aoe);
+    const atk = state.players[0];
+    atk.card.subjects = ['chinese'];
+    atk.card.positiveSkill = { id: SKILL.STAR_SHOWOFF };
+    state.turnData.atkResult.finalAtk = 20;
+    assert.equal(resolveTarget(state, aoe).damage, 27);
+  });
 }
 
 test('FFA reroll lock reads the actual attacker, not an unrelated living player', () => {

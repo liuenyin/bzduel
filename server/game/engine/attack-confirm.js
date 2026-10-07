@@ -7,7 +7,6 @@ import { canPlayBattleAction, getCourseMultiplier, areValidDiceIndices } from '.
 import { TURN } from '../../../shared/turn.js';
 
 import { SKILL } from '../../../shared/characters.js';
-import { getRandomCard } from '../../../shared/cards.js';
 
 
 export function confirmAttack(state, keepIndices) {
@@ -73,13 +72,6 @@ export function confirmAttack(state, keepIndices) {
     }
   }
 
-  // 自习-祝福 (card_stu_1): 攻击回合结束后随机获得 1 张战术卡
-  if (subj === 'study' && (atk.activeBlessings || []).some(c => c.id === 'card_stu_1')) {
-    if ((atk.handCards || []).length < 3) {
-      atk.handCards.push(getRandomCard(subj, atk.card?.subjects || []));
-    }
-  }
-
   // 姜鹏泽正面: 骰子点数 × 课程倍率
   if (atk.card.positiveSkill?.id === SKILL.LIBERAL_ARTS) {
     keptRolls = keptRolls.map(v => Math.floor(v * multi));
@@ -92,11 +84,6 @@ export function confirmAttack(state, keepIndices) {
   const neg = hasStu2 ? { triggered: false } : resolveNegativeSkill(atk.card.negativeSkill, multi, keptRolls, state.totalRound);
 
   let finalBase = baseAtk;
-
-  // 观星: 极差<=2 时伤害乘以 (0.5 + 课程倍率)
-  if (pos.applyMultiplier) {
-    finalBase = Math.floor(baseAtk * (0.5 + multi));
-  }
 
   // 贪睡惩罚
   if (state.turnData.sleepyAtkPenalty > 0) {
@@ -141,8 +128,9 @@ export function confirmAttack(state, keepIndices) {
   };
 
   // 战术卡攻击攻击力/加成计算
+  let tac = { isNoFixedBonus: false };
   if (def) {
-    const tac = calcTacticalCardEffects(state, atk, def, keptRolls);
+    tac = calcTacticalCardEffects(state, atk, def, keptRolls);
     if (!tac.isNoFixedBonus && tac.atkBonus !== 0) {
       state.turnData.atkResult.bonusDamage += tac.atkBonus;
       state.turnData.atkResult.finalAtk += tac.atkBonus;
@@ -150,7 +138,7 @@ export function confirmAttack(state, keepIndices) {
   }
 
   // 殷泽轩正面: 攻击力额外 +2 × 课程倍率
-  if (atk.card.positiveSkill?.id === SKILL.STEALTH_STRIKE) {
+  if (atk.card.positiveSkill?.id === SKILL.STEALTH_STRIKE && !tac.isNoFixedBonus) {
     state.turnData.atkResult.bonusDamage += Math.floor(2 * multi);
     state.turnData.atkResult.finalAtk += Math.floor(2 * multi);
   }
@@ -158,7 +146,7 @@ export function confirmAttack(state, keepIndices) {
   // 张楚唯: 额外回合 → 在 rollAttack 中处理 (+2重投, 面数临时+2)
 
   // 周煊声: 蓄势真正消耗（从 rollAttack 延迟到此处）
-  if (state.turnData.pendingCharges > 0) {
+  if (state.turnData.pendingCharges > 0 && !tac.isNoFixedBonus) {
     const chargeConsumed = state.turnData.pendingCharges;
     atk.chargeStacks = 0;
     state.turnData.chargeConsumed = chargeConsumed;
@@ -167,6 +155,10 @@ export function confirmAttack(state, keepIndices) {
     state.turnData.atkResult.finalAtk += chargeBonus;
     state.turnData.atkResult.posTriggered = true;
     state.turnData.atkResult.posName = '蓄势爆发';
+  } else if (state.turnData.pendingCharges > 0) {
+    // 政治祝福只允许纯骰点，蓄势的固定攻击加成不能在本回合结算。
+    atk.chargeStacks = 0;
+    state.turnData.chargeConsumed = 0;
   }
 
   return rollDefense(state, atk, def);

@@ -1,5 +1,5 @@
 import { resolvePhaseEnd } from './phase.js';
-import { reviveNineLives } from './skills.js';
+import { reviveNineLives, hasNegativeImmunity } from './skills.js';
 import { getRollingPool } from './dice.js';
 import { appendBattleLog } from './battle-log.js';
 import { rollDiceGroup, maximizeDieValue, canPlayBattleAction, getCourseMultiplier } from './primitives.js';
@@ -33,6 +33,8 @@ export function rollAttack(state) {
   }
   const subj = state.schedule[state.currentClassIndex];
   let multi = getCourseMultiplier(atk, state);
+  // “上一轮”以本次攻击开始时的生命为基准，供历史-其他恢复使用。
+  state.players.forEach(player => { player.hpLastRound = player.hp; });
   const hpBeforeTurnDamage = atk.hp;
   let redHeatDamage = 0;
   let redHeatKilled = false;
@@ -58,13 +60,13 @@ export function rollAttack(state) {
   }
 
   // 犯糖自伤
-  if (atk.buffs.find(b => b.id === SKILL.SUGAR_CRASH)) {
+  if (atk.buffs.find(b => b.id === SKILL.SUGAR_CRASH) && !hasNegativeImmunity(atk)) {
     atk.hp -= Math.floor(4 * multi);
     if (atk.hp < 0) atk.hp = 0;
   }
 
   // 不可持续发展自伤
-  if (atk.card.negativeSkill?.id === SKILL.UNSUSTAINABLE) {
+  if (atk.card.negativeSkill?.id === SKILL.UNSUSTAINABLE && !hasNegativeImmunity(atk)) {
     atk.hp -= Math.floor(2 * multi);
     if (atk.hp < 0) atk.hp = 0;
   }
@@ -124,7 +126,7 @@ export function rollAttack(state) {
   const rolls = rollDiceGroup(rollingPool);
 
   // 闫紫铭负面: Inelegant! 掷骰出1自伤
-  if (atk.card.negativeSkill?.id === SKILL.ROYAL_ETIQUETTE) {
+  if (atk.card.negativeSkill?.id === SKILL.ROYAL_ETIQUETTE && !hasNegativeImmunity(atk)) {
     const ones = rolls.filter(r => r === 1).length;
     if (ones > 0) {
       atk.hp -= ones;
@@ -165,7 +167,7 @@ export function rollAttack(state) {
 
   // 张锦元负面: 贪睡 — 前1回合攻击-3
   let sleepyAtkPenalty = 0;
-  if (atk.card.negativeSkill?.id === SKILL.SLEEPY && state.totalRound <= 1) {
+  if (atk.card.negativeSkill?.id === SKILL.SLEEPY && state.totalRound <= 1 && !hasNegativeImmunity(atk)) {
     sleepyAtkPenalty = 3;
   }
 

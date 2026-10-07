@@ -30,6 +30,13 @@ export function restorePlayerSkills(player) {
   player.sealedSkills = null;
 }
 
+export function hasNegativeImmunity(player, state = null, reroll = false) {
+  return (reroll && state?.schedule?.[state.currentClassIndex] === 'english'
+    && (player?.activeBlessings || []).some(card => card.id === 'card_eng_1'))
+    || (player?.playedTurnCards || (player?.playedTurnCard ? [player.playedTurnCard] : []))
+      .some(card => card.id === 'card_stu_2');
+}
+
 export function removePositiveSkill(player) {
   if (!player?.card) return;
   player.card.positiveSkill = null;

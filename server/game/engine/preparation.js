@@ -86,7 +86,7 @@ export function selectCard(state, playerId, cardId) {
   }
   p.cardId = cardId;
   p.card = JSON.parse(JSON.stringify(def));
-  p.hp = def.hp; p.maxHp = def.hp; p.ready = false;
+  p.hp = def.hp; p.maxHp = def.hp; p.hpLastRound = def.hp; p.ready = false;
   
   return { ok: true };
 }

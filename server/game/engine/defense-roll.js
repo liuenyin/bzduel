@@ -1,4 +1,4 @@
-import { reviveNineLives } from './skills.js';
+import { reviveNineLives, hasNegativeImmunity } from './skills.js';
 import { getRollingPool } from './dice.js';
 
 import { rollDiceGroup, maximizeDieValue } from './primitives.js';
@@ -20,7 +20,7 @@ export function rollDefense(state, atk, def) {
         const rolls = rollDiceGroup(getRollingPool(p, state));
 
         // 闫紫铭负面: Inelegant! AoE防守时
-        if (p.card.negativeSkill?.id === SKILL.ROYAL_ETIQUETTE) {
+        if (p.card.negativeSkill?.id === SKILL.ROYAL_ETIQUETTE && !hasNegativeImmunity(p)) {
           const ones = rolls.filter(r => r === 1).length;
           if (ones > 0) {
             p.hp = Math.max(0, p.hp - ones);
@@ -73,7 +73,7 @@ export function rollDefense(state, atk, def) {
     const defRolls = rollDiceGroup(getRollingPool(def, state));
 
     // 闫紫铭负面: Inelegant! 1v1防守时
-    if (def.card.negativeSkill?.id === SKILL.ROYAL_ETIQUETTE) {
+    if (def.card.negativeSkill?.id === SKILL.ROYAL_ETIQUETTE && !hasNegativeImmunity(def)) {
       const ones = defRolls.filter(r => r === 1).length;
       if (ones > 0) {
         def.hp -= ones;

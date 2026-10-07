@@ -171,6 +171,35 @@ export function createBattleView(container, data) {
     actions.showSacrifice = showSacrifice;
     actions.doSacrifice = value => doSacrifice(Number(value));
     actions.playTacticalCard = (id) => {
+      if (id === 'card_gen_01') {
+        const attacker = S.players?.[S.attackerIdx];
+        const choices = [];
+        const addChoices = (player, rolls) => {
+          if (!player || !Array.isArray(rolls)) return;
+          rolls.forEach((value, index) => {
+            if (Number(value) >= 0) choices.push({ playerId: player.id, nickname: player.nickname, index, value });
+          });
+        };
+        addChoices(attacker, S.attackRolls);
+        if (S.aoeDefenses) {
+          Object.entries(S.aoeDefenses).forEach(([playerId, defense]) => {
+            const player = S.players?.find(item => item.id === playerId);
+            if (player && !defense.confirmed) addChoices(player, defense.rolls);
+          });
+        } else addChoices(S.players?.[S.defenderIdx], S.defenseRolls);
+        const overlay = document.createElement('div');
+        overlay.className = 'result-overlay targeted-card-overlay';
+        overlay.innerHTML = `<div class="result-card targeted-card-modal" role="dialog" aria-modal="true" aria-label="选择重投目标">
+          <h2>选择要重投的骰子</h2>
+          <p>通用-增益：强行重投指定 1 颗骰子</p>
+          <div class="targeted-dice-options">${choices.length
+            ? choices.map(choice => `<button type="button" class="result-action" data-battle-action="playTargetedCard" data-value="${escapeHTML(`${choice.playerId}:${choice.index}`)}">${escapeHTML(choice.nickname)} · 第 ${choice.index + 1} 颗（${choice.value}）</button>`).join('')
+            : '<p>当前没有可指定的骰子</p>'}</div>
+          <button type="button" class="result-action secondary" data-battle-action="closeModal">取消</button>
+        </div>`;
+        appendOverlay(overlay);
+        return;
+      }
       actions.toggleHand(false);
       const cardEl = document.querySelector(`.hand-card-kards[data-card-id="${id}"]`);
       cardEl?.classList.add('disabled');
@@ -181,6 +210,18 @@ export function createBattleView(container, data) {
           cardEl?.classList.remove('disabled');
           actions.showToast(result?.error || '无法打出此战术卡');
         }
+      });
+    };
+
+    actions.playTargetedCard = (value, target) => {
+      const [targetId, indexText] = String(value || '').split(':');
+      const dieIndex = Number(indexText);
+      const overlay = target.closest('.targeted-card-overlay');
+      if (!targetId || !Number.isInteger(dieIndex)) return;
+      gameSocket.playTacticalCard('card_gen_01', { targetId, dieIndex }, (result) => {
+        if (!viewLifecycle.active || !isBattleViewActive(viewEpoch)) return;
+        if (result?.ok) overlay?.remove();
+        else actions.showToast(result?.error || '无法重投此骰子');
       });
     };
 

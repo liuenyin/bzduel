@@ -42,6 +42,9 @@ export function getTacticalCardUsability(card, state) {
     const hasNegativeState = (me.buffs || []).length > 0 || me.redHeat > 0 || me.stickers > 0 || me.selfStickers > 0 || me.permanentDefPenalty > 0;
     if (!hasNegativeState) return { canPlay: false, reason: '当前无负面效果' };
   }
+  if (card.id === 'card_gen_11' && (me.handCards || []).length < 2) {
+    return { canPlay: false, reason: '至少需要另一张手牌才能弃置' };
+  }
   if (card.id === 'card_che_3' && !(opponent?.redHeat > 0)) {
     return { canPlay: false, reason: '对手没有红温' };
   }
