@@ -5,6 +5,7 @@ import {
 } from '../server/game/engine.js';
 import { rollDefense } from '../server/game/engine/defense-roll.js';
 import { maximizeDieValue } from '../server/game/engine/primitives.js';
+import { calcTacticalCardEffects } from '../server/game/engine/tactical-effects.js';
 import { SKILL } from '../shared/characters.js';
 import { GAME_MODE, IDENTITY } from '../shared/rules.js';
 
@@ -121,6 +122,25 @@ function resolveTarget(state, aoe) {
 
 for (const aoe of [false, true]) {
   const mode = aoe ? 'AoE' : 'single';
+  test(`completed defense saves raw dice history for art and history cards (${mode})`, () => {
+    const state = defenseState(aoe);
+    const [atk, def] = state.players;
+    def.card.dicePool = [6, 6, 6, 10];
+    def.lastMaxRoll = def.prevMaxRoll = 2;
+    def.unusedDiceSum = def.prevUnusedDiceSum = 1;
+    const rolls = [3, 3, 3, 9]; // The largest die is deliberately not selected.
+    if (aoe) state.turnData.aoeDefenses.p1.rolls = rolls;
+    else state.turnData.defenseRolls = rolls;
+    resolveTarget(state, aoe);
+    assert.equal(def.prevMaxRoll, 9);
+    assert.equal(def.prevUnusedDiceSum, 9);
+
+    atk.playedTurnCards = [{ id: 'card_art_2' }];
+    assert.equal(calcTacticalCardEffects(state, atk, def, [2, 2, 2]).atkBonus, 9);
+    def.playedTurnCards = [{ id: 'card_his_2' }];
+    assert.equal(calcTacticalCardEffects(state, def, atk, [2, 2, 2]).atkBonus, 9);
+  });
+
   test(`permanent reduction determines no-damage rewards (${mode})`, () => {
     const state = defenseState(aoe);
     const [atk, def] = state.players;
