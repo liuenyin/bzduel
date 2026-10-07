@@ -13,6 +13,7 @@ import { pct, getM, getAuraClass, multiTag, phasePrompt, actionButtons, battleTo
 import { getLogSummary, battleLogContentHTML } from './log.js';
 import { getStatusEffects, statusEffectHTML } from './status.js';
 import { escapeHTML } from '../../utils/html.js';
+import { trapFocus } from '../../utils/a11y.js';
 // ============================================================
 // 校园战力党 — 对战页面 (阶段制 · 卡牌动画)
 // ============================================================
@@ -190,6 +191,16 @@ export function createBattleView(container, data) {
           <button type="button" class="result-action secondary" data-battle-action="closeModal">取消</button>
         </div>`;
         appendOverlay(overlay);
+        const dialog = overlay.querySelector('[role="dialog"]');
+        overlay.addEventListener('keydown', event => {
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            overlay.remove();
+            return;
+          }
+          trapFocus(event, dialog);
+        });
+        dialog.querySelector('button')?.focus();
         return;
       }
       const cardEl = document.querySelector(`.hand-card-kards[data-card-id="${id}"]`);

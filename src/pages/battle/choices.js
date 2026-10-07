@@ -73,8 +73,8 @@ export function createBattleChoices({ getState, actions, appendOverlay }) {
     }).join('');
 
     overlay.innerHTML = `
-      <div class="panel" style="max-width:360px;width:90%;">
-        <p class="section-title" style="margin-bottom:8px;">使用调课权</p>
+      <div class="panel" role="dialog" aria-modal="true" aria-labelledby="reschedule-title" style="max-width:360px;width:90%;">
+        <p id="reschedule-title" class="section-title" style="margin-bottom:8px;">使用调课权</p>
         <div style="text-align:center; margin-bottom:12px;">
           <select id="reschedule-idx-select" style="padding:4px 8px; border-radius:4px; font-family:var(--font-body); font-size:0.85rem; border:1.5px solid var(--bg-inset); background:var(--bg-warm); outline:none;">
             ${options}
@@ -91,6 +91,9 @@ export function createBattleChoices({ getState, actions, appendOverlay }) {
       </div>
     `;
     appendOverlay(overlay);
+    const dialog = overlay.querySelector('[role="dialog"]');
+    overlay.addEventListener('keydown', event => trapFocus(event, dialog));
+    dialog.querySelector('select, button')?.focus();
     actions.pickSubj = (id) => {
       const targetIdx = parseInt(document.getElementById('reschedule-idx-select').value);
       const button = [...overlay.querySelectorAll('[data-battle-action="pickSubj"]')].find(candidate => candidate.dataset.value === id);

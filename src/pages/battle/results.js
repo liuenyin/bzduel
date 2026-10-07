@@ -5,6 +5,7 @@ import { buffIcons } from './status.js';
 import { escapeHTML } from '../../utils/html.js';
 import { gameSocket } from '../../net/socket.js';
 import { navigate } from '../../app/router.js';
+import { trapFocus } from '../../utils/a11y.js';
 
 export function createBattleResults({ actions, viewLifecycle, appendOverlay }) {
   function showGameOver(s, meta = {}) {
@@ -98,8 +99,8 @@ export function createBattleResults({ actions, viewLifecycle, appendOverlay }) {
     }
 
     o.innerHTML = `
-      <div class="go-content ${statusClass}" style="${s.gameMode==='sanguosha'?'width:90%; max-width:800px;':''}">
-        <h1 class="go-title">${statusStr}</h1>
+      <div class="go-content ${statusClass}" role="dialog" aria-modal="true" aria-labelledby="game-over-title" style="${s.gameMode==='sanguosha'?'width:90%; max-width:800px;':''}">
+        <h1 id="game-over-title" class="go-title">${statusStr}</h1>
         <p class="go-reason">${escapeHTML(reasonText)}</p>
         <div class="go-stats" style="${s.gameMode==='sanguosha'?'flex-direction:row; flex-wrap:wrap;':''}">
           ${statsHtml}
@@ -112,6 +113,9 @@ export function createBattleResults({ actions, viewLifecycle, appendOverlay }) {
       </div>
     `;
     appendOverlay(o);
+    const dialog = o.querySelector('[role="dialog"]');
+    o.addEventListener('keydown', event => trapFocus(event, dialog));
+    dialog.querySelector('button')?.focus();
     viewLifecycle.listen(document.getElementById('btn-rematch'), 'click', () => {
       const button = document.getElementById('btn-rematch');
       button.disabled = true;

@@ -2,6 +2,7 @@ import { escapeHTML } from '../../utils/html.js';
 import { gameSocket } from '../../net/socket.js';
 import { SUBJECTS } from '../../../shared/rules.js';
 import { waitingNames } from './presentation.js';
+import { trapFocus } from '../../utils/a11y.js';
 
 export function createDraftShop({ actions, viewLifecycle, appendOverlay }) {
   let draftInteraction = null;
@@ -142,8 +143,8 @@ export function createDraftShop({ actions, viewLifecycle, appendOverlay }) {
         overlay.id = 'draft-shop-modal';
         overlay.className = 'result-overlay';
         overlay.style.zIndex = '9999';
-        overlay.innerHTML = `<div class="draft-shop-panel">
-            <div class="draft-shop-title-row"><div><span class="draft-shop-eyebrow">课间补给</span><h2>战术补给站</h2></div><span class="draft-ready-mark">✓</span></div>
+        overlay.innerHTML = `<div class="draft-shop-panel" role="dialog" aria-modal="true" aria-labelledby="draft-shop-title">
+            <div class="draft-shop-title-row"><div><span class="draft-shop-eyebrow">课间补给</span><h2 id="draft-shop-title">战术补给站</h2></div><span class="draft-ready-mark">✓</span></div>
             <div class="draft-waiting-state"><span class="draft-waiting-dot" aria-hidden="true"></span><strong>已完成选牌</strong><span>等待${escapeHTML(waitingNames(s, s.draftShop.pendingPlayerIds)) || '其他玩家'}完成选择…</span></div>
           </div>`;
         if (!existing) appendOverlay(overlay);
@@ -167,9 +168,9 @@ export function createDraftShop({ actions, viewLifecycle, appendOverlay }) {
       overlay.style.zIndex = '9999';
 
       overlay.innerHTML = `
-        <div class="draft-shop-panel">
+        <div class="draft-shop-panel" role="dialog" aria-modal="true" aria-labelledby="draft-shop-title">
           <div class="draft-shop-title-row">
-            <div><span class="draft-shop-eyebrow">课间补给</span><h2>战术补给站</h2></div>
+            <div><span class="draft-shop-eyebrow">课间补给</span><h2 id="draft-shop-title">战术补给站</h2></div>
             <span class="draft-shop-icon" aria-hidden="true">✦</span>
           </div>
           <div class="draft-shop-status" id="draft-shop-status">${statusHTML}</div>
@@ -186,6 +187,9 @@ export function createDraftShop({ actions, viewLifecycle, appendOverlay }) {
       `;
 
       appendOverlay(overlay);
+      const dialog = overlay.querySelector('[role="dialog"]');
+      overlay.addEventListener('keydown', event => trapFocus(event, dialog));
+      dialog.querySelector('button:not([disabled])')?.focus();
     } else {
       if (existing) existing.remove();
     }

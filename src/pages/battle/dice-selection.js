@@ -1,6 +1,7 @@
 import { gameSocket } from '../../net/socket.js';
 import { DICE_COLORS } from '../../../shared/rules.js';
 import { vfxManager } from '../../utils/vfx.js';
+import { trapFocus } from '../../utils/a11y.js';
 
 export function createDiceSelection({ getState, appendOverlay, showToast = () => {} }) {
   let selectionKey = null;
@@ -179,8 +180,18 @@ export function createDiceSelection({ getState, appendOverlay, showToast = () =>
     const m = document.createElement('div');
     m.className = 'result-overlay';
     m.id = 'sacrifice-modal';
-    m.innerHTML = `<div class="panel"><h3>选择一个骰子进行献祭</h3><p>该骰子变1，回复其点数-1的HP</p>${opts}</div>`;
+    m.innerHTML = `<div class="panel" role="dialog" aria-modal="true" aria-labelledby="sacrifice-title"><h3 id="sacrifice-title">选择一个骰子进行献祭</h3><p>该骰子变1，回复其点数-1的HP</p>${opts}</div>`;
     appendOverlay(m);
+    const dialog = m.querySelector('[role="dialog"]');
+    m.addEventListener('keydown', event => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        m.remove();
+        return;
+      }
+      trapFocus(event, dialog);
+    });
+    dialog.querySelector('button')?.focus();
   }
 
   function doSacrifice(idx) {
