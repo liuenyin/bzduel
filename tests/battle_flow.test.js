@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGame, selectCard, setReady, confirmAttack, getStateView, buyDraftCard, refreshDraftSlot, confirmDraftReady, playTacticalCard } from '../server/game/engine.js';
+import { createGame, selectCard, setReady, confirmAttack, chooseDreamTarget, getStateView, buyDraftCard, refreshDraftSlot, confirmDraftReady, playTacticalCard } from '../server/game/engine.js';
 import { settleWinner } from '../server/game/engine/outcome.js';
 import { calculateDamageSteps, finalizeDamageExplanation } from '../server/game/engine/damage.js';
 import { getTacticalCardUsability, getRerollTargetChoices } from '../src/pages/battle/tactical.js';
@@ -123,6 +123,33 @@ test('dream target modal only appears for an eligible living chooser', () => {
   assert.equal(canChooseDreamTarget(state), true);
   state.me = { ...state.players[1], id: 'spectator', isDead: true, hp: 0 };
   assert.equal(canChooseDreamTarget(state), false);
+});
+
+test('server dream target permissions match single and FFA chooser rules', () => {
+  const state = battle();
+  const dreamKing = state.players[1];
+  dreamKing.cardId = 'char_fxr';
+  dreamKing.card = { positiveSkill: { id: 'dream_king' } };
+  dreamKing.inDreamState = true;
+  dreamKing.dreamTargetChoice = null;
+  dreamKing.realTargetIdx = 2;
+
+  // Dream King defending: only the current attacker can choose.
+  state.turnData = { attackerIdx: 0, defenderIdx: 1 };
+  assert.equal(chooseDreamTarget(state, state.players[0].id, 1).ok, true);
+  dreamKing.dreamTargetChoice = null;
+  assert.equal(chooseDreamTarget(state, state.players[2].id, 1).ok, false);
+
+  // Dream King attacking: any living opponent may choose, but the first
+  // accepted choice closes the window for everyone else.
+  dreamKing.dreamTargetChoice = null;
+  state.turnData = { attackerIdx: 1, defenderIdx: null };
+  assert.equal(chooseDreamTarget(state, state.players[2].id, 2).ok, true);
+  assert.equal(chooseDreamTarget(state, state.players[0].id, 0).ok, false);
+  state.players[0].isDead = true;
+  state.players[0].hp = 0;
+  dreamKing.dreamTargetChoice = null;
+  assert.equal(chooseDreamTarget(state, state.players[0].id, 0).ok, false);
 });
 
 test('both primary and secondary AoE defenders cannot play cards after confirming', () => {
