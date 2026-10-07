@@ -466,7 +466,7 @@ export function registerDuelHandlers(socket, {
 
   // ── 战术卡与商店 ──
   socket.on('play_tactical_card', (payload = {}, acknowledge) => {
-    const cardId = payloadObject(payload).cardId;
+    const { cardId, ...options } = payloadObject(payload);
     const room = getRoom(playerId);
     if (!room || !room.game) {
       if (typeof acknowledge === 'function') acknowledge({ ok: false, error: '对局不存在' });

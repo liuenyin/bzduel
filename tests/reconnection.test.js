@@ -175,6 +175,14 @@ test('an active battle survives a socket replacement during the reconnect grace 
     assert.notEqual(resumed.state.me.isDead, true);
     assert.equal(reconnectNotice.playerId, originalPlayerId);
 
+    // The real Socket.IO handler must acknowledge tactical-card validation
+    // failures instead of throwing on an undefined options object.
+    const invalidTacticalCard = await emitWithAck(replacementA, 'play_tactical_card', {
+      cardId: 'missing-card', targetId: 'ignored', dieIndex: 0,
+    });
+    assert.equal(invalidTacticalCard.ok, false);
+    assert.equal(invalidTacticalCard.error, '无效卡牌');
+
     const gameOverA = waitForEvent(replacementA, 'game_over');
     const gameOverB = waitForEvent(clientB, 'game_over');
     const surrenderResult = await emitWithAck(clientB, 'surrender');
