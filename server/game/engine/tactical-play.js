@@ -80,9 +80,9 @@ export function playTacticalCard(state, playerId, cardId, options = {}) {
       const opp = getTacticalOpponent(state, p);
       if (opp && opp.card) {
         p.copiedPositiveSkill = { original: cloneCard(p.card.positiveSkill) };
-        if (opp.card.positiveSkill) {
-          p.card.positiveSkill = cloneCard(opp.card.positiveSkill);
-        }
+        // Copy the target's actual positive skill, including an empty result
+        // when the target is sealed or otherwise has no positive skill.
+        p.card.positiveSkill = cloneCard(opp.card.positiveSkill);
       }
     }
   } else {

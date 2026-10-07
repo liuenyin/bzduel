@@ -165,6 +165,22 @@ test('study blessing draws after the attack turn resolves', () => {
   assert.equal(game.log.at(-1).type, 'skill');
 });
 
+test('information blessing copies an empty opponent skill and restores the original next class', () => {
+  const game = createBattle();
+  game.schedule[0] = 'it';
+  const copier = game.players[1];
+  copier.card.positiveSkill = { id: 'star_showoff', name: '明星拉踩' };
+  game.players[0].card.positiveSkill = null;
+  copier.handCards = [structuredClone(cardMap.card_it_1)];
+  assert.equal(playTacticalCard(game, copier.id, 'card_it_1').ok, true);
+  assert.equal(copier.card.positiveSkill, null);
+
+  game.currentSubRound = 1;
+  game.turnData = { attackerIdx: 0, defenderIdx: 1 };
+  resolvePhaseEnd(game);
+  assert.equal(copier.card.positiveSkill.id, 'star_showoff');
+});
+
 function createFfaBattle(cardIds = ['char_6', 'char_6', 'char_6']) {
   const players = cardIds.map((_, index) => ({
     id: `ffa-player-${index}`,
