@@ -27,7 +27,8 @@ export function rollAttack(state) {
   }
 
   // 梦境前置检查：如果场上有 FXR 在梦境中，必须先完成盲选
-  const fxrP = state.players.find(p => p?.card?.positiveSkill?.id === SKILL.DREAM_KING && p.inDreamState && !p.lgpyForm);
+  const fxrP = state.players.find(p => p?.card?.positiveSkill?.id === SKILL.DREAM_KING
+    && !p.isDead && p.hp > 0 && p.inDreamState && !p.lgpyForm);
   if (fxrP && fxrP.dreamTargetChoice === null) {
     return { ok: false, error: 'dream_target_required' };
   }

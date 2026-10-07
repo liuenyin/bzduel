@@ -77,7 +77,8 @@ export function phasePrompt(s) {
 
 export function isDreamBlocking(s) {
   if (!s || !s.players) return false;
-  const fxr = s.players.find(p => (p.card?.positiveSkill?.id === 'dream_king' || p.cardId === 'char_fxr'));
+  const fxr = s.players.find(p => (p.card?.positiveSkill?.id === 'dream_king' || p.cardId === 'char_fxr')
+    && !p.isDead && p.hp > 0);
   return fxr && fxr.inDreamState && !fxr.lgpyForm && fxr.dreamTargetChoice === null;
 }
 

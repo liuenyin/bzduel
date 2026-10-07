@@ -25,7 +25,7 @@ export function createAiController({
 
     // AI 自动盲选目标（梦境）
     const fxr = g.players.find(p => p.card?.positiveSkill?.id === SKILL.DREAM_KING);
-    if (fxr && fxr.inDreamState && !fxr.lgpyForm && fxr.dreamTargetChoice === null) {
+    if (fxr && !fxr.isDead && fxr.hp > 0 && fxr.inDreamState && !fxr.lgpyForm && fxr.dreamTargetChoice === null) {
       // 找到非 FXR 的 AI 玩家来盲选
       const nonFxrAi = fxr.id === room.aiId ? null : room.aiId;
       if (nonFxrAi) {

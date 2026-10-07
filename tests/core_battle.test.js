@@ -658,6 +658,17 @@ test('stealth tactical cards hide rolls from opponents and expire after the turn
   assert.equal(game.players[0].stealthActive, false);
 });
 
+test('a defeated dream king cannot block later attacks with a stale dream choice', () => {
+  const game = createBattle('char_6', 'char_fxr');
+  const dreamKing = game.players[1];
+  dreamKing.hp = 0;
+  dreamKing.isDead = true;
+  dreamKing.inDreamState = true;
+  dreamKing.dreamTargetChoice = null;
+  const result = withRandom(0.5, () => rollAttack(game));
+  assert.equal(result.ok, true);
+});
+
 test('stealth masks defense dice in attack confirmation events', () => {
   const game = createBattle();
   game.players[1].handCards = [cardMap.card_gen_12];

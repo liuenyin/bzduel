@@ -4,7 +4,8 @@ import { SUBJECTS, CORE_SUBJECTS, ELECTIVE_SUBJECTS, MINOR_SUBJECTS } from '../.
 export function createBattleChoices({ getState, actions, appendOverlay }) {
   function checkDreamTargetModal(s) {
     const existing = document.getElementById('dream-target-modal');
-    const fxr = s.players?.find(p => (p.card?.positiveSkill?.id === 'dream_king' || p.cardId === 'char_fxr'));
+    const fxr = s.players?.find(p => (p.card?.positiveSkill?.id === 'dream_king' || p.cardId === 'char_fxr')
+      && !p.isDead && p.hp > 0);
     if (s.phase === 'battle' && fxr && fxr.inDreamState && !fxr.lgpyForm && s.me.id !== fxr.id && fxr.dreamTargetChoice === null) {
       if (existing) return;
       const overlay = document.createElement('div');
