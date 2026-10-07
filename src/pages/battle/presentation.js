@@ -46,11 +46,17 @@ export function phasePrompt(s) {
   }
   const attacker = escapeHTML(s.players?.[s.attackerIdx]?.nickname || '攻击方');
   if (s.turnPhase === 'def_rolled' && s.aoeDefenses) {
-    const pending = Object.keys(s.aoeDefenses).filter(id => !s.aoeDefenses[id].confirmed && !s.players?.find(p => p.id === id)?.isDead);
+    const activeDefenders = Object.keys(s.aoeDefenses).filter(id => {
+      const player = s.players?.find(p => p.id === id);
+      return player && !player.isDead && player.hp > 0;
+    });
+    const pending = activeDefenders.filter(id => !s.aoeDefenses[id].confirmed);
     const names = escapeHTML(waitingNames(s, pending));
-    if (s.isMyDefendTurn) return '群攻防御：选择骰子后确认';
+    const confirmedCount = activeDefenders.length - pending.length;
+    const progress = activeDefenders.length ? `（已确认 ${confirmedCount}/${activeDefenders.length}）` : '';
+    if (s.isMyDefendTurn) return `群攻防御：选择骰子后确认${progress}`;
     const prefix = s.aoeDefenses[s.me?.id]?.confirmed ? '防御已确认，' : '';
-    return `${prefix}等待${names || '其他玩家'}完成防御…`;
+    return `${prefix}等待${names || '其他玩家'}完成防御${progress}…`;
   }
   let p = '';
   if (s.turnPhase === 'choose_target') p = s.isMyAttackTurn ? '选择目标' : `等待${attacker}选择目标…`;
