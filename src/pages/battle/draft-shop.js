@@ -19,11 +19,13 @@ export function createDraftShop({ actions, viewLifecycle, appendOverlay }) {
     slot?.classList.add('is-refreshing');
     gameSocket.refreshDraftSlot(idx, (result) => {
       if (!viewLifecycle.active) return;
-      if (!result?.ok) {
-        draftInteraction = null;
-        slot?.classList.remove('is-refreshing');
-        actions.showToast(result?.error || '无法刷新');
+      if (result?.ok) {
+        gameSocket.requestState();
+        return;
       }
+      draftInteraction = null;
+      slot?.classList.remove('is-refreshing');
+      actions.showToast(result?.error || '无法刷新');
     });
     viewLifecycle.delay(() => {
       if (draftInteraction?.type === 'refresh' && draftInteraction.index === idx) {
@@ -43,6 +45,7 @@ export function createDraftShop({ actions, viewLifecycle, appendOverlay }) {
       if (!viewLifecycle.active) return;
       if (result?.ok) {
         actions.showToast('已加入手牌');
+        gameSocket.requestState();
         viewLifecycle.delay(() => {
           if (draftInteraction?.type === 'buy' && draftInteraction.index === idx) draftInteraction = null;
         }, 900);

@@ -611,16 +611,22 @@ export function registerDuelHandlers(socket, {
   });
 
   // ── 请求状态 (断线重连) ──
-  socket.on('request_state', () => {
+  socket.on('request_state', (_payload = {}, acknowledge) => {
     const room = getRoom(playerId);
     if (room && room.game.players) {
-      socket.emit('state_update', getStateView(room.game, playerId));
+      const state = getStateView(room.game, playerId);
+      socket.emit('state_update', state);
+      acknowledge?.({ ok: true, state });
       return;
     }
     const run = acRuns.get(playerId);
     if (run) {
-      socket.emit('ac_run_update', getRunView(run));
+      const state = getRunView(run);
+      socket.emit('ac_run_update', state);
+      acknowledge?.({ ok: true, state });
+      return;
     }
+    acknowledge?.({ ok: false, error: '对局不存在' });
   });
 
   socket.on('resume_session', (_payload = {}, acknowledge) => {

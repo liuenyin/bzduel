@@ -133,6 +133,7 @@ class GameSocket {
   }
   buyWater(acknowledge) { this.emitWithAck('buy_water', {}, acknowledge); }
   chooseDreamTarget(idx, acknowledge) { this.emitWithAck('choose_dream_target', { targetIndex: idx }, acknowledge); }
+  requestState(acknowledge) { this.emitWithAck('request_state', {}, acknowledge); }
 
   playTacticalCard(id, options, acknowledge) {
     if (typeof options === 'function') { acknowledge = options; options = {}; }
