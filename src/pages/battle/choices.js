@@ -1,12 +1,13 @@
 import { gameSocket } from '../../net/socket.js';
 import { SUBJECTS, CORE_SUBJECTS, ELECTIVE_SUBJECTS, MINOR_SUBJECTS } from '../../../shared/rules.js';
+import { canChooseDreamTarget } from './dream.js';
 
 export function createBattleChoices({ getState, actions, appendOverlay }) {
   function checkDreamTargetModal(s) {
     const existing = document.getElementById('dream-target-modal');
     const fxr = s.players?.find(p => (p.card?.positiveSkill?.id === 'dream_king' || p.cardId === 'char_fxr')
       && !p.isDead && p.hp > 0);
-    if (s.phase === 'battle' && fxr && fxr.inDreamState && !fxr.lgpyForm && s.me.id !== fxr.id && fxr.dreamTargetChoice === null) {
+    if (canChooseDreamTarget(s) && fxr?.inDreamState) {
       if (existing) return;
       const overlay = document.createElement('div');
       overlay.className = 'result-overlay';

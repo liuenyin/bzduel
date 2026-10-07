@@ -5,6 +5,7 @@ import { settleWinner } from '../server/game/engine/outcome.js';
 import { calculateDamageSteps, finalizeDamageExplanation } from '../server/game/engine/damage.js';
 import { getTacticalCardUsability, getRerollTargetChoices } from '../src/pages/battle/tactical.js';
 import { phasePrompt } from '../src/pages/battle/presentation.js';
+import { canChooseDreamTarget } from '../src/pages/battle/dream.js';
 import { logEntryHTML } from '../src/pages/battle/log.js';
 import { cardMap } from '../shared/cards.js';
 
@@ -99,6 +100,29 @@ test('targeted reroll card is disabled before any dice are available', () => {
   assert.deepEqual(getTacticalCardUsability(cardMap.card_gen_01, view), {
     canPlay: false, reason: '当前没有可指定的骰子',
   });
+});
+
+test('dream target modal only appears for an eligible living chooser', () => {
+  const state = battle();
+  state.phase = 'battle';
+  state.attackerIdx = 0;
+  state.turnData = { attackerIdx: 0, defenderIdx: 1 };
+  state.players[1].cardId = 'char_fxr';
+  state.players[1].card = { positiveSkill: { id: 'dream_king' } };
+  state.players[1].inDreamState = true;
+  state.players[1].dreamTargetChoice = null;
+
+  state.me = state.players[0];
+  assert.equal(canChooseDreamTarget(state), true);
+  state.me = state.players[2];
+  assert.equal(canChooseDreamTarget(state), false);
+
+  // When the Dream King is the attacker, every living opponent may choose.
+  state.turnData.attackerIdx = 1;
+  state.attackerIdx = 1;
+  assert.equal(canChooseDreamTarget(state), true);
+  state.me = { ...state.players[1], id: 'spectator', isDead: true, hp: 0 };
+  assert.equal(canChooseDreamTarget(state), false);
 });
 
 test('both primary and secondary AoE defenders cannot play cards after confirming', () => {
