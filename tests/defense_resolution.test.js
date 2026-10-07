@@ -256,6 +256,30 @@ for (const aoe of [false, true]) {
     assert.equal(resolveTarget(state, aoe).damage, 27);
   });
 
+  test(`politics clears fixed additions but keeps attack multipliers (${mode})`, () => {
+    const state = defenseState(aoe);
+    const [atk, def] = state.players;
+    state.schedule[0] = 'politics';
+    atk.card.subjects = ['politics'];
+    atk.card.positiveSkill = { id: SKILL.STAR_SHOWOFF };
+    def.activeBlessings = [{ id: 'card_pol_1' }];
+    state.turnData.atkResult.finalAtk = 20;
+    // 20 - 9 = 11, then Star Showoff's ×2.5 politics multiplier.
+    assert.equal(resolveTarget(state, aoe).damage, 27);
+  });
+
+  test(`politics keeps character damage reduction mechanisms (${mode})`, () => {
+    const state = defenseState(aoe);
+    const [atk, def] = state.players;
+    state.schedule[0] = 'politics';
+    def.card.subjects = ['politics'];
+    def.card.positiveSkill = { id: SKILL.TALENTED };
+    def.activeBlessings = [{ id: 'card_pol_1' }];
+    state.turnData.atkResult.finalAtk = 20;
+    // 20 - 9 = 11, then Talented's ×0.5 politics reduction.
+    assert.equal(resolveTarget(state, aoe).damage, 5);
+  });
+
   if (aoe) test('AoE secondary target scales the finished damage, not attack before defense', () => {
     const state = defenseState(true);
     state.players[0].card.subjects = ['chinese'];
