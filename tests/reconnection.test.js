@@ -120,13 +120,17 @@ test('an active battle survives a socket replacement during the reconnect grace 
     sockets.push(clientA, clientB);
 
     const roomCreated = waitForEvent(clientA, 'room_created');
-    clientA.emit('create_room', { nickname: 'Reconnect A' });
+    const createResult = await emitWithAck(clientA, 'create_room', { nickname: 'Reconnect A' });
     const { roomId } = await roomCreated;
+    assert.equal(createResult.ok, true);
+    assert.equal(createResult.roomId, roomId);
 
     const matchA = waitForEvent(clientA, 'match_found');
     const matchB = waitForEvent(clientB, 'match_found');
-    clientB.emit('join_room', { nickname: 'Reconnect B', roomId });
+    const joinResult = await emitWithAck(clientB, 'join_room', { nickname: 'Reconnect B', roomId });
     const [initialA, initialB] = await Promise.all([matchA, matchB]);
+    assert.equal(joinResult.ok, true);
+    assert.equal(joinResult.roomId, roomId);
 
     const selectedA = waitForEvent(clientA, 'state_update', state => state.phase === 'preparation');
     clientA.emit('select_card', { cardId: 'char_6' });

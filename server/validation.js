@@ -13,7 +13,8 @@ export function validRoomId(value) {
   return typeof value === 'string' && /^\d{1,8}$/.test(value);
 }
 
-export function rejectInvalidNickname(socket) {
-  socket.emit('error_msg', { message: '昵称不能为空且不能超过12个字符' });
+export function rejectInvalidNickname(socket, acknowledge) {
+  const message = '昵称不能为空且不能超过12个字符';
+  socket.emit('error_msg', { message });
+  if (typeof acknowledge === 'function') acknowledge({ ok: false, error: message });
 }
-

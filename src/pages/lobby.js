@@ -174,6 +174,18 @@ export function renderLobby(container, data = {}) {
   const customPveStartButton = document.getElementById('btn-start-custom-pve');
   const pveOpponentSelection = document.getElementById('pve-opponent-selection');
   const pveOpponentOptions = [...document.querySelectorAll('.pve-opponent-option')];
+  const lobbyAction = (button, pendingLabel, action, fallback = '操作失败') => {
+    if (!button || button.disabled) return;
+    const previousLabel = button.textContent;
+    button.disabled = true;
+    button.textContent = pendingLabel;
+    action(result => {
+      if (result?.ok || !button.isConnected) return;
+      button.disabled = false;
+      button.textContent = previousLabel;
+      showLobbyError(result.error || fallback);
+    });
+  };
   let customPveNickname = null;
   let selectedAiCardId = null;
 
@@ -188,9 +200,9 @@ export function renderLobby(container, data = {}) {
   };
   document.addEventListener('keydown', handleLobbyKeydown);
 
-  document.getElementById('btn-pve').addEventListener('click', () => {
+  document.getElementById('btn-pve').addEventListener('click', event => {
     const n = getNick(); if (!n) return;
-    gameSocket.startPVE(n);
+    lobbyAction(event.currentTarget, '正在创建对局…', acknowledge => gameSocket.startPVE(n, acknowledge), '创建对局失败');
   });
 
   document.getElementById('btn-pve-custom').addEventListener('click', () => {
@@ -221,29 +233,36 @@ export function renderLobby(container, data = {}) {
     if (!customPveNickname || !selectedAiCardId) return;
     customPveStartButton.disabled = true;
     customPveStartButton.textContent = '正在创建对局…';
-    gameSocket.startPVE(customPveNickname, selectedAiCardId);
+    gameSocket.startPVE(customPveNickname, selectedAiCardId, result => {
+      if (result?.ok || !customPveStartButton.isConnected) return;
+      customPveStartButton.disabled = false;
+      customPveStartButton.textContent = '开始对战';
+      showLobbyError(result.error || '创建对局失败');
+    });
   });
 
-  document.getElementById('btn-match').addEventListener('click', () => {
+  const matchButton = document.getElementById('btn-match');
+  document.getElementById('btn-match').addEventListener('click', event => {
     const n = getNick(); if (!n) return;
-    gameSocket.joinMatchmaking(n);
     statusDiv.innerHTML = '<p class="status-msg">等待对手中…</p>';
+    lobbyAction(event.currentTarget, '匹配中…', acknowledge => gameSocket.joinMatchmaking(n, acknowledge), '匹配失败');
   });
 
-  document.getElementById('btn-create').addEventListener('click', () => {
+  document.getElementById('btn-create').addEventListener('click', event => {
     const n = getNick(); if (!n) return;
-    gameSocket.createRoom(n);
     statusDiv.innerHTML = '<p class="status-msg">创建 1v1 房间中…</p>';
+    lobbyAction(event.currentTarget, '正在创建…', acknowledge => gameSocket.createRoom(n, acknowledge), '创建房间失败');
   });
 
-  document.getElementById('btn-join').addEventListener('click', () => {
+  document.getElementById('btn-join').addEventListener('click', event => {
     const n = getNick(); if (!n) return;
     const roomId = document.getElementById('room-input').value.trim();
     if (!roomId) {
       statusDiv.innerHTML = '<p style="color:var(--red);">请输入房间号</p>';
       return;
     }
-    gameSocket.joinRoom(n, roomId);
+    statusDiv.innerHTML = '<p class="status-msg">正在加入房间…</p>';
+    lobbyAction(event.currentTarget, '正在加入…', acknowledge => gameSocket.joinRoom(n, roomId, acknowledge), '加入房间失败');
   });
 
   const motionToggle = document.getElementById('motion-toggle');
@@ -422,6 +441,8 @@ export function renderLobby(container, data = {}) {
   });
 
   const showMatchmakingWaiting = () => {
+    matchButton.disabled = true;
+    matchButton.textContent = '匹配中…';
     statusDiv.innerHTML = `
       <div class="panel" style="text-align:center; padding:12px;">
         <p class="status-msg">等待对手中…</p>
@@ -440,6 +461,8 @@ export function renderLobby(container, data = {}) {
           return;
         }
         statusDiv.innerHTML = '<p class="status-msg">已取消匹配</p>';
+        matchButton.disabled = false;
+        matchButton.textContent = '随机匹配';
         container.querySelectorAll('.lobby > .panel > .btn-group').forEach(group => { group.style.display = ''; });
       });
     });

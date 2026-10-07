@@ -42,17 +42,21 @@ export function registerDuelHandlers(socket, {
   });
 
   // ── PVE ──
-  socket.on('start_pve', (payload = {}) => {
+  socket.on('start_pve', (payload = {}, acknowledge) => {
     const { nickname: rawNickname, aiCardId = null } = payloadObject(payload);
     const nickname = normalizeNickname(rawNickname);
-    if (!nickname) return rejectInvalidNickname(socket);
+    if (!nickname) return rejectInvalidNickname(socket, acknowledge);
     if (hasActiveSession(playerId)) {
-      socket.emit('error_msg', { message: '你已经在其他对局中' });
+      const error = '你已经在其他对局中';
+      socket.emit('error_msg', { message: error });
+      acknowledge?.({ ok: false, error });
       return;
     }
     const requestedAiCard = typeof aiCardId === 'string' ? characterMap[aiCardId] : null;
     if (aiCardId && (!requestedAiCard || requestedAiCard.ffaOnly)) {
-      socket.emit('error_msg', { message: '无法使用该角色作为人机对手' });
+      const error = '无法使用该角色作为人机对手';
+      socket.emit('error_msg', { message: error });
+      acknowledge?.({ ok: false, error });
       return;
     }
 
@@ -70,6 +74,7 @@ export function registerDuelHandlers(socket, {
       aiCardId: requestedAiCard?.id || null,
     });
     socketToRoom.set(playerId, roomId);
+    acknowledge?.({ ok: true, roomId });
     socket.emit('match_found', {
       roomId, opponent: '🤖 电脑',
       schedule: game.schedule,
@@ -82,11 +87,13 @@ export function registerDuelHandlers(socket, {
   });
 
   // ── 创建房间 ──
-  socket.on('create_room', (payload = {}) => {
+  socket.on('create_room', (payload = {}, acknowledge) => {
     const nickname = normalizeNickname(payloadObject(payload).nickname);
-    if (!nickname) return rejectInvalidNickname(socket);
+    if (!nickname) return rejectInvalidNickname(socket, acknowledge);
     if (hasActiveSession(playerId)) {
-      socket.emit('error_msg', { message: '你已经在其他对局中' });
+      const error = '你已经在其他对局中';
+      socket.emit('error_msg', { message: error });
+      acknowledge?.({ ok: false, error });
       return;
     }
     const roomId = newRoomId();
@@ -96,25 +103,33 @@ export function registerDuelHandlers(socket, {
     });
     socketToRoom.set(playerId, roomId);
     socket.join(roomId);
+    acknowledge?.({ ok: true, roomId });
     socket.emit('room_created', { roomId, mode: '1v1' });
   });
 
   // ── 加入房间 ──
-  socket.on('join_room', (payload = {}) => {
+  socket.on('join_room', (payload = {}, acknowledge) => {
     const { roomId } = payloadObject(payload);
     const nickname = normalizeNickname(payloadObject(payload).nickname);
-    if (!nickname) return rejectInvalidNickname(socket);
+    if (!nickname) return rejectInvalidNickname(socket, acknowledge);
     if (!validRoomId(roomId)) {
-      socket.emit('error_msg', { message: '房间号无效' });
+      const error = '房间号无效';
+      socket.emit('error_msg', { message: error });
+      acknowledge?.({ ok: false, error });
       return;
     }
     if (hasActiveSession(playerId)) {
-      socket.emit('error_msg', { message: '你已经在其他对局中' });
+      const error = '你已经在其他对局中';
+      socket.emit('error_msg', { message: error });
+      acknowledge?.({ ok: false, error });
       return;
     }
     const room = rooms.get(roomId);
     if (!room || !room.game.pending || room.game.mode !== '1v1') {
-      socket.emit('error_msg', { message: '房间不存在或已开始' }); return;
+      const error = '房间不存在或已开始';
+      socket.emit('error_msg', { message: error });
+      acknowledge?.({ ok: false, error });
+      return;
     }
     const game = createGame([
       { id: room.game.creatorId, nickname: room.game.creatorName },
@@ -123,6 +138,7 @@ export function registerDuelHandlers(socket, {
     room.game = game; room.playerSockets[1] = playerId;
     socketToRoom.set(playerId, roomId);
     socket.join(roomId);
+    acknowledge?.({ ok: true, roomId });
     for (const pid of [game.players[0].id, game.players[1].id]) {
       io.to(pid).emit('match_found', {
         roomId, opponent: game.players.find(p => p.id !== pid).nickname,
@@ -132,11 +148,13 @@ export function registerDuelHandlers(socket, {
   });
 
   // ── 匹配 ──
-  socket.on('join_matchmaking', (payload = {}) => {
+  socket.on('join_matchmaking', (payload = {}, acknowledge) => {
     const nickname = normalizeNickname(payloadObject(payload).nickname);
-    if (!nickname) return rejectInvalidNickname(socket);
+    if (!nickname) return rejectInvalidNickname(socket, acknowledge);
     if (hasActiveSession(playerId)) {
-      socket.emit('error_msg', { message: '你已经在其他对局中' });
+      const error = '你已经在其他对局中';
+      socket.emit('error_msg', { message: error });
+      acknowledge?.({ ok: false, error });
       return;
     }
     if (matchQueue.length > 0) {
@@ -145,6 +163,7 @@ export function registerDuelHandlers(socket, {
         if (!matchQueue.some(p => p.playerId === playerId)) {
           matchQueue.push({ playerId, nickname });
         }
+        acknowledge?.({ ok: true, waiting: true });
         return;
       }
       const other = matchQueue.splice(idx, 1)[0];
@@ -157,6 +176,7 @@ export function registerDuelHandlers(socket, {
       socketToRoom.set(playerId, roomId);
       socketToRoom.set(other.playerId, roomId);
       socket.join(roomId);
+      acknowledge?.({ ok: true, roomId, matched: true });
       const otherSocketId = activeSockets.get(other.playerId);
       if (otherSocketId) io.sockets.sockets.get(otherSocketId)?.join(roomId);
       for (const pid of [other.playerId, playerId]) {
@@ -169,6 +189,7 @@ export function registerDuelHandlers(socket, {
       }
     } else {
       matchQueue.push({ playerId, nickname });
+      acknowledge?.({ ok: true, waiting: true });
       socket.emit('matchmaking_waiting');
     }
   });
@@ -184,11 +205,13 @@ export function registerDuelHandlers(socket, {
   });
 
   // ── FFA 大乱斗房间 ──
-  socket.on('create_ffa_room', (payload = {}) => {
+  socket.on('create_ffa_room', (payload = {}, acknowledge) => {
     const nickname = normalizeNickname(payloadObject(payload).nickname);
-    if (!nickname) return rejectInvalidNickname(socket);
+    if (!nickname) return rejectInvalidNickname(socket, acknowledge);
     if (hasActiveSession(playerId)) {
-      socket.emit('error_msg', { message: '你已经在其他对局中' });
+      const error = '你已经在其他对局中';
+      socket.emit('error_msg', { message: error });
+      acknowledge?.({ ok: false, error });
       return;
     }
     const roomId = newRoomId();
@@ -198,36 +221,51 @@ export function registerDuelHandlers(socket, {
     });
     socketToRoom.set(playerId, roomId);
     socket.join(roomId);
+    acknowledge?.({ ok: true, roomId });
     socket.emit('room_created', { roomId, mode: 'sanguosha' });
     io.to(roomId).emit('ffa_room_update', { players: [{ id: playerId, nickname }] });
   });
 
-  socket.on('join_ffa_room', (payload = {}) => {
+  socket.on('join_ffa_room', (payload = {}, acknowledge) => {
     const { roomId } = payloadObject(payload);
     const nickname = normalizeNickname(payloadObject(payload).nickname);
-    if (!nickname) return rejectInvalidNickname(socket);
+    if (!nickname) return rejectInvalidNickname(socket, acknowledge);
     if (!validRoomId(roomId)) {
-      socket.emit('error_msg', { message: '房间号无效' });
+      const error = '房间号无效';
+      socket.emit('error_msg', { message: error });
+      acknowledge?.({ ok: false, error });
       return;
     }
     if (hasActiveSession(playerId)) {
-      socket.emit('error_msg', { message: '你已经在其他对局中' });
+      const error = '你已经在其他对局中';
+      socket.emit('error_msg', { message: error });
+      acknowledge?.({ ok: false, error });
       return;
     }
     const room = rooms.get(roomId);
     if (!room || !room.game.pending || room.game.mode !== 'sanguosha') {
-      socket.emit('error_msg', { message: '房间不存在或已开始' }); return;
+      const error = '房间不存在或已开始';
+      socket.emit('error_msg', { message: error });
+      acknowledge?.({ ok: false, error });
+      return;
     }
     if (room.game.players.length >= 8) {
-      socket.emit('error_msg', { message: '房间已满 (最多8人)' }); return;
+      const error = '房间已满 (最多8人)';
+      socket.emit('error_msg', { message: error });
+      acknowledge?.({ ok: false, error });
+      return;
     }
     if (room.game.players.some(player => player.id === playerId)) {
-      socket.emit('error_msg', { message: '你已经在该房间' }); return;
+      const error = '你已经在该房间';
+      socket.emit('error_msg', { message: error });
+      acknowledge?.({ ok: false, error });
+      return;
     }
     room.game.players.push({ id: playerId, nickname });
     room.playerSockets.push(playerId);
     socketToRoom.set(playerId, roomId);
     socket.join(roomId);
+    acknowledge?.({ ok: true, roomId });
 
     // 通知所有人更新房间玩家列表
     io.to(roomId).emit('ffa_room_update', { players: room.game.players });

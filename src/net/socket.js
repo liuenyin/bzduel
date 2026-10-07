@@ -101,14 +101,17 @@ class GameSocket {
     });
   }
 
-  startPVE(n, aiCardId = null) { this.socket.emit('start_pve', { nickname: n, aiCardId }); }
-  createRoom(n) { this.socket.emit('create_room', { nickname: n }); }
-  joinRoom(n, r) { this.socket.emit('join_room', { nickname: n, roomId: r }); }
-  joinMatchmaking(n) { this.socket.emit('join_matchmaking', { nickname: n }); }
+  startPVE(n, aiCardId = null, acknowledge) {
+    if (typeof aiCardId === 'function') { acknowledge = aiCardId; aiCardId = null; }
+    this.emitWithAck('start_pve', { nickname: n, aiCardId }, acknowledge);
+  }
+  createRoom(n, acknowledge) { this.emitWithAck('create_room', { nickname: n }, acknowledge); }
+  joinRoom(n, r, acknowledge) { this.emitWithAck('join_room', { nickname: n, roomId: r }, acknowledge); }
+  joinMatchmaking(n, acknowledge) { this.emitWithAck('join_matchmaking', { nickname: n }, acknowledge); }
   cancelMatchmaking(acknowledge) { this.emitWithAck('cancel_matchmaking', {}, acknowledge); }
 
-  createFfaRoom(n) { this.socket.emit('create_ffa_room', { nickname: n }); }
-  joinFfaRoom(n, r) { this.socket.emit('join_ffa_room', { nickname: n, roomId: r }); }
+  createFfaRoom(n, acknowledge) { this.emitWithAck('create_ffa_room', { nickname: n }, acknowledge); }
+  joinFfaRoom(n, r, acknowledge) { this.emitWithAck('join_ffa_room', { nickname: n, roomId: r }, acknowledge); }
   startFfaGame(acknowledge) {
     if (!this.currentRoomId) {
       acknowledge?.({ ok: false, error: '房间不存在' });
