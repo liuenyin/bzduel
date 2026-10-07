@@ -407,9 +407,23 @@ export function renderLobby(container, data = {}) {
     }
   });
 
-  gameSocket.on('matchmaking_waiting', () => {
-    statusDiv.innerHTML = '<p class="status-msg">等待对手中…</p>';
-  });
+  const showMatchmakingWaiting = () => {
+    statusDiv.innerHTML = `
+      <div class="panel" style="text-align:center; padding:12px;">
+        <p class="status-msg">等待对手中…</p>
+        <button id="btn-cancel-match" class="btn btn-secondary" type="button">取消匹配</button>
+      </div>`;
+    document.getElementById('btn-cancel-match')?.addEventListener('click', event => {
+      const button = event.currentTarget;
+      button.disabled = true;
+      button.textContent = '正在取消…';
+      gameSocket.cancelMatchmaking();
+      statusDiv.innerHTML = '<p class="status-msg">已取消匹配</p>';
+      container.querySelectorAll('.lobby > .panel > .btn-group').forEach(group => { group.style.display = ''; });
+    });
+  };
+
+  gameSocket.on('matchmaking_waiting', showMatchmakingWaiting);
 
   gameSocket.on('match_found', (data) => {
     gameSocket.currentRoomId = data.roomId;
@@ -423,6 +437,10 @@ export function renderLobby(container, data = {}) {
 
   gameSocket.on('error_msg', (data = {}) => {
     const message = typeof data === 'string' ? data : data.message;
+    if (customPveStartButton?.disabled && customPveNickname) {
+      customPveStartButton.disabled = false;
+      customPveStartButton.textContent = '开始对战';
+    }
     statusDiv.innerHTML = `<p style="color:var(--red);">✗ ${escapeHTML(message || '发生错误')}</p>`;
   });
 

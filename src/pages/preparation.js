@@ -213,6 +213,17 @@ export function renderPreparation(container, data) {
       '<p style="color:var(--green);">✓ 对手已重新连接</p>';
   });
 
+  gameSocket.on('error_msg', (data = {}) => {
+    const message = typeof data === 'string' ? data : data.message;
+    const status = document.getElementById('prep-status');
+    if (status) status.innerHTML = `<p style="color:var(--red);">✗ ${escapeHTML(message || '操作失败')}</p>`;
+    const readyButton = document.getElementById('btn-ready');
+    if (readyButton && selectedCardId) {
+      readyButton.disabled = false;
+      readyButton.textContent = '准备完毕';
+    }
+  });
+
   gameSocket.on('room_closed', ({ reason }) => {
     window.alert(reason || '房间已关闭');
     gameSocket.currentRoomId = null;

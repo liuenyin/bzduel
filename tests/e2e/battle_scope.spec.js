@@ -1,5 +1,15 @@
 import { test, expect } from '@playwright/test';
 
+test('matchmaking waiting can be cancelled without trapping the lobby', async ({ page }) => {
+  await page.goto('/');
+  await page.fill('#nickname-input', '取消匹配测试');
+  await page.click('#btn-match');
+  await expect(page.locator('#btn-cancel-match')).toBeVisible();
+  await page.click('#btn-cancel-match');
+  await expect(page.locator('#status')).toContainText('已取消匹配');
+  await expect(page.locator('#btn-match')).toBeVisible();
+});
+
 async function enterBattle(page) {
   await page.goto('/');
   await page.fill('#nickname-input', '页面隔离测试');
