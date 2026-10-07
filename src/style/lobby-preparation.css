@@ -70,11 +70,16 @@
   box-shadow: var(--shadow-lg);
   z-index: 1001;
   border: 1px solid var(--bg-inset);
+  padding: 0;
+  font: inherit;
   transition: all 0.2s;
 }.modal-close:hover {
   background: var(--red);
   color: #fff;
   transform: rotate(90deg);
+}.modal-close:focus-visible {
+  outline: 3px solid var(--accent-soft);
+  outline-offset: 2px;
 }/* ── 底部抽屉/模态框 ──────────────────────── */.modal-overlay {
   position: fixed;
   inset: 0;

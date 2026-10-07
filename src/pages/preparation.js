@@ -83,16 +83,16 @@ export function renderPreparation(container, data) {
     const electLabel = char.electives.map(e => SUBJECTS[e]?.label || e).join('·');
 
     return `
-      <div class="modal-overlay" id="char-modal" style="align-items: center; padding: 20px;">
+      <div class="modal-overlay" id="char-modal" role="dialog" aria-modal="true" aria-labelledby="char-modal-title" style="align-items: center; padding: 20px;">
         <div class="modal-content-card">
-          <div class="modal-close" id="modal-close-btn">&times;</div>
+          <button type="button" class="modal-close" id="modal-close-btn" aria-label="关闭角色详情">&times;</button>
           <div class="card" style="width: 100%; cursor: default;">
             <div class="card-image-wrap">
               ${portraitFrame(char, 'card-detail-portrait')}
               <div class="card-badge">${electLabel}</div>
             </div>
             <div class="card-body">
-              <div class="card-name">${char.name}</div>
+              <div class="card-name" id="char-modal-title">${char.name}</div>
               <div class="card-title">${char.title}</div>
               <div class="card-stats">
                 <div class="stat">
@@ -127,13 +127,24 @@ export function renderPreparation(container, data) {
     avatarEl.addEventListener('click', () => {
       const charId = avatarEl.dataset.id;
       modalContainer.innerHTML = renderModal(charId);
-      
-      document.getElementById('modal-close-btn').addEventListener('click', () => {
-        modalContainer.innerHTML = '';
-      });
 
-      document.getElementById('char-modal').addEventListener('click', (e) => {
-        if(e.target.id === 'char-modal') modalContainer.innerHTML = '';
+      const modal = document.getElementById('char-modal');
+      const closeButton = document.getElementById('modal-close-btn');
+      const closeModal = () => {
+        modalContainer.innerHTML = '';
+        if (avatarEl.isConnected) avatarEl.focus();
+      };
+      closeButton.addEventListener('click', closeModal);
+      modal.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          closeModal();
+        }
+      });
+      closeButton.focus();
+
+      modal.addEventListener('click', (e) => {
+        if(e.target.id === 'char-modal') closeModal();
       });
 
       document.getElementById('modal-select-btn').addEventListener('click', () => {

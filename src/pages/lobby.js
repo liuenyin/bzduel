@@ -74,11 +74,11 @@ export function renderLobby(container, data = {}) {
         </section>
       </div>
 
-      <div id="stats-modal" class="modal-overlay stats-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; z-index:999; align-items:center; justify-content:center;">
+      <div id="stats-modal" class="modal-overlay stats-modal" role="dialog" aria-modal="true" aria-labelledby="stats-title" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; z-index:999; align-items:center; justify-content:center;">
         <div class="modal-content" style="background:var(--bg-card); max-width:900px; width:95%; max-height:90vh; border-radius:12px; display:flex; flex-direction:column; box-shadow:var(--shadow-lg);">
           <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; padding:16px; border-bottom:1px solid var(--bg-inset);">
-            <h2 style="margin:0; font-family:var(--font-display);">📊 角色胜率矩阵</h2>
-            <button id="btn-close-stats" class="btn" style="background:var(--bg-inset); color:var(--text); padding:4px 12px;">关闭</button>
+            <h2 id="stats-title" style="margin:0; font-family:var(--font-display);">📊 角色胜率矩阵</h2>
+            <button id="btn-close-stats" class="btn" type="button" aria-label="关闭胜率矩阵" style="background:var(--bg-inset); color:var(--text); padding:4px 12px;">关闭</button>
           </div>
           <div class="modal-body" id="stats-body" style="padding:16px; overflow-x:auto; overflow-y:auto; flex:1;">
             Loading...
@@ -278,20 +278,44 @@ export function renderLobby(container, data = {}) {
     });
   }
 
+  const statsModal = document.getElementById('stats-modal');
+  const statsBody = document.getElementById('stats-body');
+  const statsCloseButton = document.getElementById('btn-close-stats');
+  let statsRequestId = 0;
+  let statsReturnFocus = null;
+  const closeStats = () => {
+    statsRequestId++;
+    statsModal.style.display = 'none';
+    if (statsReturnFocus?.isConnected) statsReturnFocus.focus();
+    statsReturnFocus = null;
+  };
+
   document.getElementById('btn-stats').addEventListener('click', async () => {
-    document.getElementById('stats-modal').style.display = 'flex';
-    document.getElementById('stats-body').innerHTML = '<p style="text-align:center;">加载中...</p>';
+    statsReturnFocus = document.activeElement;
+    statsModal.style.display = 'flex';
+    statsBody.innerHTML = '<p style="text-align:center;">加载中...</p>';
+    statsCloseButton.focus();
+    const requestId = ++statsRequestId;
     try {
       const res = await fetch('/api/stats');
       const data = await res.json();
+      if (requestId !== statsRequestId || !statsModal.isConnected || statsModal.style.display === 'none') return;
       renderStatsMatrix(data);
     } catch (e) {
-      document.getElementById('stats-body').innerHTML = '<p style="color:var(--red); text-align:center;">获取数据失败</p>';
+      if (requestId === statsRequestId && statsModal.isConnected && statsModal.style.display !== 'none') {
+        statsBody.innerHTML = '<p style="color:var(--red); text-align:center;">获取数据失败</p>';
+      }
     }
   });
 
-  document.getElementById('btn-close-stats').addEventListener('click', () => {
-    document.getElementById('stats-modal').style.display = 'none';
+  statsCloseButton.addEventListener('click', closeStats);
+  statsModal.addEventListener('keydown', event => {
+    if (event.key !== 'Escape') return;
+    event.preventDefault();
+    closeStats();
+  });
+  statsModal.addEventListener('click', event => {
+    if (event.target === statsModal) closeStats();
   });
 
   function renderStatsMatrix(data) {

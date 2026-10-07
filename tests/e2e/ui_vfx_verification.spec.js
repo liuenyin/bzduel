@@ -45,6 +45,11 @@ test.describe('School Dice Duel - UI/UX & VFX Verification', () => {
       await expect(page.locator('#btn-pve')).toBeVisible();
       await expect(page.locator('#btn-match')).toBeVisible();
       await expect(page.locator('#btn-create')).toBeVisible();
+      await page.click('#btn-stats');
+      await expect(page.locator('#stats-modal')).toHaveAttribute('role', 'dialog');
+      await expect(page.locator('#btn-close-stats')).toBeFocused();
+      await page.keyboard.press('Escape');
+      await expect(page.locator('#stats-modal')).toBeHidden();
 
       expect(pageErrors).toEqual([]);
       expect(consoleErrors).toEqual([]);
@@ -62,6 +67,12 @@ test.describe('School Dice Duel - UI/UX & VFX Verification', () => {
       await expect(page.locator('#schedule-bar')).toBeVisible();
       const avatars = page.locator('.avatar-cell');
       expect(await avatars.count()).toBeGreaterThan(0);
+      const firstAvatar = page.locator('.avatar-cell:not(.disabled)').first();
+      await firstAvatar.click();
+      await expect(page.locator('#char-modal')).toHaveAttribute('role', 'dialog');
+      await expect(page.locator('#modal-close-btn')).toBeFocused();
+      await page.keyboard.press('Escape');
+      await expect(page.locator('#char-modal')).toHaveCount(0);
 
       expect(pageErrors).toEqual([]);
       expect(consoleErrors).toEqual([]);
