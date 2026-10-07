@@ -7,9 +7,10 @@
     "dev:server": "node --watch server/index.js",
     "dev": "concurrently \"npm run dev:client\" \"npm run dev:server\"",
     "build": "vite build",
-    "test": "npm run test:core && npm run test:tactical",
+    "test": "npm run test:core && npm run test:tactical && npm run test:verification",
     "test:core": "node --test tests/core_battle.test.js tests/defense_resolution.test.js tests/battle_flow.test.js tests/reconnection.test.js tests/ai_strategy.test.js tests/autochess.test.js tests/lifecycle.test.js",
     "test:tactical": "node tests/test_card_logic_r1.js",
+    "test:verification": "node tests/r2_m1_verification.js",
     "test:e2e": "playwright test",
     "start": "node server/index.js"
   },

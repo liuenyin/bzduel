@@ -16,13 +16,13 @@ function assert(condition, message) {
   }
 }
 
-function createTestGame(mode = '1v1') {
+function createTestGame(mode = '1v1', firstCard = 'char_3', secondCard = 'char_4') {
   const game = createGame([
     { id: 'p1', nickname: 'Player 1' },
     { id: 'p2', nickname: 'Player 2' }
   ], mode);
-  selectCard(game, 'p1', 'char_3'); // atkSlots: 3, defSlots: 2, dicePool: [6, 6, 6, 8]
-  selectCard(game, 'p2', 'char_4'); // atkSlots: 4, defSlots: 3, dicePool: [4, 4, 4, 6, 6]
+  selectCard(game, 'p1', firstCard); // default: atkSlots: 3, defSlots: 2, dicePool: [6, 6, 6, 8]
+  selectCard(game, 'p2', secondCard); // default: atkSlots: 4, defSlots: 3, dicePool: [4, 4, 4, 6, 6]
   setReady(game, 'p1');
   setReady(game, 'p2');
   return game;
@@ -46,6 +46,7 @@ console.log('--- Test 1: Pricing Parity ---');
   assert(p1.tp === 4, `TP deducted exactly 1: expected 4, got ${p1.tp}`);
   
   // Play from hand requires 0 TP
+  game.draftShop.active = false;
   game.schedule[game.currentClassIndex] = oneStarCard.subject === 'universal' ? 'chinese' : oneStarCard.subject;
   const initialTpBeforePlay = p1.tp;
   const playRes = playTacticalCard(game, 'p1', oneStarCard.id);
@@ -283,12 +284,15 @@ console.log('\n--- Test 11: Verify 26 tactical cards playable ---');
   ];
 
   unhandled26.forEach(cid => {
-    const game = createTestGame();
+    const game = createTestGame('1v1', cid === 'card_tec_3' ? 'char_14' : 'char_3');
     const p1 = game.players[0];
+    const p2 = game.players[1];
     const card = CARDS.find(c => c.id === cid);
+    const actor = ['card_bio_2', 'card_his_3'].includes(cid) ? p2 : p1;
     game.schedule[game.currentClassIndex] = card.subject === 'universal' ? 'chinese' : card.subject;
-    p1.handCards.push(card);
-    const res = playTacticalCard(game, 'p1', cid);
+    actor.handCards.push(card);
+    if (cid === 'card_gen_01') rollAttack(game);
+    const res = playTacticalCard(game, actor.id, cid);
     assert(res.ok, `Card ${cid} (${card.name}) played without errors`);
   });
 }
