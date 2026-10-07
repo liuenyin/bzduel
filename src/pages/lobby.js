@@ -245,7 +245,10 @@ export function renderLobby(container, data = {}) {
   document.getElementById('btn-match').addEventListener('click', event => {
     const n = getNick(); if (!n) return;
     statusDiv.innerHTML = '<p class="status-msg">等待对手中…</p>';
-    lobbyAction(event.currentTarget, '匹配中…', acknowledge => gameSocket.joinMatchmaking(n, acknowledge), '匹配失败');
+    lobbyAction(event.currentTarget, '匹配中…', acknowledge => gameSocket.joinMatchmaking(n, result => {
+      if (result?.ok && result.waiting) showMatchmakingWaiting();
+      acknowledge(result);
+    }), '匹配失败');
   });
 
   document.getElementById('btn-create').addEventListener('click', event => {
