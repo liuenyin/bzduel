@@ -67,9 +67,22 @@ export function configureCombatControls({ actions, socket, lifecycle, showResche
       }
     }));
   };
-  actions.leaveBattle = () => {
+  actions.leaveBattle = (_value, button) => {
     if (!window.confirm('确定要退出当前对局吗？战斗中退出会被判负。')) return;
-    socket.leaveRoom();
-    navigate('lobby');
+    if (button) {
+      button.disabled = true;
+      button.textContent = '正在退出…';
+    }
+    socket.leaveRoom(lifecycle.guard(result => {
+      if (result?.ok) {
+        navigate('lobby');
+        return;
+      }
+      if (button) {
+        button.disabled = false;
+        button.textContent = '退出对局';
+      }
+      actions.showToast(result?.error || '退出失败，请重试');
+    }));
   };
 }

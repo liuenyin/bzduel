@@ -186,9 +186,21 @@ export function renderPreparation(container, data) {
     });
   });
 
-  document.getElementById('btn-leave-room').addEventListener('click', () => {
+  document.getElementById('btn-leave-room').addEventListener('click', event => {
     if (!window.confirm('确定要离开当前房间吗？')) return;
-    gameSocket.leaveRoom(() => navigate('lobby'));
+    const button = event.currentTarget;
+    button.disabled = true;
+    button.textContent = '正在离开…';
+    gameSocket.leaveRoom(result => {
+      if (result?.ok) {
+        navigate('lobby');
+        return;
+      }
+      button.disabled = false;
+      button.textContent = '离开房间';
+      const status = document.getElementById('prep-status');
+      if (status) status.innerHTML = `<p style="color:var(--red);">${escapeHTML(result?.error || '离开失败，请重试')}</p>`;
+    });
   });
 
   // ── 服务端事件 ──

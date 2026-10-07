@@ -125,10 +125,20 @@ export function createBattleResults({ actions, viewLifecycle, appendOverlay }) {
         }
       });
     });
-    viewLifecycle.listen(document.getElementById('btn-back'), 'click', () => {
-      gameSocket.leaveRoom();
-      o.remove();
-      navigate('lobby');
+    viewLifecycle.listen(document.getElementById('btn-back'), 'click', event => {
+      const button = event.currentTarget;
+      button.disabled = true;
+      button.textContent = '正在返回…';
+      gameSocket.leaveRoom(result => {
+        if (result?.ok) {
+          o.remove();
+          navigate('lobby');
+          return;
+        }
+        button.disabled = false;
+        button.textContent = '返回大厅';
+        actions.showToast(result?.error || '返回失败，请重试');
+      });
     });
   }
   return { showGameOver };
