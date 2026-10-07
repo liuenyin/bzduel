@@ -1,6 +1,31 @@
 import { SUBJECTS } from '../../../shared/rules.js';
 import { ATTACK_TACTICAL_CARDS, DEFENSE_TACTICAL_CARDS, CLASH_TACTICAL_CARDS, OPPONENT_TARGET_TACTICAL_CARDS } from '../../../shared/tactical-rules.js';
 
+/** Hidden dice remain targetable by position without exposing their values. */
+export function getRerollTargetChoices(state) {
+  const choices = [];
+  const attacker = state.players?.[state.attackerIdx];
+  const isAttacker = attacker?.id === state.me?.id;
+  const add = (player, rolls, count = rolls?.length || 0) => {
+    if (!player || player.isDead) return;
+    for (let index = 0; index < count; index++) {
+      const value = rolls?.[index];
+      choices.push({ playerId: player.id, nickname: player.nickname, index,
+        value: Number.isFinite(value) && value > 0 ? value : '?' });
+    }
+  };
+  add(attacker, state.attackRolls);
+  if (state.aoeDefenses) {
+    for (const [id, defense] of Object.entries(state.aoeDefenses)) {
+      if (defense.confirmed || (!isAttacker && id !== state.me?.id)) continue;
+      add(state.players?.find(player => player.id === id), defense.rolls, defense.rollCount ?? defense.rolls?.length ?? 0);
+    }
+  } else {
+    add(state.players?.[state.defenderIdx], state.defenseRolls);
+  }
+  return choices;
+}
+
 export function getTacticalCardMoment(card) {
   if (card.type === 'blessing') return { label: '持续强化', kind: 'blessing' };
   if (ATTACK_TACTICAL_CARDS.has(card.id)) return { label: '攻击时', kind: 'attack' };

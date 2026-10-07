@@ -125,6 +125,7 @@ export function getStateView(state, playerId) {
           pid, {
             confirmed: !!d?.confirmed,
             hasRerolled: !!d?.hasRerolled,
+            rollCount: Array.isArray(d?.rolls) ? d.rolls.length : 0,
             rolls: (pid === playerId || (state.turnPhase !== TURN.DEF_ROLLED && !hideRolls))
               ? (Array.isArray(d?.rolls) ? [...d.rolls] : [])
               : (hideRolls && Array.isArray(d?.rolls) ? d.rolls.map(() => -1) : null)

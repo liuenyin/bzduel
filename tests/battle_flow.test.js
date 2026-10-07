@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createGame, selectCard, setReady, confirmAttack, getStateView, buyDraftCard, refreshDraftSlot, confirmDraftReady, playTacticalCard } from '../server/game/engine.js';
 import { settleWinner } from '../server/game/engine/outcome.js';
 import { calculateDamageSteps, finalizeDamageExplanation } from '../server/game/engine/damage.js';
-import { getTacticalCardUsability } from '../src/pages/battle/tactical.js';
+import { getTacticalCardUsability, getRerollTargetChoices } from '../src/pages/battle/tactical.js';
 import { phasePrompt } from '../src/pages/battle/presentation.js';
 import { logEntryHTML } from '../src/pages/battle/log.js';
 import { cardMap } from '../shared/cards.js';
@@ -65,6 +65,30 @@ test('AoE secondary defender checks the actual attacker when explaining unusable
   state.players[1].tp = 0;
   const view = getStateView(state, 'c');
   assert.equal(getTacticalCardUsability(cardMap.card_gen_07, view).reason, '对手没有 TP');
+});
+
+test('reroll choices preserve hidden dice and restrict FFA opponents', () => {
+  const state = battle();
+  state.turnPhase = 'def_rolled';
+  state.turnData = { attackerIdx: 0, defenderIdx: 1, attackRolls: [2, 3, 4], isAoE: true, aoeDefenses: {
+    b: { confirmed: false, rolls: [6, 5, 4] }, c: { confirmed: false, rolls: [1, 2, 3] },
+  } };
+  const view = getStateView(state, 'a');
+  assert.equal(view.aoeDefenses.b.rolls, null);
+  assert.equal(view.aoeDefenses.b.rollCount, 3);
+  const options = getRerollTargetChoices(view);
+  assert.equal(options.length, 9);
+  assert.deepEqual(options.filter(choice => choice.playerId !== 'a').map(choice => choice.value), Array(6).fill('?'));
+  const defenderOptions = getRerollTargetChoices(getStateView(state, 'c'));
+  assert.deepEqual([...new Set(defenderOptions.map(choice => choice.playerId))], ['a', 'c']);
+  state.turnData.aoeDefenses.b.confirmed = true;
+  assert.equal(getRerollTargetChoices(getStateView(state, 'a')).some(choice => choice.playerId === 'b'), false);
+
+  state.turnData.isAoE = false;
+  state.turnData.defenseRolls = [6, 5, 4];
+  state.players[1].stealthActive = true;
+  assert.deepEqual(getRerollTargetChoices(getStateView(state, 'a')).filter(choice => choice.playerId === 'b')
+    .map(choice => choice.value), ['?', '?', '?']);
 });
 
 test('both primary and secondary AoE defenders cannot play cards after confirming', () => {

@@ -356,15 +356,17 @@ function resolveRerollTarget(state, player, options) {
   const attacker = state.players[state.turnData?.attackerIdx];
   const primaryDefender = state.players[state.turnData?.defenderIdx];
   const requested = options?.targetId ? state.players.find(candidate => candidate?.id === options.targetId) : null;
+  if (options?.targetId !== undefined && (typeof options.targetId !== 'string' || !requested)) return null;
   const target = requested || (player.id === attacker?.id ? attacker : player);
   if (!target || target.isDead || target.hp <= 0) return null;
-  if (target.id !== player.id && target.id !== attacker?.id) {
-    if (!state.turnData?.isAoE || player.id !== attacker?.id) return null;
+  if (state.turnData?.isAoE && target.id !== attacker?.id) {
     const targetDefense = state.turnData.aoeDefenses?.[target.id];
     if (!targetDefense || targetDefense.confirmed) return null;
+    if (player.id !== attacker?.id && target.id !== player.id) return null;
+  } else if (!state.turnData?.isAoE && target.id !== attacker?.id && target.id !== primaryDefender?.id) {
+    return null;
   }
   if (target.id === attacker?.id && !Array.isArray(state.turnData?.attackRolls)) return null;
   if (target.id !== attacker?.id && !getDefenseRollsForPlayer(state, target)) return null;
-  if (!state.turnData?.isAoE && target.id !== player.id && target.id !== attacker?.id && target.id !== primaryDefender?.id) return null;
   return target;
 }

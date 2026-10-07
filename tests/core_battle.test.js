@@ -110,6 +110,40 @@ test('generic reroll lets an FFA attacker target any unconfirmed defender', () =
   assert.equal(secondary.handCards.length, 1);
 });
 
+test('generic reroll accepts a single opponent and rejects missing explicit targets', () => {
+  const game = createBattle();
+  const [attacker, defender] = game.players;
+  game.turnPhase = TURN.DEF_ROLLED;
+  game.turnData.attackRolls = [2, 3, 4];
+  game.turnData.defenseRolls = [5, 5, 5];
+  attacker.handCards = [structuredClone(cardMap.card_gen_01)];
+  for (const targetId of ['missing', '', 42]) {
+    assert.equal(playTacticalCard(game, attacker.id, 'card_gen_01', { targetId, dieIndex: 0 }).ok, false);
+    assert.equal(attacker.handCards.length, 1);
+    assert.deepEqual(game.turnData.attackRolls, [2, 3, 4]);
+  }
+  assert.equal(withRandom(0, () => playTacticalCard(game, attacker.id, 'card_gen_01', {
+    targetId: defender.id, dieIndex: 1,
+  })).ok, true);
+  assert.deepEqual(game.turnData.defenseRolls, [5, 1, 5]);
+});
+
+test('generic reroll rejects confirmed and unrelated FFA defenders without consuming cards', () => {
+  const game = createFfaBattle();
+  const [attacker, primary, secondary] = game.players;
+  forceTurn(game, 0, 1);
+  game.turnPhase = TURN.DEF_ROLLED;
+  game.turnData.isAoE = true;
+  game.turnData.attackRolls = [2, 3, 4];
+  game.turnData.aoeDefenses = { [primary.id]: { confirmed: true, rolls: [5, 5, 5] } };
+  attacker.handCards = [structuredClone(cardMap.card_gen_01)];
+  for (const targetId of [primary.id, secondary.id]) {
+    assert.equal(playTacticalCard(game, attacker.id, 'card_gen_01', { targetId, dieIndex: 0 }).ok, false);
+    assert.equal(attacker.handCards.length, 1);
+    assert.deepEqual(game.turnData.aoeDefenses[primary.id].rolls, [5, 5, 5]);
+  }
+});
+
 test('music D8 replacement persists for later rerolls in the same turn', () => {
   const game = createBattle();
   game.schedule[0] = 'music';

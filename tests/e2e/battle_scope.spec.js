@@ -47,6 +47,46 @@ test('rebuilt controls support keyboard dice selection and dispatch only once', 
   expect(await page.locator('[onclick], [onkeydown]').count()).toBe(0);
 });
 
+test('targeted reroll presents hidden FFA dice by position and submits the selected target', async ({ page }) => {
+  await enterBattle(page);
+  await page.evaluate(async () => {
+    const { gameSocket } = await import('/src/net/socket.js');
+    const { renderBattle } = await import('/src/pages/battle.js');
+    const { cardMap } = await import('/shared/cards.js');
+    const state = await new Promise(resolve => {
+      gameSocket.socket.once('state_update', resolve);
+      gameSocket.socket.emit('resume_session', {});
+    });
+    const primary = state.players[1];
+    const secondary = { ...structuredClone(primary), id: 'secondary', nickname: '隐藏目标' };
+    state.players.push(secondary);
+    Object.assign(state, { gameMode: 'sanguosha', opponent: null, attackerIdx: 0, defenderIdx: 1,
+      turnPhase: 'def_rolled', isMyAttackTurn: false, isMyDefendTurn: false, attackRolls: [2, 3, 4],
+      defenseRolls: null, aoeDefenses: {
+        [primary.id]: { confirmed: true, rolls: null, rollCount: 3 },
+        secondary: { confirmed: false, rolls: null, rollCount: 3 },
+      },
+    });
+    state.me.handCards = [cardMap.card_gen_01];
+    window.rerollRequests = [];
+    gameSocket.playTacticalCard = (id, options, acknowledge) => {
+      window.rerollRequests.push({ id, options });
+      acknowledge({ ok: true });
+    };
+    renderBattle(document.getElementById('app'), { state });
+  });
+  await page.locator('#hand-fab').click();
+  await page.locator('[data-battle-action="playTacticalCard"][data-value="card_gen_01"]').click();
+  const dialog = page.getByRole('dialog', { name: '选择重投目标' });
+  await expect(dialog.locator('[data-battle-action="playTargetedCard"]')).toHaveCount(6);
+  await expect(dialog.getByRole('button', { name: '隐藏目标 · 第 2 颗（?）', exact: true })).toBeVisible();
+  await dialog.getByRole('button', { name: '隐藏目标 · 第 2 颗（?）', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(await page.evaluate(() => window.rerollRequests)).toEqual([
+    { id: 'card_gen_01', options: { targetId: 'secondary', dieIndex: 1 } },
+  ]);
+});
+
 test('late purchase replies, old cleanup and old animation cannot change a replacement battle', async ({ page }) => {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));

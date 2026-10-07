@@ -23,6 +23,7 @@ import { SUBJECTS } from '../../../shared/rules.js';
 import { vfxManager } from '../../utils/vfx.js';
 
 import { bindBattleActions } from './actions.js';
+import { getRerollTargetChoices } from './tactical.js';
 
 export function createBattleView(container, data) {
   const actions = Object.create(null);
@@ -171,25 +172,9 @@ export function createBattleView(container, data) {
     actions.showSacrifice = showSacrifice;
     actions.doSacrifice = value => doSacrifice(Number(value));
     actions.playTacticalCard = (id) => {
+      actions.toggleHand(false);
       if (id === 'card_gen_01') {
-        const attacker = S.players?.[S.attackerIdx];
-        const choices = [];
-        const isAttacker = S.attackerIdx === S.myIndex;
-        const addChoices = (player, rolls, allowed = true) => {
-          if (!allowed || !player || !Array.isArray(rolls)) return;
-          rolls.forEach((value, index) => {
-            if (Number(value) >= 0) choices.push({ playerId: player.id, nickname: player.nickname, index, value });
-          });
-        };
-        addChoices(attacker, S.attackRolls);
-        if (S.aoeDefenses) {
-          Object.entries(S.aoeDefenses).forEach(([playerId, defense]) => {
-            const player = S.players?.find(item => item.id === playerId);
-            if (player && !defense.confirmed) {
-              addChoices(player, defense.rolls, isAttacker || playerId === S.me?.id);
-            }
-          });
-        } else addChoices(S.players?.[S.defenderIdx], S.defenseRolls);
+        const choices = getRerollTargetChoices(S);
         const overlay = document.createElement('div');
         overlay.className = 'result-overlay targeted-card-overlay';
         overlay.innerHTML = `<div class="result-card targeted-card-modal" role="dialog" aria-modal="true" aria-label="选择重投目标">
@@ -203,7 +188,6 @@ export function createBattleView(container, data) {
         appendOverlay(overlay);
         return;
       }
-      actions.toggleHand(false);
       const cardEl = document.querySelector(`.hand-card-kards[data-card-id="${id}"]`);
       cardEl?.classList.add('disabled');
       gameSocket.playTacticalCard(id, (result) => {
