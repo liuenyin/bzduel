@@ -91,6 +91,50 @@ async function prepareAoe(pages) {
   return { attacker, defenders, states };
 }
 
+for (const input of ['keyboard', 'mobile click']) {
+  test(`four-player target selection via ${input} stays consistent after reload`, async ({ browser }) => {
+    const party = await createParty(browser, 4, 'char_6');
+    try {
+      const states = await Promise.all(party.pages.map(snapshot));
+      const index = states.findIndex(state => state.isMyAttackTurn);
+      const attacker = party.pages[index];
+      if (input === 'mobile click') await attacker.setViewportSize({ width: 375, height: 667 });
+      const targets = attacker.locator('.ffa-micro-card.selectable-target');
+      await expect(targets).toHaveCount(3);
+      await expect(attacker.locator('.ffa-targeting-hint')).toContainText('选择攻击目标');
+      for (const page of party.pages.filter(page => page !== attacker)) {
+        await expect(page.locator('.selectable-target')).toHaveCount(0);
+        await expect(page.locator('#phase-text')).toContainText('选择目标');
+      }
+
+      const target = targets.nth(1);
+      const targetId = await target.getAttribute('data-pid');
+      await expect(target).toHaveAttribute('role', 'button');
+      await expect(target).toHaveAttribute('tabindex', '0');
+      if (input === 'keyboard') {
+        await target.focus();
+        await target.press('Enter');
+      } else {
+        await target.click();
+      }
+      await expect(attacker.locator('#btn-roll')).toBeEnabled();
+      await expect(attacker.locator('.ffa-micro-card.active-target')).toHaveAttribute('data-pid', targetId);
+      for (const page of party.pages) {
+        const state = await snapshot(page);
+        expect(state.turnPhase).toBe('waiting_atk');
+        expect(state.players[state.defenderIdx].id).toBe(targetId);
+        await expect(page.locator('.selectable-target')).toHaveCount(0);
+      }
+
+      await attacker.reload();
+      await expect(attacker.locator('#btn-roll')).toBeEnabled();
+      await expect(attacker.locator('.ffa-micro-card.active-target')).toHaveAttribute('data-pid', targetId);
+      await expect(attacker.locator('.ffa-targeting-hint')).toHaveCount(0);
+      expect(party.errors).toEqual([]);
+    } finally { await party.close(); }
+  });
+}
+
 test('three browsers confirm an AoE concurrently and receive exactly one settlement', async ({ browser }) => {
   const party = await createParty(browser, 3, 'char_13');
   try {
