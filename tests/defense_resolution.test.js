@@ -235,6 +235,18 @@ for (const aoe of [false, true]) {
     assert.notEqual(state.players[0].handCards[0].subject, 'universal');
   });
 
+  test(`geography blessing caps total fixed and extra damage at twelve (${mode})`, () => {
+    const state = defenseState(aoe);
+    const atk = state.players[0];
+    atk.card.subjects = ['geography'];
+    atk.activeBlessings = [{ id: 'card_geo_1' }];
+    state.schedule[0] = 'geography';
+    state.turnData.atkResult.baseAtk = 18;
+    state.turnData.atkResult.finalAtk = 38;
+    const result = resolveTarget(state, aoe);
+    assert.equal(result.damage, 21); // pure 18-9=9, plus at most 12
+  });
+
   test(`star showoff multiplies final damage after defense (${mode})`, () => {
     const state = defenseState(aoe);
     const atk = state.players[0];

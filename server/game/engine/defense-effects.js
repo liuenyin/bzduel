@@ -4,6 +4,21 @@ import { SKILL } from '../../../shared/characters.js';
 import { getRandomSubjectCard } from '../../../shared/cards.js';
 import { hasNegativeImmunity } from './skills.js';
 
+function geographyExtraDamageCap(state, atk, ar, finalBaseAtk, finalFinalDef, isPierce, tac, damage) {
+  const subject = state.schedule?.[state.currentClassIndex];
+  const hasBlessing = (atk.activeBlessings || []).some(card => card.id === 'card_geo_1');
+  if (subject !== 'geography' || !hasBlessing || !atk.card?.subjects?.includes('geography')) return damage;
+
+  // 地理祝福的 +12 只允许额外固定/机制伤害使用；纯骰部分仍按原结算。
+  const recordedBaseAtk = Number.isFinite(ar?.baseAtk) ? ar.baseAtk : finalBaseAtk;
+  const recordedFinalAtk = Number.isFinite(ar?.finalAtk) ? ar.finalAtk : finalBaseAtk;
+  const attackExtra = Math.max(0, recordedFinalAtk - recordedBaseAtk);
+  const pureAttack = Math.max(0, finalBaseAtk - attackExtra);
+  const pureDamage = isPierce ? pureAttack : Math.max(0, pureAttack - finalFinalDef);
+  const multiplier = Number.isFinite(tac?.damageMultiplier) ? tac.damageMultiplier : 1;
+  return Math.min(damage, Math.floor(pureDamage * multiplier) + 12);
+}
+
 export function applyDefenseEffects(state, {
   atk, def, ar, subj, atkMulti, defMulti, keptRolls, finalFinalDef,
   finalBaseAtk, isPierce, tac, defTurnCards, atkTurnCards, damage,
@@ -108,6 +123,7 @@ export function applyDefenseEffects(state, {
     damage = 1;
   }
 
+  damage = geographyExtraDamageCap(state, atk, ar, finalBaseAtk, finalFinalDef, isPierce, tac, damage);
   damage = Math.min(damage, tac.maxDmgCap);
 
   // 化学-祝福 (card_che_1): 当天化学课造成伤害时，额外叠加 3 层红温
