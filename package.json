@@ -11,6 +11,7 @@
     "test:core": "node --test tests/core_battle.test.js tests/defense_resolution.test.js tests/battle_flow.test.js tests/reconnection.test.js tests/ai_strategy.test.js tests/autochess.test.js tests/lifecycle.test.js",
     "test:tactical": "node tests/test_card_logic_r1.js",
     "test:verification": "node tests/r2_m1_verification.js",
+    "test:stress": "node tests/challenger_r2_m1_stress.js && node tests/reviewer2_deep_stress_test.js && node tests/r2_m2_ui_verification.js && node tests/r2_m3_vfx_stress.js && node tests/r2_m3_vfx_verification.js",
     "test:e2e": "playwright test",
     "start": "node server/index.js"
   },
