@@ -70,6 +70,7 @@
 - `node tests/reviewer2_deep_stress_test.js`：44 项深度规则压力检查通过，覆盖群攻防守卡时机、信息复制技能、梦境与多回合状态清理。
 - `node tests/r2_m3_vfx_stress.js`：10 项 VFX、重复挂载、动画锁和旧全局钩子清理检查通过。
 - `node tests/r2_m3_vfx_verification.js`：22 项 VFX、乱斗目标委托、伤害文本和动画锁检查通过。
+- `node tests/challenger_r2_m1_stress.js`：16 项补给价格、卡牌时机、状态清理、全卡上下文拒绝和 50 局随机普通对战检查通过。
 - `npx playwright test tests/e2e/multiplayer.spec.js --workers=1 --grep "four-player target selection"`：键盘与移动端四人目标选择流程均通过。
 - `git diff --check`：通过。
 
