@@ -1,0 +1,174 @@
+/* ── 视觉统一层：让状态、回合和交互反馈更容易读 ───────── */
+:root {
+  --accent-deep: #8f3f2d;
+  --line-soft: rgba(80, 60, 40, .12);
+  --focus-ring: 0 0 0 3px rgba(192, 96, 64, .22);
+}
+
+body {
+  background:
+    radial-gradient(circle at 12% 0%, rgba(232, 196, 176, .2), transparent 32rem),
+    radial-gradient(circle at 88% 12%, rgba(91, 143, 185, .12), transparent 28rem),
+    var(--bg);
+}
+
+button,
+[role='button'],
+summary {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+[role='button']:focus-visible,
+summary:focus-visible,
+input:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.battle-view {
+  gap: 14px;
+}
+
+.battle-topbar,
+.battle-control-panel,
+.battle-log {
+  border-color: var(--line-soft);
+  box-shadow: 0 8px 24px rgba(80, 60, 40, .07), 0 1px 0 rgba(255, 255, 255, .7) inset;
+}
+
+.battle-topbar {
+  background: linear-gradient(135deg, rgba(255,255,255,.96), rgba(250,248,245,.9));
+}
+
+.sch-item.active {
+  background: linear-gradient(135deg, var(--accent), var(--accent-deep));
+  box-shadow: 0 4px 12px rgba(143, 63, 45, .22);
+}
+
+.card-row {
+  perspective: 1200px;
+}
+
+.battle-card-wrap {
+  transform-origin: center bottom;
+}
+
+.battle-card-wrap:not(.dead):hover {
+  transform: translateY(-3px);
+}
+
+.battle-card {
+  transition: transform .25s ease, box-shadow .25s ease, filter .25s ease;
+  box-shadow: 0 10px 24px rgba(80, 60, 40, .14), 0 1px 0 rgba(255,255,255,.65) inset;
+}
+
+.battle-card-wrap:not(.dead):hover .battle-card {
+  transform: rotateY(1.5deg) translateY(-2px);
+  box-shadow: 0 16px 30px rgba(80, 60, 40, .18), 0 1px 0 rgba(255,255,255,.8) inset;
+}
+
+.battle-card-wrap.active-attacker .battle-card {
+  box-shadow: 0 0 0 3px rgba(196,92,92,.12), 0 12px 28px rgba(126,52,52,.18), 0 1px 0 rgba(255,255,255,.7) inset;
+}
+
+.bc-hp {
+  border: 1px solid rgba(80,60,40,.1);
+  box-shadow: inset 0 1px 2px rgba(80,60,40,.12);
+}
+
+.hp-bar-h {
+  background-size: 180% 100%;
+}
+
+.bc-hp.hp-loss .hp-bar-h,
+.bc-hp.hp-gain .hp-bar-h {
+  animation: hpBarSheen .75s ease-out;
+}
+
+@keyframes hpBarSheen {
+  from { filter: brightness(1.5) saturate(1.25); background-position: 100% 0; }
+  to { filter: brightness(1) saturate(1); background-position: 0 0; }
+}
+
+.phase-text {
+  padding: 5px 12px;
+  min-width: min(260px, 100%);
+  border: 1px solid rgba(192,154,80,.2);
+  border-radius: 999px;
+  background: rgba(255,255,255,.72);
+  box-shadow: 0 3px 10px rgba(80,60,40,.05);
+}
+
+.battle-control-panel {
+  background: linear-gradient(145deg, rgba(255,255,255,.98), rgba(250,248,245,.9));
+}
+
+.die.selected {
+  box-shadow: 0 6px 14px rgba(192,96,64,.2);
+}
+
+.card-hit.self-side {
+  animation-name: cardHitSelf;
+}
+
+@keyframes cardHitSelf {
+  0% { transform: translateX(0); }
+  20% { transform: translateX(8px); }
+  40% { transform: translateX(-8px); }
+  60% { transform: translateX(4px); }
+  80% { transform: translateX(-4px); }
+  100% { transform: translateX(0); }
+}
+
+.ffa-opponents-grid.aoe-resolving .ffa-micro-card:not(.aoe-target-hit) {
+  opacity: .62;
+  filter: saturate(.7);
+  transform: scale(.98);
+}
+
+.ffa-micro-card.aoe-target-hit {
+  border-color: rgba(196,92,92,.55);
+  box-shadow: 0 0 0 3px rgba(196,92,92,.14), 0 12px 26px rgba(126,52,52,.16);
+}
+
+.floating-damage {
+  filter: drop-shadow(0 4px 7px rgba(60,35,25,.18));
+}
+
+.floating-damage.crit {
+  letter-spacing: .04em;
+  text-shadow: 0 0 12px rgba(192,154,80,.55), 0 3px 7px rgba(60,35,25,.2);
+}
+
+@media (max-width: 680px) {
+  .battle-topbar {
+    gap: 8px;
+    padding: 7px;
+  }
+
+  .battle-schedule-track {
+    grid-template-columns: repeat(6, minmax(58px, 1fr));
+  }
+
+  .card-row {
+    gap: clamp(12px, 4vw, 28px);
+  }
+
+  .phase-text {
+    font-size: .76rem;
+    padding-inline: 9px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .battle-card-wrap:not(.dead):hover,
+  .battle-card-wrap:not(.dead):hover .battle-card {
+    transform: none;
+  }
+
+  .bc-hp.hp-loss .hp-bar-h,
+  .bc-hp.hp-gain .hp-bar-h {
+    animation: none;
+  }
+}

@@ -50,7 +50,7 @@ export function buildArena(s, tacticalHandOpen = false) {
               <span class="flow-line"></span><span class="flow-arrow">${turnFlow.arrow}</span>
             </div>
             <div class="battle-round" id="battle-round">${s.isExtraTurn ? '额外回合' : `第 ${s.totalRound || 1} 回合`}</div>
-            <div id="phase-text" class="phase-text">${phasePrompt(s)}</div>
+            <div id="phase-text" class="phase-text" aria-live="polite" aria-atomic="true">${phasePrompt(s)}</div>
           </div>
 
           <div class="battle-card-wrap self-side ${s.attackerIdx === s.myIndex ? 'active-attacker' : ''} ${me.isDead ? 'dead' : ''}" id="card-me">
