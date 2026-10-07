@@ -133,6 +133,27 @@ test('biology life payment always matches the minimum integer cost', () => {
   assert.equal(opponent.hp, 9);
 });
 
+test('tech charge card is unavailable to non-Zhou characters and capped at two stacks', () => {
+  const game = createBattle();
+  game.schedule[0] = 'tech';
+  const player = game.players[0];
+  player.handCards = [structuredClone(cardMap.card_tec_3)];
+  const before = structuredClone(game);
+  assert.equal(playTacticalCard(game, player.id, 'card_tec_3').ok, false);
+  assert.deepEqual(game, before);
+
+  const zhouGame = createBattle('char_14');
+  zhouGame.schedule[0] = 'tech';
+  const zhou = zhouGame.players[0];
+  zhou.handCards = [structuredClone(cardMap.card_tec_3)];
+  assert.equal(playTacticalCard(zhouGame, zhou.id, 'card_tec_3').ok, true);
+  assert.equal(zhou.chargeStacks, 1);
+  zhou.handCards = [structuredClone(cardMap.card_tec_3)];
+  zhou.chargeStacks = 2;
+  assert.equal(playTacticalCard(zhouGame, zhou.id, 'card_tec_3').ok, false);
+  assert.equal(zhou.handCards.length, 1);
+});
+
 test('study blessing draws after the attack turn resolves', () => {
   const game = createBattle();
   game.schedule[0] = 'study';

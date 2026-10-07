@@ -54,6 +54,11 @@ export function playTacticalCard(state, playerId, cardId, options = {}) {
     return { ok: false, error: '同类效果已生效' };
   }
 
+  if (card.id === 'card_tec_3') {
+    if (p.card?.id !== 'char_14') return { ok: false, error: '【通技-其他】的蓄势仅周煊声可用' };
+    if ((p.chargeStacks || 0) >= 2) return { ok: false, error: '蓄势已满（最多2层）' };
+  }
+
   if (card.id === 'card_gen_11' && (p.handCards || []).length < 2) {
     return { ok: false, error: '至少需要另一张手牌才能弃置' };
   }

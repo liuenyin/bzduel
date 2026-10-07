@@ -42,6 +42,10 @@ export function getTacticalCardUsability(card, state) {
     const hasNegativeState = (me.buffs || []).length > 0 || me.redHeat > 0 || me.stickers > 0 || me.selfStickers > 0 || me.permanentDefPenalty > 0;
     if (!hasNegativeState) return { canPlay: false, reason: '当前无负面效果' };
   }
+  if (card.id === 'card_tec_3') {
+    if (me.cardId !== 'char_14' && me.card?.id !== 'char_14') return { canPlay: false, reason: '仅周煊声可用' };
+    if ((me.chargeStacks || 0) >= 2) return { canPlay: false, reason: '蓄势已满' };
+  }
   if (card.id === 'card_gen_11' && (me.handCards || []).length < 2) {
     return { canPlay: false, reason: '至少需要另一张手牌才能弃置' };
   }
