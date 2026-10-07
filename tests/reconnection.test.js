@@ -189,6 +189,10 @@ test('an active battle survives a socket replacement during the reconnect grace 
     assert.equal(invalidReady.ok, false);
     assert.equal(invalidReady.error, '当前不在可操作阶段');
 
+    const invalidFfaStart = await emitWithAck(clientB, 'start_ffa_game', { roomId });
+    assert.equal(invalidFfaStart.ok, false);
+    assert.equal(invalidFfaStart.error, '房间不存在或已开始');
+
     // The real Socket.IO handler must acknowledge tactical-card validation
     // failures instead of throwing on an undefined options object.
     const invalidTacticalCard = await emitWithAck(replacementA, 'play_tactical_card', {

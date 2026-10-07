@@ -109,7 +109,13 @@ class GameSocket {
 
   createFfaRoom(n) { this.socket.emit('create_ffa_room', { nickname: n }); }
   joinFfaRoom(n, r) { this.socket.emit('join_ffa_room', { nickname: n, roomId: r }); }
-  startFfaGame() { if(this.currentRoomId) this.socket.emit('start_ffa_game', { roomId: this.currentRoomId }); }
+  startFfaGame(acknowledge) {
+    if (!this.currentRoomId) {
+      acknowledge?.({ ok: false, error: '房间不存在' });
+      return;
+    }
+    this.emitWithAck('start_ffa_game', { roomId: this.currentRoomId }, acknowledge);
+  }
 
   selectTarget(id, acknowledge) { this.emitWithAck('select_target', { targetId: id }, acknowledge); }
   selectCard(id, acknowledge) { this.emitWithAck('select_card', { cardId: id }, acknowledge); }

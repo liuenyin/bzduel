@@ -357,8 +357,17 @@ export function renderLobby(container, data = {}) {
     `;
 
     if (mode === 'sanguosha' && isOwner) {
-      document.getElementById('btn-start-ffa').addEventListener('click', () => {
-        gameSocket.startFfaGame();
+      document.getElementById('btn-start-ffa').addEventListener('click', (event) => {
+        const button = event.currentTarget;
+        if (button.disabled) return;
+        button.disabled = true;
+        button.textContent = '正在开始…';
+        gameSocket.startFfaGame(result => {
+          if (result?.ok) return;
+          button.disabled = false;
+          button.textContent = '全员准备完毕，开始游戏';
+          statusDiv.innerHTML = `<p style="color:var(--red);">✗ ${escapeHTML(result?.error || '暂时无法开始游戏')}</p>`;
+        });
       });
     }
     document.getElementById('btn-copy-room').addEventListener('click', () => {

@@ -228,19 +228,33 @@ export function registerDuelHandlers(socket, {
     io.to(roomId).emit('ffa_room_update', { players: room.game.players });
   });
 
-  socket.on('start_ffa_game', (payload = {}) => {
+  socket.on('start_ffa_game', (payload = {}, acknowledge) => {
     const roomId = payloadObject(payload).roomId;
     const room = rooms.get(roomId);
-    if (!room || !room.game.pending || room.game.mode !== 'sanguosha') return;
-    if (socketToRoom.get(playerId) !== roomId) return;
+    const reply = result => { if (typeof acknowledge === 'function') acknowledge(result); };
+    if (!room || !room.game.pending || room.game.mode !== 'sanguosha') {
+      reply({ ok: false, error: '房间不存在或已开始' });
+      return;
+    }
+    if (socketToRoom.get(playerId) !== roomId) {
+      reply({ ok: false, error: '你不在该房间' });
+      return;
+    }
     // 只有房主可以开始
-    if (room.game.players[0].id !== playerId) return;
+    if (room.game.players[0].id !== playerId) {
+      reply({ ok: false, error: '只有房主可以开始游戏' });
+      return;
+    }
     if (room.game.players.length < 3) {
-      socket.emit('error_msg', { message: '大乱斗至少需要 3 名玩家' }); return;
+      const error = '大乱斗至少需要 3 名玩家';
+      if (typeof acknowledge !== 'function') socket.emit('error_msg', { message: error });
+      reply({ ok: false, error });
+      return;
     }
 
     const game = createGame(room.game.players, 'sanguosha');
     room.game = game;
+    reply({ ok: true });
 
     for (const pid of room.playerSockets) {
       io.to(pid).emit('match_found', {
