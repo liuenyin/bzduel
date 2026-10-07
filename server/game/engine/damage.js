@@ -12,8 +12,8 @@ export function calculateDamageSteps(attack, defense, pierce, tactical, deferFin
   record(`战术倍率 ×${tactical.damageMultiplier}，向下取整`, Math.floor(damage * tactical.damageMultiplier));
   if (!tactical.isNoFixedBonus) {
     if (tactical.finalBonusDamage) record('最终伤害加成', damage + tactical.finalBonusDamage);
-    if (tactical.finalDamageReduction && !tactical.ignoreReduction) record('最终固定减伤', damage - tactical.finalDamageReduction);
   }
+  if (tactical.finalDamageReduction && !tactical.ignoreReduction) record('最终固定减伤', damage - tactical.finalDamageReduction);
   if (damage < 0) record('伤害最低为 0', 0);
   if (!deferFinalEffects) {
     if (!tactical.isNoFixedBonus && tactical.trueDamage) record('附加固定真实伤害', damage + tactical.trueDamage);

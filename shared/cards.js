@@ -52,7 +52,7 @@ export const CARDS = [
   { id: 'card_bio_3', name: '生物-其他', subject: 'biology', type: CARD_TYPE.OTHER, tpCost: 3, desc: '本回合：消耗当前30%生命，造成等量真实伤害(最高10)' },
 
   // ── 政治 (politics) ──
-  { id: 'card_pol_1', name: '政治-祝福', subject: 'politics', type: CARD_TYPE.BLESSING, tpCost: 2, desc: '当天政治课：双方固定加成强制归零，仅结算纯骰点' },
+  { id: 'card_pol_1', name: '政治-祝福', subject: 'politics', type: CARD_TYPE.BLESSING, tpCost: 2, desc: '当天政治课：双方固定加成归零，保留倍率、减伤及特殊机制' },
   { id: 'card_pol_2', name: '政治-增益', subject: 'politics', type: CARD_TYPE.BUFF, tpCost: 1, desc: '本回合：防御结算+3' },
   { id: 'card_pol_3', name: '政治-减益', subject: 'politics', type: CARD_TYPE.DEBUFF, tpCost: 2, desc: '本回合：锁定对方本轮输出上限不超过 8 点' },
 

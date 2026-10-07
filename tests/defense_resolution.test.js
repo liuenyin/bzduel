@@ -263,6 +263,8 @@ for (const aoe of [false, true]) {
     atk.card.subjects = ['politics'];
     atk.card.positiveSkill = { id: SKILL.STAR_SHOWOFF };
     def.activeBlessings = [{ id: 'card_pol_1' }];
+    atk.playedTurnCards = [{ id: 'card_gen_04' }, { id: 'card_gen_08' }, { id: 'card_phy_2' }];
+    def.playedTurnCards = [{ id: 'card_gen_02' }];
     state.turnData.atkResult.finalAtk = 20;
     // 20 - 9 = 11, then Star Showoff's ×2.5 politics multiplier.
     assert.equal(resolveTarget(state, aoe).damage, 27);
@@ -270,7 +272,7 @@ for (const aoe of [false, true]) {
 
   test(`politics keeps character damage reduction mechanisms (${mode})`, () => {
     const state = defenseState(aoe);
-    const [atk, def] = state.players;
+    const def = state.players[1];
     state.schedule[0] = 'politics';
     def.card.subjects = ['politics'];
     def.card.positiveSkill = { id: SKILL.TALENTED };
@@ -278,6 +280,26 @@ for (const aoe of [false, true]) {
     state.turnData.atkResult.finalAtk = 20;
     // 20 - 9 = 11, then Talented's ×0.5 politics reduction.
     assert.equal(resolveTarget(state, aoe).damage, 5);
+  });
+
+  test(`politics retains fixed reduction and dream protection (${mode})`, () => {
+    const state = defenseState(aoe);
+    const def = state.players[1];
+    state.schedule[0] = 'politics';
+    def.activeBlessings = [{ id: 'card_pol_1' }];
+    def.playedTurnCards = [{ id: 'card_gen_05' }];
+    def.invertReduction = 2;
+    state.turnData.atkResult.finalAtk = 20;
+    assert.equal(resolveTarget(state, aoe).damage, 6); // 20 - 9 - 3 - 2
+
+    const dreamState = defenseState(aoe);
+    dreamState.schedule[0] = 'politics';
+    dreamState.players[0].activeBlessings = [{ id: 'card_pol_1' }];
+    const dreamer = dreamState.players[1];
+    dreamer.card.positiveSkill = { id: SKILL.DREAM_KING };
+    Object.assign(dreamer, { inDreamState: true, dreamTargetChoice: 1, realTargetIdx: 0 });
+    dreamState.turnData.atkResult.finalAtk = 20;
+    assert.equal(resolveTarget(dreamState, aoe).damage, 0);
   });
 
   if (aoe) test('AoE secondary target scales the finished damage, not attack before defense', () => {
