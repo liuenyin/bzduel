@@ -277,21 +277,39 @@ export function registerDuelHandlers(socket, {
     }
   });
 
-  socket.on('select_card', (payload = {}) => {
+  socket.on('select_card', (payload = {}, acknowledge) => {
     const cardId = payloadObject(payload).cardId;
-    const options = payloadObject(payload);
-    const room = getRoom(playerId); if (!room) return;
-    if (selectCard(room.game, playerId, cardId).ok) {
+    const room = getRoom(playerId);
+    if (!room) {
+      if (typeof acknowledge === 'function') acknowledge({ ok: false, error: '对局不存在' });
+      return;
+    }
+    const result = selectCard(room.game, playerId, cardId);
+    if (!result.ok) {
+      const error = result.error || '无法选择角色';
+      if (typeof acknowledge === 'function') acknowledge({ ok: false, error });
+      else socket.emit('error_msg', { message: error });
+      return;
+    }
+    if (typeof acknowledge === 'function') acknowledge({ ok: true });
+    {
       socket.emit('state_update', getStateView(room.game, playerId));
       broadcastToOpponent(room, playerId, 'opponent_selected');
     }
   });
 
   // ── 准备 ──
-  socket.on('ready', () => {
-    const room = getRoom(playerId); if (!room) return;
+  socket.on('ready', (_payload = {}, acknowledge) => {
+    const reply = result => { if (typeof acknowledge === 'function') acknowledge(result); };
+    const room = getRoom(playerId);
+    if (!room) { reply({ ok: false, error: '对局不存在' }); return; }
     const res = setReady(room.game, playerId);
-    if (!res.ok) return;
+    if (!res.ok) {
+      const error = res.error || '暂时无法准备';
+      if (typeof acknowledge !== 'function') socket.emit('error_msg', { message: error });
+      reply({ ok: false, error });
+      return;
+    }
     if (room.isAI && !res.battleStarted) {
       const aiCardId = room.game.players[1].cardId || room.aiCardId || aiSelectCard(room.game.schedule);
       if (!room.game.players[1].cardId) selectCard(room.game, room.aiId, aiCardId);
@@ -299,6 +317,7 @@ export function registerDuelHandlers(socket, {
       if (aiRes.battleStarted) res.battleStarted = true;
       console.log(`[PVE] AI ${room.aiId} 准备完毕, 战斗开始: ${res.battleStarted}`);
     }
+    reply({ ok: true, battleStarted: !!res.battleStarted });
     const roomId = socketToRoom.get(playerId);
     if (res.battleStarted) {
       emitStateToAll(room);
@@ -310,10 +329,22 @@ export function registerDuelHandlers(socket, {
   });
 
   // ── 调课权 ──
-  socket.on('use_reschedule', (payload = {}) => {
+  socket.on('use_reschedule', (payload = {}, acknowledge) => {
     const { classIndex, newType } = payloadObject(payload);
-    const room = getRoom(playerId); if (!room) return;
-    if (useReschedule(room.game, playerId, classIndex, newType).ok) {
+    const room = getRoom(playerId);
+    if (!room) {
+      if (typeof acknowledge === 'function') acknowledge({ ok: false, error: '对局不存在' });
+      return;
+    }
+    const result = useReschedule(room.game, playerId, classIndex, newType);
+    if (!result.ok) {
+      const error = result.error || '暂时无法调课';
+      if (typeof acknowledge === 'function') acknowledge({ ok: false, error });
+      else socket.emit('error_msg', { message: error });
+      return;
+    }
+    if (typeof acknowledge === 'function') acknowledge({ ok: true });
+    {
       emitStateToAll(room);
     }
   });

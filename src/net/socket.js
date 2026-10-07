@@ -112,9 +112,9 @@ class GameSocket {
   startFfaGame() { if(this.currentRoomId) this.socket.emit('start_ffa_game', { roomId: this.currentRoomId }); }
 
   selectTarget(id, acknowledge) { this.emitWithAck('select_target', { targetId: id }, acknowledge); }
-  selectCard(id) { this.socket.emit('select_card', { cardId: id }); }
-  setReady() { this.socket.emit('ready'); }
-  useReschedule(idx, subj) { this.socket.emit('use_reschedule', { classIndex: idx, newType: subj }); }
+  selectCard(id, acknowledge) { this.emitWithAck('select_card', { cardId: id }, acknowledge); }
+  setReady(acknowledge) { this.emitWithAck('ready', {}, acknowledge); }
+  useReschedule(idx, subj, acknowledge) { this.emitWithAck('use_reschedule', { classIndex: idx, newType: subj }, acknowledge); }
 
   rollDice(acknowledge) { this.emitWithAck('roll_dice', {}, acknowledge); }
   rerollDice(indices, acknowledge) { this.emitWithAck('reroll_dice', { indices }, acknowledge); }

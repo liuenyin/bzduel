@@ -90,8 +90,18 @@ export function createBattleChoices({ getState, actions, appendOverlay }) {
     appendOverlay(overlay);
     actions.pickSubj = (id) => {
       const targetIdx = parseInt(document.getElementById('reschedule-idx-select').value);
-      gameSocket.useReschedule(targetIdx, id);
-      overlay.remove();
+      const button = [...overlay.querySelectorAll('[data-battle-action="pickSubj"]')].find(candidate => candidate.dataset.value === id);
+      overlay.querySelectorAll('[data-battle-action="pickSubj"]').forEach(candidate => { candidate.disabled = true; });
+      gameSocket.useReschedule(targetIdx, id, result => {
+        if (result?.ok) {
+          overlay.remove();
+          return;
+        }
+        if (!overlay.isConnected) return;
+        overlay.querySelectorAll('[data-battle-action="pickSubj"]').forEach(candidate => { candidate.disabled = false; });
+        actions.showToast(result?.error || '暂时无法调课');
+        button?.focus();
+      });
     };
   }
   return { checkDreamTargetModal, showRescheduleModal };

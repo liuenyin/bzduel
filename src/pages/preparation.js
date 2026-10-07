@@ -137,12 +137,28 @@ export function renderPreparation(container, data) {
       });
 
       document.getElementById('modal-select-btn').addEventListener('click', () => {
+        const selectButton = document.getElementById('modal-select-btn');
+        selectButton.disabled = true;
+        selectButton.textContent = '正在确认…';
         selectedCardId = charId;
         avatars.forEach((c) => c.classList.remove('selected'));
         avatarEl.classList.add('selected');
-        document.getElementById('btn-ready').disabled = false;
-        gameSocket.selectCard(selectedCardId);
-        modalContainer.innerHTML = '';
+        gameSocket.selectCard(selectedCardId, result => {
+          if (result?.ok) {
+            const readyButton = document.getElementById('btn-ready');
+            if (!readyButton) return;
+            readyButton.disabled = false;
+            modalContainer.innerHTML = '';
+            return;
+          }
+          if (!document.getElementById('char-modal')) return;
+          selectedCardId = null;
+          avatarEl.classList.remove('selected');
+          selectButton.disabled = false;
+          selectButton.textContent = '就决定是你了！';
+          const status = document.getElementById('prep-status');
+          if (status) status.innerHTML = `<p style="color:var(--red);">${escapeHTML(result?.error || '角色选择失败，请重试')}</p>`;
+        });
       });
     });
     avatarEl.addEventListener('keydown', (event) => {
@@ -155,12 +171,19 @@ export function renderPreparation(container, data) {
   // ── 准备按钮 ──
   document.getElementById('btn-ready').addEventListener('click', () => {
     if (!selectedCardId) return;
-    gameSocket.setReady();
     const btn = document.getElementById('btn-ready');
     btn.disabled = true;
     btn.textContent = '等待对手…';
     document.getElementById('prep-status').innerHTML =
       '<p class="status-msg">等待对手准备…</p>';
+    gameSocket.setReady(result => {
+      if (result?.ok) return;
+      if (!document.getElementById('btn-ready')) return;
+      btn.disabled = false;
+      btn.textContent = '准备完毕';
+      const status = document.getElementById('prep-status');
+      if (status) status.innerHTML = `<p style="color:var(--red);">${escapeHTML(result?.error || '准备失败，请重试')}</p>`;
+    });
   });
 
   document.getElementById('btn-leave-room').addEventListener('click', () => {
