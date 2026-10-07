@@ -59,6 +59,20 @@ test('tactical cards cannot mutate a battle during the draft shop', () => {
   assert.deepEqual(game, before);
 });
 
+test('tactical card failures are returned without leaking a partial state update', () => {
+  const game = createBattle();
+  game.players[0].handCards = [structuredClone(cardMap.card_gen_02)];
+  // Deliberately corrupt the schedule after the game has been created. The
+  // engine should convert the unexpected effect error into a normal result
+  // and leave the state untouched for the caller to recover.
+  game.schedule = null;
+  const before = structuredClone(game);
+  const result = playTacticalCard(game, 'player-a', 'card_gen_02');
+  assert.equal(result.ok, false);
+  assert.equal(result.error, '战术卡效果异常，请稍后重试');
+  assert.deepEqual(game, before);
+});
+
 test('generic reroll card honors an explicit enemy die target', () => {
   const game = createBattle();
   game.players[1].handCards = [structuredClone(cardMap.card_gen_01)];

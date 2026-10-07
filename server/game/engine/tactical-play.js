@@ -7,6 +7,20 @@ import { cardMap, CARD_TYPE } from '../../../shared/cards.js';
 import { resolveImmediateCardDeaths } from './immediate-deaths.js';
 
 export function playTacticalCard(state, playerId, cardId, options = {}) {
+  // Card effects touch several pieces of turn state (hand, played cards,
+  // temporary dice and sometimes HP). Keep the operation transactional so an
+  // unexpected effect error cannot leave a half-played card in the game.
+  const snapshot = snapshotState(state);
+  try {
+    return playTacticalCardUnsafe(state, playerId, cardId, options);
+  } catch (error) {
+    restoreState(state, snapshot);
+    console.error('[Tactical Card] effect failed:', error);
+    return { ok: false, error: '战术卡效果异常，请稍后重试' };
+  }
+}
+
+function playTacticalCardUnsafe(state, playerId, cardId, options = {}) {
   if (state.phase !== PHASE.BATTLE) return { ok: false, error: '非战斗阶段' };
   if (isDraftShopActive(state)) return { ok: false, error: '请先完成补给' };
   const p = findPlayer(state, playerId);
@@ -111,4 +125,15 @@ export function playTacticalCard(state, playerId, cardId, options = {}) {
     : { gameOver: false, winner: null, nineLivesTriggered: false, defeatedIds: [] };
 
   return { ok: true, card, ...deathResolution };
+}
+
+function snapshotState(state) {
+  if (typeof structuredClone === 'function') return structuredClone(state);
+  return JSON.parse(JSON.stringify(state));
+}
+
+function restoreState(state, snapshot) {
+  if (!snapshot || !state || typeof state !== 'object') return;
+  for (const key of Object.keys(state)) delete state[key];
+  Object.assign(state, snapshot);
 }
