@@ -12,9 +12,9 @@ export function createBattleChoices({ getState, actions, appendOverlay }) {
       overlay.id = 'dream-target-modal';
       overlay.style.zIndex = '10000';
       overlay.innerHTML = `
-        <div class="dream-target-modal-panel">
-          <h2 style="color:var(--accent); margin-bottom:6px; font-size:1.35rem; font-family:var(--font-display);">梦境之王 - 盲选真身</h2>
-          <p style="font-size:0.88rem; color:var(--text); margin-bottom:14px; line-height:1.4;">付修然展开了梦境领域！出现 1 个本体与 2 个分身，请盲选本节课的攻击目标：</p>
+        <div class="dream-target-modal-panel" role="dialog" aria-modal="true" aria-labelledby="dream-target-title" aria-describedby="dream-target-description">
+          <h2 id="dream-target-title" style="color:var(--accent); margin-bottom:6px; font-size:1.35rem; font-family:var(--font-display);">梦境之王 - 盲选真身</h2>
+          <p id="dream-target-description" style="font-size:0.88rem; color:var(--text); margin-bottom:14px; line-height:1.4;">付修然展开了梦境领域！出现 1 个本体与 2 个分身，请盲选本节课的攻击目标：</p>
           <div class="dream-target-cards-container">
             <button class="dream-target-btn" data-battle-action="pickDreamTarget" data-value="0">
               目标 A
@@ -30,8 +30,9 @@ export function createBattleChoices({ getState, actions, appendOverlay }) {
         </div>
       `;
       appendOverlay(overlay);
+      overlay.querySelector('.dream-target-btn')?.focus();
       actions.pickDreamTarget = (value) => {
-      const idx = Number(value);
+        const idx = Number(value);
         gameSocket.chooseDreamTarget(idx);
         overlay.remove();
       };
