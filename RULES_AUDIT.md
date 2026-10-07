@@ -71,6 +71,7 @@
 - `node tests/r2_m3_vfx_stress.js`：10 项 VFX、重复挂载、动画锁和旧全局钩子清理检查通过。
 - `node tests/r2_m3_vfx_verification.js`：22 项 VFX、乱斗目标委托、伤害文本和动画锁检查通过。
 - `node tests/challenger_r2_m1_stress.js`：16 项补给价格、卡牌时机、状态清理、全卡上下文拒绝和 50 局随机普通对战检查通过。
+- `node tests/r2_m2_ui_verification.js`：33 项当前样式源、卡牌截断、禁用覆盖层和委托操作结构检查通过；历史布局入口已指向同一套当前验证。
 - `npx playwright test tests/e2e/multiplayer.spec.js --workers=1 --grep "four-player target selection"`：键盘与移动端四人目标选择流程均通过。
 - `git diff --check`：通过。
 
