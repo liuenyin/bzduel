@@ -21,6 +21,7 @@ import {
 } from '../server/game/engine.js';
 import { cardMap } from '../shared/cards.js';
 import { GAME_MODE, IDENTITY } from '../shared/rules.js';
+import { getTacticalOpponent } from '../server/game/engine/tactical-effects.js';
 
 function createBattle(firstCard = 'char_6', secondCard = 'char_6') {
   const game = createGame([
@@ -310,6 +311,12 @@ test('every direct-opponent tactical card is gated before FFA target selection',
     assert.deepEqual(result, { ok: false, error: 'target_required' }, cardId);
     assert.equal(attacker.handCards.length, 1, cardId);
   }
+});
+
+test('FFA target lookup never falls back to an arbitrary player before selection', () => {
+  const game = createFfaBattle();
+  assert.equal(getTacticalOpponent(game, game.players[0]), null);
+  assert.equal(getTacticalOpponent(game, game.players[1]), null);
 });
 
 function withRandom(value, callback) {

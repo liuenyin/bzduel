@@ -131,6 +131,12 @@ export function applyOpponentAttackRollDebuffs(state, attacker) {
 export function getTacticalOpponent(state, p) {
   const playerIndex = state.players.indexOf(p);
   const attackerIdx = state.turnData?.attackerIdx;
+  // FFA has no direct opponent while the attacker is still choosing a
+  // target. Never silently fall back to an arbitrary living player here;
+  // callers that need a single target must wait until selection completes.
+  if (state.turnPhase === TURN.CHOOSE_TARGET && state.turnData?.defenderIdx == null) {
+    return null;
+  }
   if (state.turnData?.isAoE && state.turnData.aoeDefenses?.[p.id]
     && playerIndex !== attackerIdx) {
     const attacker = state.players[attackerIdx];
