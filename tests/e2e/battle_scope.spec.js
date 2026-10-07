@@ -10,6 +10,17 @@ test('matchmaking waiting can be cancelled without trapping the lobby', async ({
   await expect(page.locator('#btn-match')).toBeVisible();
 });
 
+test('room chat hides again after leaving the waiting room', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.chat-widget')).toHaveCSS('display', 'none');
+  await page.fill('#nickname-input', '聊天生命周期测试');
+  await page.click('#btn-create');
+  await expect(page.locator('.chat-widget')).toHaveCSS('display', 'flex');
+  await page.click('#btn-leave-waiting');
+  await expect(page.locator('#nickname-input')).toBeVisible();
+  await expect(page.locator('.chat-widget')).toHaveCSS('display', 'none');
+});
+
 async function enterBattle(page) {
   await page.goto('/');
   await page.fill('#nickname-input', '页面隔离测试');

@@ -90,6 +90,16 @@ export function initGlobalChat() {
 export function showGlobalChat(message) {
   if (chatWidgetEl) {
     chatWidgetEl.style.display = 'flex';
+    chatWidgetEl.classList.add('collapsed');
+    const header = chatWidgetEl.querySelector('.chat-header');
+    header?.setAttribute('aria-expanded', 'false');
+    header?.setAttribute('aria-label', '打开房间聊天');
+    unreadChatCount = 0;
+    const unreadBadge = chatWidgetEl.querySelector('#chat-unread');
+    if (unreadBadge) {
+      unreadBadge.textContent = '0';
+      unreadBadge.hidden = true;
+    }
     if (message) {
       const messageEl = document.createElement('div');
       messageEl.className = 'chat-msg system';
@@ -97,4 +107,14 @@ export function showGlobalChat(message) {
       chatMessagesEl.replaceChildren(messageEl);
     }
   }
+}
+
+export function hideGlobalChat() {
+  if (!chatWidgetEl) return;
+  chatWidgetEl.style.display = 'none';
+  chatWidgetEl.classList.add('collapsed');
+  chatWidgetEl.querySelector('.chat-header')?.setAttribute('aria-expanded', 'false');
+  unreadChatCount = 0;
+  const unreadBadge = chatWidgetEl.querySelector('#chat-unread');
+  if (unreadBadge) unreadBadge.hidden = true;
 }

@@ -3,7 +3,7 @@
 // ============================================================
 import { gameSocket } from '../net/socket.js';
 import { navigate } from '../app/router.js';
-import { showGlobalChat } from '../components/chat.js';
+import { showGlobalChat, hideGlobalChat } from '../components/chat.js';
 import { characters } from '../../shared/characters.js';
 import { escapeHTML } from '../utils/html.js';
 
@@ -21,6 +21,7 @@ function portraitFrame(character, className = '') {
 }
 
 export function renderLobby(container, data = {}) {
+  hideGlobalChat();
   container.innerHTML = `
     <div class="lobby">
       <h1 class="title-main">校园战力党</h1>
