@@ -216,9 +216,16 @@ export function createBattleView(container, data) {
       });
     };
 
+    let pendingFfaTarget = null;
     actions.selectFfaTarget = (pid) => {
+      if (pendingFfaTarget) return;
       if (S.turnPhase === 'choose_target' && S.isMyAttackTurn) {
-        gameSocket.selectTarget(pid);
+        pendingFfaTarget = pid;
+        gameSocket.selectTarget(pid, (result) => {
+          if (!isBattleViewActive(viewEpoch)) return;
+          pendingFfaTarget = null;
+          if (!result?.ok) actions.showToast(result?.error || '无法选择目标');
+        });
       }
     };
 

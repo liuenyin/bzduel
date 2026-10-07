@@ -111,7 +111,7 @@ class GameSocket {
   joinFfaRoom(n, r) { this.socket.emit('join_ffa_room', { nickname: n, roomId: r }); }
   startFfaGame() { if(this.currentRoomId) this.socket.emit('start_ffa_game', { roomId: this.currentRoomId }); }
 
-  selectTarget(id) { this.socket.emit('select_target', { targetId: id }); }
+  selectTarget(id, acknowledge) { this.emitWithAck('select_target', { targetId: id }, acknowledge); }
   selectCard(id) { this.socket.emit('select_card', { cardId: id }); }
   setReady() { this.socket.emit('ready'); }
   useReschedule(idx, subj) { this.socket.emit('use_reschedule', { classIndex: idx, newType: subj }); }
@@ -123,15 +123,15 @@ class GameSocket {
     this.emitWithAck('confirm_dice', { indices, options }, acknowledge);
   }
   buyWater(acknowledge) { this.emitWithAck('buy_water', {}, acknowledge); }
-  chooseDreamTarget(idx) { this.socket.emit('choose_dream_target', { targetIndex: idx }); }
+  chooseDreamTarget(idx, acknowledge) { this.emitWithAck('choose_dream_target', { targetIndex: idx }, acknowledge); }
 
   playTacticalCard(id, options, acknowledge) {
     if (typeof options === 'function') { acknowledge = options; options = {}; }
     this.emitWithAck('play_tactical_card', { cardId: id, ...(options || {}) }, acknowledge);
   }
-  refreshDraftSlot(idx) { this.socket.emit('refresh_draft_slot', { slotIndex: idx }); }
+  refreshDraftSlot(idx, acknowledge) { this.emitWithAck('refresh_draft_slot', { slotIndex: idx }, acknowledge); }
   buyDraftCard(idx, acknowledge) { this.emitWithAck('buy_draft_card', { slotIndex: idx }, acknowledge); }
-  confirmDraftReady() { this.socket.emit('draft_ready'); }
+  confirmDraftReady(acknowledge) { this.emitWithAck('draft_ready', {}, acknowledge); }
   surrender(acknowledge) { this.emitWithAck('surrender', {}, acknowledge); }
   requestRematch(acknowledge) { this.emitWithAck('request_rematch', {}, acknowledge); }
   leaveRoom(acknowledge) {

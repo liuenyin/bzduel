@@ -5,6 +5,7 @@ import { waitingNames } from './presentation.js';
 
 export function createDraftShop({ actions, viewLifecycle, appendOverlay }) {
   let draftInteraction = null;
+  let draftReadyPending = false;
   actions.refreshDraftSlot = (value) => {
     const idx = Number(value);
     if (draftInteraction) return;
@@ -15,7 +16,14 @@ export function createDraftShop({ actions, viewLifecycle, appendOverlay }) {
       previousCardId: slot?.dataset.cardId || '',
     };
     slot?.classList.add('is-refreshing');
-    gameSocket.refreshDraftSlot(idx);
+    gameSocket.refreshDraftSlot(idx, (result) => {
+      if (!viewLifecycle.active) return;
+      if (!result?.ok) {
+        draftInteraction = null;
+        slot?.classList.remove('is-refreshing');
+        actions.showToast(result?.error || '无法刷新');
+      }
+    });
     viewLifecycle.delay(() => {
       if (draftInteraction?.type === 'refresh' && draftInteraction.index === idx) {
         draftInteraction = null;
@@ -45,7 +53,22 @@ export function createDraftShop({ actions, viewLifecycle, appendOverlay }) {
       }
     });
   };
-  actions.confirmDraftReady = () => { gameSocket.confirmDraftReady(); };
+  actions.confirmDraftReady = () => {
+    if (draftReadyPending) return;
+    draftReadyPending = true;
+    const button = document.querySelector('#draft-shop-modal [data-battle-action="confirmDraftReady"]');
+    button?.setAttribute('disabled', 'true');
+    button?.setAttribute('aria-busy', 'true');
+    gameSocket.confirmDraftReady((result) => {
+      if (!viewLifecycle.active) return;
+      draftReadyPending = false;
+      if (!result?.ok) {
+        button?.removeAttribute('disabled');
+        button?.removeAttribute('aria-busy');
+        actions.showToast(result?.error || '无法完成选牌');
+      }
+    });
+  };
   function checkDraftShopModal(s) {
     const existing = document.getElementById('draft-shop-modal');
     if (s.draftShop && s.draftShop.active && s.me) {
@@ -155,7 +178,7 @@ export function createDraftShop({ actions, viewLifecycle, appendOverlay }) {
           </div>
           <div class="draft-shop-footer">
             <span>最多持有 3 张战术卡</span>
-            <button class="btn btn-primary btn-lg" data-battle-action="confirmDraftReady">
+            <button class="btn btn-primary btn-lg" data-battle-action="confirmDraftReady" ${draftReadyPending ? 'disabled aria-busy="true"' : ''}>
               完成选牌
             </button>
           </div>

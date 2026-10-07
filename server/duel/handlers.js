@@ -238,22 +238,42 @@ export function registerDuelHandlers(socket, {
   });
 
   // ── 战斗内交互 ──
-  socket.on('select_target', (payload = {}) => {
+  socket.on('select_target', (payload = {}, acknowledge) => {
     const targetId = payloadObject(payload).targetId;
-    const room = getRoom(playerId); if (!room) return;
-    if (selectTarget(room.game, playerId, targetId).ok) {
+    const room = getRoom(playerId);
+    if (!room) {
+      if (typeof acknowledge === 'function') acknowledge({ ok: false, error: '对局不存在' });
+      return;
+    }
+    const result = selectTarget(room.game, playerId, targetId);
+    if (!result.ok) {
+      if (typeof acknowledge === 'function') acknowledge({ ok: false, error: result.error || '无法选择目标' });
+      else socket.emit('error_msg', { message: result.error || '无法选择目标' });
+      return;
+    }
+    if (typeof acknowledge === 'function') acknowledge({ ok: true });
+    {
       room.playerSockets.forEach(pid => {
         io.to(pid).emit('state_update', getStateView(room.game, pid));
       });
     }
   });
 
-  socket.on('choose_dream_target', (payload = {}) => {
+  socket.on('choose_dream_target', (payload = {}, acknowledge) => {
     const targetIndex = payloadObject(payload).targetIndex;
-    const room = getRoom(playerId); if (!room) return;
+    const room = getRoom(playerId);
+    if (!room) {
+      if (typeof acknowledge === 'function') acknowledge({ ok: false, error: '对局不存在' });
+      return;
+    }
     const res = chooseDreamTarget(room.game, playerId, targetIndex);
     if (res.ok) {
+      if (typeof acknowledge === 'function') acknowledge({ ok: true, isReal: res.isReal });
       emitStateToAll(room);
+    } else if (typeof acknowledge === 'function') {
+      acknowledge({ ok: false, error: res.error || '当前无法选择梦境目标' });
+    } else {
+      socket.emit('error_msg', { message: res.error || '当前无法选择梦境目标' });
     }
   });
 
@@ -536,15 +556,21 @@ export function registerDuelHandlers(socket, {
     if (roomId) triggerAiPhase(roomId);
   });
 
-  socket.on('refresh_draft_slot', (payload = {}) => {
+  socket.on('refresh_draft_slot', (payload = {}, acknowledge) => {
     const slotIndex = payloadObject(payload).slotIndex;
     const room = getRoom(playerId);
-    if (!room || !room.game) return;
-    const res = refreshDraftSlot(room.game, playerId, slotIndex);
-    if (!res.ok) {
-      socket.emit('error_msg', { message: res.error || '无法刷新' });
+    if (!room || !room.game) {
+      if (typeof acknowledge === 'function') acknowledge({ ok: false, error: '对局不存在' });
       return;
     }
+    const res = refreshDraftSlot(room.game, playerId, slotIndex);
+    if (!res.ok) {
+      const error = res.error || '无法刷新';
+      if (typeof acknowledge === 'function') acknowledge({ ok: false, error });
+      else socket.emit('error_msg', { message: error });
+      return;
+    }
+    if (typeof acknowledge === 'function') acknowledge({ ok: true });
     emitStateToAll(room);
   });
 
@@ -566,14 +592,21 @@ export function registerDuelHandlers(socket, {
     emitStateToAll(room);
   });
 
-  socket.on('draft_ready', () => {
+  socket.on('draft_ready', (_payload = {}, acknowledge) => {
     const room = getRoom(playerId);
-    if (!room || !room.game) return;
-    const result = confirmDraftReady(room.game, playerId);
-    if (!result.ok) {
-      socket.emit('error_msg', { message: result.error || '无法完成选牌' });
+    const reply = result => { if (typeof acknowledge === 'function') acknowledge(result); };
+    if (!room || !room.game) {
+      reply({ ok: false, error: '对局不存在' });
       return;
     }
+    const result = confirmDraftReady(room.game, playerId);
+    if (!result.ok) {
+      const error = result.error || '无法完成选牌';
+      if (typeof acknowledge !== 'function') socket.emit('error_msg', { message: error });
+      reply({ ok: false, error });
+      return;
+    }
+    reply({ ok: true, allReady: !!result.allReady });
     emitStateToAll(room);
     const roomId = socketToRoom.get(playerId);
     if (result.allReady && roomId) triggerAiPhase(roomId);

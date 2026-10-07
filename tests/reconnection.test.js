@@ -181,6 +181,10 @@ test('an active battle survives a socket replacement during the reconnect grace 
     assert.equal(invalidRoll.ok, false);
     assert.equal(invalidRoll.error, '当前不是你的攻击回合');
 
+    const invalidTarget = await emitWithAck(clientB, 'select_target', { targetId: stateB.me.id });
+    assert.equal(invalidTarget.ok, false);
+    assert.equal(typeof invalidTarget.error, 'string');
+
     // The real Socket.IO handler must acknowledge tactical-card validation
     // failures instead of throwing on an undefined options object.
     const invalidTacticalCard = await emitWithAck(replacementA, 'play_tactical_card', {

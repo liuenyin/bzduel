@@ -35,8 +35,17 @@ export function createBattleChoices({ getState, actions, appendOverlay }) {
       overlay.querySelector('.dream-target-btn')?.focus();
       actions.pickDreamTarget = (value) => {
         const idx = Number(value);
-        gameSocket.chooseDreamTarget(idx);
-        overlay.remove();
+        const buttons = [...overlay.querySelectorAll('.dream-target-btn')];
+        buttons.forEach(button => { button.disabled = true; button.setAttribute('aria-busy', 'true'); });
+        gameSocket.chooseDreamTarget(idx, (result) => {
+          if (result?.ok) {
+            overlay.remove();
+            return;
+          }
+          if (!overlay.isConnected) return;
+          buttons.forEach(button => { button.disabled = false; button.removeAttribute('aria-busy'); });
+          actions.showToast(result?.error || '当前无法选择梦境目标');
+        });
       };
     } else {
       if (existing) existing.remove();
