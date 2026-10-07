@@ -502,9 +502,12 @@ export function createBattleView(container, data) {
   };
 
   actions.showToast = (msg) => {
+    const message = String(msg || '操作失败');
+    const existing = [...document.querySelectorAll('.toast.show')];
+    while (existing.length >= 5) existing.shift()?.remove();
     const t = document.createElement('div');
     t.className = 'toast show';
-    t.textContent = msg;
+    t.textContent = message;
     appendOverlay(t);
     viewLifecycle.delay(() => t.remove(), 2500);
   };
