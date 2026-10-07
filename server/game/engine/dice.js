@@ -7,7 +7,7 @@ export function getRollingPool(player, state = null) {
   if (player.lgpyForm) {
     pool = [7, 9, 9, 9, 11];
   } else if (player.card.positiveSkill?.id === SKILL.DREAM_KING || player.card.negativeSkill?.id === SKILL.ELEPHANT_CONDEMN) {
-    if (player.inDreamState && player.dreamTargetChoice !== null && player.dreamTargetChoice !== player.realTargetIdx) {
+    if (player.inDreamState && player.dreamTargetChoice != null && player.dreamTargetChoice !== player.realTargetIdx) {
       pool = [7, 9, 9, 9, 11];
     }
   }

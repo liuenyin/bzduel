@@ -71,7 +71,7 @@ export function getStateView(state, playerId) {
       dreamStacks: p.dreamStacks || 0,
       inDreamState: !!p.inDreamState,
       dreamTargetChoice: p.dreamTargetChoice,
-      realTargetIdx: isMe ? p.realTargetIdx : (p.dreamTargetChoice !== null ? p.realTargetIdx : null),
+      realTargetIdx: isMe ? p.realTargetIdx : (p.dreamTargetChoice != null ? p.realTargetIdx : null),
       lgpyForm: !!p.lgpyForm,
       lgpyTurnsLeft: p.lgpyTurnsLeft || 0,
       lgpyClassIndex: p.lgpyClassIndex,

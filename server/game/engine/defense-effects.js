@@ -82,7 +82,7 @@ export function applyDefenseEffects(state, {
 
   // 付修然梦境判定 (分身无伤害 / 本体锁血3)
   if (def.card.positiveSkill?.id === SKILL.DREAM_KING && def.inDreamState && !def.lgpyForm) {
-    if (def.dreamTargetChoice !== null && def.dreamTargetChoice !== def.realTargetIdx) {
+    if (def.dreamTargetChoice != null && def.dreamTargetChoice !== def.realTargetIdx) {
       // 选中分身: 本体不受伤害
       damage = 0;
     } else if (def.dreamTargetChoice === def.realTargetIdx) {

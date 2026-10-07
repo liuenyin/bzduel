@@ -194,6 +194,23 @@ test('four-player FFA dream flow accepts one opponent choice before attack', () 
   assert.equal(state.turnPhase, 'atk_rolled');
 });
 
+test('undefined dream choice is treated as pending after a reconnect or legacy state load', () => {
+  const state = createGame([
+    { id: 'a', nickname: 'a' },
+    { id: 'b', nickname: 'b' },
+  ]);
+  assert.equal(selectCard(state, 'a', 'char_fxr').ok, true);
+  assert.equal(selectCard(state, 'b', 'char_6').ok, true);
+  assert.equal(setReady(state, 'a').ok, true);
+  assert.equal(setReady(state, 'b').ok, true);
+  const dreamKing = state.players[0];
+  dreamKing.inDreamState = true;
+  dreamKing.realTargetIdx = 1;
+  delete dreamKing.dreamTargetChoice;
+  assert.equal(rollAttack(state).ok, false);
+  assert.equal(getStateView(state, 'b').players[0].realTargetIdx, null);
+});
+
 test('both primary and secondary AoE defenders cannot play cards after confirming', () => {
   for (const playerId of ['b', 'c']) {
     const state = battle();
