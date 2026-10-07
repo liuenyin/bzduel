@@ -174,8 +174,9 @@ export function createBattleView(container, data) {
       if (id === 'card_gen_01') {
         const attacker = S.players?.[S.attackerIdx];
         const choices = [];
-        const addChoices = (player, rolls) => {
-          if (!player || !Array.isArray(rolls)) return;
+        const isAttacker = S.attackerIdx === S.myIndex;
+        const addChoices = (player, rolls, allowed = true) => {
+          if (!allowed || !player || !Array.isArray(rolls)) return;
           rolls.forEach((value, index) => {
             if (Number(value) >= 0) choices.push({ playerId: player.id, nickname: player.nickname, index, value });
           });
@@ -184,7 +185,9 @@ export function createBattleView(container, data) {
         if (S.aoeDefenses) {
           Object.entries(S.aoeDefenses).forEach(([playerId, defense]) => {
             const player = S.players?.find(item => item.id === playerId);
-            if (player && !defense.confirmed) addChoices(player, defense.rolls);
+            if (player && !defense.confirmed) {
+              addChoices(player, defense.rolls, isAttacker || playerId === S.me?.id);
+            }
           });
         } else addChoices(S.players?.[S.defenderIdx], S.defenseRolls);
         const overlay = document.createElement('div');

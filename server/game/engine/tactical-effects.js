@@ -354,17 +354,17 @@ function rerollSelectedDie(state, player, options) {
 
 function resolveRerollTarget(state, player, options) {
   const attacker = state.players[state.turnData?.attackerIdx];
-  const defender = state.turnData?.isAoE
-    ? state.players.find(candidate => candidate?.id === options?.targetId)
-    : state.players[state.turnData?.defenderIdx];
+  const primaryDefender = state.players[state.turnData?.defenderIdx];
   const requested = options?.targetId ? state.players.find(candidate => candidate?.id === options.targetId) : null;
-  const target = requested || (player.id === attacker?.id ? attacker : defender);
+  const target = requested || (player.id === attacker?.id ? attacker : player);
   if (!target || target.isDead || target.hp <= 0) return null;
-  if (target.id !== player.id && target.id !== attacker?.id && target.id !== defender?.id) return null;
+  if (target.id !== player.id && target.id !== attacker?.id) {
+    if (!state.turnData?.isAoE || player.id !== attacker?.id) return null;
+    const targetDefense = state.turnData.aoeDefenses?.[target.id];
+    if (!targetDefense || targetDefense.confirmed) return null;
+  }
   if (target.id === attacker?.id && !Array.isArray(state.turnData?.attackRolls)) return null;
   if (target.id !== attacker?.id && !getDefenseRollsForPlayer(state, target)) return null;
-  if (state.turnData?.isAoE && target.id !== player.id && target.id !== attacker?.id) return null;
-  if (target.id !== player.id && player.id !== attacker?.id && target.id !== attacker?.id) return null;
-  if (state.turnData?.isAoE && target.id !== attacker?.id && state.turnData.aoeDefenses?.[target.id]?.confirmed) return null;
+  if (!state.turnData?.isAoE && target.id !== player.id && target.id !== attacker?.id && target.id !== primaryDefender?.id) return null;
   return target;
 }

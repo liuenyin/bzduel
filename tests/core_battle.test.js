@@ -84,6 +84,32 @@ test('invalid generic reroll target does not consume the card', () => {
   assert.equal(game.players[1].playedTurnCards.length, 0);
 });
 
+test('generic reroll lets an FFA attacker target any unconfirmed defender', () => {
+  const game = createFfaBattle();
+  const [attacker, primary, secondary] = game.players;
+  forceTurn(game, 0, 1);
+  game.turnPhase = TURN.DEF_ROLLED;
+  game.turnData.isAoE = true;
+  game.turnData.attackRolls = [2, 3, 4];
+  game.turnData.aoeDefenses = {
+    [primary.id]: { confirmed: false, rolls: [5, 5, 5] },
+    [secondary.id]: { confirmed: false, rolls: [6, 6, 6] },
+  };
+  attacker.handCards = [structuredClone(cardMap.card_gen_01)];
+  const result = withRandom(0, () => playTacticalCard(game, attacker.id, 'card_gen_01', {
+    targetId: secondary.id, dieIndex: 0,
+  }));
+  assert.equal(result.ok, true);
+  assert.equal(game.turnData.aoeDefenses[secondary.id].rolls[0], 1);
+
+  secondary.handCards = [structuredClone(cardMap.card_gen_01)];
+  const illegal = playTacticalCard(game, secondary.id, 'card_gen_01', {
+    targetId: primary.id, dieIndex: 0,
+  });
+  assert.equal(illegal.ok, false);
+  assert.equal(secondary.handCards.length, 1);
+});
+
 test('music D8 replacement persists for later rerolls in the same turn', () => {
   const game = createBattle();
   game.schedule[0] = 'music';
