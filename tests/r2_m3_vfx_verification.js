@@ -36,6 +36,10 @@ if (typeof global.document === 'undefined') {
     }
     addEventListener() {}
     removeEventListener() {}
+    setAttribute(name, value) { this[name] = String(value); }
+    removeAttribute(name) { delete this[name]; }
+    closest() { return this.parentNode; }
+    focus() {}
     getBoundingClientRect() {
       return { left: 100, top: 100, width: 200, height: 300, right: 300, bottom: 400 };
     }
@@ -73,6 +77,8 @@ if (typeof global.document === 'undefined') {
   };
 
   global.localStorage = mockLocalStorage;
+  global.requestAnimationFrame = callback => setTimeout(() => callback(Date.now()), 0);
+  global.cancelAnimationFrame = timer => clearTimeout(timer);
   global.window = {
     innerWidth: 1920,
     innerHeight: 1080,
@@ -83,6 +89,8 @@ if (typeof global.document === 'undefined') {
   };
   global.document = {
     body,
+    addEventListener: () => {},
+    removeEventListener: () => {},
     createElement: (tag) => new MockElement(tag),
     getElementById: (id) => {
       const search = (node) => {
@@ -129,6 +137,7 @@ if (typeof global.document === 'undefined') {
 const { vfxManager } = await import('../src/utils/vfx.js');
 const { createGame, selectCard, setReady, confirmAttack, confirmDefense, rollAttack, buyWater, getStateView } = await import('../server/game/engine.js');
 const { renderBattle, onTurnResolved } = await import('../src/pages/battle.js');
+const { buildFfaGrid } = await import('../src/pages/battle/arena.js');
 
 isModuleLoading = false;
 
@@ -184,7 +193,7 @@ console.log('--- Test 1: vfxManager Hardening & Detached DOM Safety ---');
   try {
     vfxManager.playHitImpact(liveEl, NaN);
     const dmgTextNode = liveEl.children[0];
-    assert(dmgTextNode && dmgTextNode.textContent === 'MISS', 'NaN damage amount sanitized to MISS (0 damage)');
+    assert(dmgTextNode && dmgTextNode.textContent === '格挡', 'NaN damage amount sanitized to 格挡 (0 damage)');
   } catch (err) {
     assert(false, `playHitImpact failed on NaN damage: ${err.message}`);
   } finally {
@@ -256,7 +265,7 @@ console.log('\n--- Test 2: Zhou Xuansheng Ultimate Payload & Client VFX Trigger 
 }
 
 // -------------------------------------------------------------
-// Test 3: FFA Tactical Card Target Lookup Priorities
+// Test 3: FFA target actions stay inside the rendered grid
 // -------------------------------------------------------------
 console.log('\n--- Test 3: FFA Tactical Card Target Lookup Priorities ---');
 {
@@ -268,9 +277,9 @@ console.log('\n--- Test 3: FFA Tactical Card Target Lookup Priorities ---');
     { id: 'p1', nickname: 'Player 1' },
     { id: 'p2', nickname: 'Player 2' },
     { id: 'p3', nickname: 'Player 3' }
-  ], 'sanguosha');
-  selectCard(game, 'p1', 'char_1');
-  selectCard(game, 'p2', 'char_2');
+  ], 'ffa');
+  selectCard(game, 'p1', 'char_3');
+  selectCard(game, 'p2', 'char_4');
   selectCard(game, 'p3', 'char_3');
   setReady(game, 'p1');
   setReady(game, 'p2');
@@ -278,40 +287,13 @@ console.log('\n--- Test 3: FFA Tactical Card Target Lookup Priorities ---');
 
   game.turnData.defenderIdx = 1; // p2 is defender target
   const stateView = getStateView(game, 'p1');
-  renderBattle(container, { state: stateView });
-
-  // 3a. Priority 1: .ffa-micro-card.active-target
-  const activeOpponent = document.createElement('div');
-  activeOpponent.className = 'ffa-micro-card active-target';
-  activeOpponent.dataset.pid = 'p2';
-  container.appendChild(activeOpponent);
-
-  const deadOpponent = document.createElement('div');
-  deadOpponent.className = 'ffa-micro-card dead';
-  deadOpponent.dataset.pid = 'p3';
-  container.appendChild(deadOpponent);
-
-  let targetedCard = null;
-  const originalPlayVFX = vfxManager.playTacticalCardVFX;
-  vfxManager.playTacticalCardVFX = (src, target, cb) => {
-    targetedCard = target;
-    if (cb) cb();
-  };
-
-  window._playTacticalCard('card_gen_01');
-  assert(targetedCard === activeOpponent, 'Priority 1: FFA tactical card targeted .ffa-micro-card.active-target');
-
-  // 3b. Priority 2: .ffa-micro-card:not(.dead) when no active-target exists
-  activeOpponent.className = 'ffa-micro-card'; // Remove active-target class
-  const aliveOpponent = document.createElement('div');
-  aliveOpponent.className = 'ffa-micro-card';
-  aliveOpponent.dataset.pid = 'p4';
-  container.appendChild(aliveOpponent);
-
-  window._playTacticalCard('card_gen_01');
-  assert(targetedCard && !targetedCard.className.includes('dead'), 'Priority 2: FFA tactical card targeted alive .ffa-micro-card:not(.dead)');
-
-  vfxManager.playTacticalCardVFX = originalPlayVFX;
+  stateView.turnPhase = 'choose_target';
+  stateView.isMyAttackTurn = true;
+  const grid = buildFfaGrid(stateView);
+  const targetActionCount = (grid.match(/data-battle-action="selectFfaTarget"/g) || []).length;
+  assert(targetActionCount === 2, `FFA grid exposes one delegated target action per opponent (actual: ${targetActionCount})`);
+  assert(grid.includes('role="button"') && grid.includes('tabindex="0"'), 'FFA target cards are keyboard-focusable buttons');
+  assert(typeof window._playTacticalCard === 'undefined' && typeof window._buyDraftCard === 'undefined', 'Legacy global card hooks remain removed');
   container.remove();
 }
 
@@ -349,7 +331,7 @@ console.log('\n--- Test 4: Floating Damage Rendering & Delayed DOM Lookup ---');
 }
 
 // -------------------------------------------------------------
-// Test 5: _buyDraftCard Memory Leak Verification
+// Test 5: Battle view ownership remains disposable after repeated renders
 // -------------------------------------------------------------
 console.log('\n--- Test 5: _buyDraftCard Memory Leak Verification ---');
 {
@@ -360,25 +342,20 @@ console.log('\n--- Test 5: _buyDraftCard Memory Leak Verification ---');
     { id: 'p1', nickname: 'P1' },
     { id: 'p2', nickname: 'P2' }
   ], '1v1');
-  selectCard(game, 'p1', 'char_1');
-  selectCard(game, 'p2', 'char_2');
+  selectCard(game, 'p1', 'char_3');
+  selectCard(game, 'p2', 'char_4');
   setReady(game, 'p1');
   setReady(game, 'p2');
 
   const stateView = getStateView(game, 'p1');
-  // Render battle 10 times to test for wrapping memory leak
+  // Render and dispose battle 10 times to test for listener wrapping leaks.
   for (let i = 0; i < 10; i++) {
-    renderBattle(container, { state: stateView });
+    const dispose = renderBattle(container, { state: stateView });
+    dispose?.();
   }
 
-  try {
-    window._buyDraftCard(0);
-    assert(true, '_buyDraftCard executed without stack overflow / recursive re-wrapping after 10 renders');
-  } catch (err) {
-    assert(false, `_buyDraftCard failed: ${err.message}`);
-  } finally {
-    container.remove();
-  }
+  assert(typeof window._buyDraftCard === 'undefined', 'No legacy _buyDraftCard global is installed after repeated renders');
+  container.remove();
 }
 
 // -------------------------------------------------------------
@@ -390,8 +367,8 @@ console.log('\n--- Test 6: animLock State Update Retention ---');
     { id: 'p1', nickname: 'P1' },
     { id: 'p2', nickname: 'P2' }
   ], '1v1');
-  selectCard(game, 'p1', 'char_1');
-  selectCard(game, 'p2', 'char_2');
+  selectCard(game, 'p1', 'char_3');
+  selectCard(game, 'p2', 'char_4');
   setReady(game, 'p1');
   setReady(game, 'p2');
 
@@ -420,4 +397,3 @@ console.log(`\n=== Verification Complete: ${passCount} PASSED, ${failCount} FAIL
 setTimeout(() => {
   process.exit(failCount > 0 ? 1 : 0);
 }, 200);
-

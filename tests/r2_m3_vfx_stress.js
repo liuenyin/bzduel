@@ -35,6 +35,7 @@ if (typeof global.document === 'undefined') {
       this.parentNode = null;
       this.textContent = '';
       this.innerHTML = '';
+      this.attributes = {};
     }
     appendChild(child) {
       if (child && typeof child === 'object' && child.tagName) {
@@ -57,8 +58,14 @@ if (typeof global.document === 'undefined') {
         this.parentNode = null;
       }
     }
+    closest() {
+      return this.parentNode;
+    }
     addEventListener() {}
     removeEventListener() {}
+    setAttribute(name, value) { this.attributes[name] = String(value); }
+    removeAttribute(name) { delete this.attributes[name]; }
+    focus() {}
     getBoundingClientRect() {
       return { left: 100, top: 100, width: 200, height: 300, right: 300, bottom: 400 };
     }
@@ -112,6 +119,8 @@ if (typeof global.document === 'undefined') {
   };
   global.document = {
     body,
+    addEventListener: () => {},
+    removeEventListener: () => {},
     createElement: (tag) => new MockElement(tag),
     getElementById: (id) => {
       let registered = elementRegistry.get(id);
@@ -270,7 +279,7 @@ console.log('--- STRESS TEST 1: Granular vfxManager Method Stress Tests ---');
 }
 
 // -------------------------------------------------------------
-// STRESS TEST 2: Repeated draft shop card purchases (_buyDraftCard)
+// STRESS TEST 2: Repeated battle view mounting and draft action ownership
 // -------------------------------------------------------------
 console.log('\n--- STRESS TEST 2: Draft Shop Purchases Memory Leak & Stack Overflow Verification ---');
 {
@@ -281,35 +290,28 @@ console.log('\n--- STRESS TEST 2: Draft Shop Purchases Memory Leak & Stack Overf
     { id: 'p1', nickname: 'P1' },
     { id: 'p2', nickname: 'P2' }
   ], '1v1');
-  selectCard(game, 'p1', 'char_1');
-  selectCard(game, 'p2', 'char_2');
+  selectCard(game, 'p1', 'char_3');
+  selectCard(game, 'p2', 'char_4');
   setReady(game, 'p1');
   setReady(game, 'p2');
 
   const stateView = getStateView(game, 'p1');
 
-  let buyDraftCardCallCount = 0;
-  gameSocket.buyDraftCard = () => {
-    buyDraftCardCallCount++;
-  };
-
   const rendersCount = 200;
   let stackOverflowError = null;
   try {
     for (let i = 0; i < rendersCount; i++) {
-      renderBattle(container, { state: stateView });
-      window._buyDraftCard(0);
+      const dispose = renderBattle(container, { state: stateView });
+      // Each render owns its delegated actions and must be disposable. The
+      // old global _buyDraftCard hook was removed with the view refactor.
+      dispose?.();
     }
   } catch (err) {
     stackOverflowError = err;
   }
 
-  assert(stackOverflowError === null, `Rendered battle UI ${rendersCount} times and invoked _buyDraftCard without stack overflow`);
-  assert(buyDraftCardCallCount === rendersCount, `_buyDraftCard dispatched exactly ${rendersCount} socket requests (actual: ${buyDraftCardCallCount})`);
-
-  const fnString = window._buyDraftCard.toString();
-  const isWrapped = fnString.includes('originalBuy');
-  assert(!isWrapped, '_buyDraftCard is clean single-function assignment, not a recursive wrapper');
+  assert(stackOverflowError === null, `Mounted and disposed battle UI ${rendersCount} times without stack overflow`);
+  assert(typeof window._buyDraftCard === 'undefined', 'Removed legacy global _buyDraftCard hook');
 
   container.remove();
 }
@@ -327,8 +329,8 @@ console.log('\n--- STRESS TEST 3: Rapid State Updates During animLock Verificati
     { id: 'p1', nickname: 'P1' },
     { id: 'p2', nickname: 'P2' }
   ], '1v1');
-  selectCard(game, 'p1', 'char_1');
-  selectCard(game, 'p2', 'char_2');
+  selectCard(game, 'p1', 'char_3');
+  selectCard(game, 'p2', 'char_4');
   setReady(game, 'p1');
   setReady(game, 'p2');
 
@@ -378,7 +380,7 @@ console.log('\n--- STRESS TEST 3: Rapid State Updates During animLock Verificati
 
   console.log(`[INFO] HP text after animLock released: ${hpMeLabel.textContent}`);
 
-  assert(String(hpMeLabel.textContent) === String(100 - totalStateUpdates), `After animLock released, final pending state version was applied: HP is ${hpMeLabel.textContent} (expected ${100 - totalStateUpdates})`);
+  assert(String(hpMeLabel.textContent).startsWith(`${100 - totalStateUpdates} /`), `After animLock released, final pending state version was applied: HP is ${hpMeLabel.textContent} (expected ${100 - totalStateUpdates} / …)`);
 
   container.remove();
   gameSocket.on = originalOn;

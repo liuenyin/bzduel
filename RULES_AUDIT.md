@@ -67,6 +67,9 @@
 - `npm run test:e2e -- --workers=1 --grep-invert autochess`：37 项浏览器测试通过，排除自走棋；包含回执丢事件恢复、梦境盲选、匹配取消、大乱斗目标选择、开局失败重试和聊天浮窗生命周期。
 - `node tests/challenger_m3_ultimate_battle_stress.js`：7 项技能、多人结算与 DOM 清理压力场景通过，无未捕获异常。
 - `node tests/e2e/challenger_stress_test.js`：五种视口的极端卡牌排版与 VFX 容错压力测试通过，无错误。
+- `node tests/reviewer2_deep_stress_test.js`：44 项深度规则压力检查通过，覆盖群攻防守卡时机、信息复制技能、梦境与多回合状态清理。
+- `node tests/r2_m3_vfx_stress.js`：10 项 VFX、重复挂载、动画锁和旧全局钩子清理检查通过。
+- `node tests/r2_m3_vfx_verification.js`：22 项 VFX、乱斗目标委托、伤害文本和动画锁检查通过。
 - `npx playwright test tests/e2e/multiplayer.spec.js --workers=1 --grep "four-player target selection"`：键盘与移动端四人目标选择流程均通过。
 - `git diff --check`：通过。
 

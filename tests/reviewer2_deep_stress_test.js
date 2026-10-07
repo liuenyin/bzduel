@@ -91,11 +91,6 @@ console.log('--- 1. Testing confirmDefense recalculation (card_chi_2 & card_chi_
   setReady(game, 'p1'); setReady(game, 'p2'); setReady(game, 'p3');
   game.schedule[game.currentClassIndex] = 'chinese';
 
-  // P2 plays card_chi_2
-  const chi2 = CARDS.find(c => c.id === 'card_chi_2');
-  game.players[1].handCards.push(chi2);
-  playTacticalCard(game, 'p2', 'card_chi_2');
-
   // Select target in FFA
   const targetRes = selectTarget(game, 'p1', 'p2');
   assert(targetRes.ok, 'Target selected in FFA mode');
@@ -103,6 +98,11 @@ console.log('--- 1. Testing confirmDefense recalculation (card_chi_2 & card_chi_
   const atkRollRes = rollAttack(game);
   assert(atkRollRes.ok, 'rollAttack succeeded in FFA mode');
   confirmAttack(game, [0, 1, 2]);
+
+  // Defense cards become legal after the AoE defense entries are created.
+  const chi2 = CARDS.find(c => c.id === 'card_chi_2');
+  game.players[1].handCards.push(chi2);
+  assert(playTacticalCard(game, 'p2', 'card_chi_2').ok, 'P2 can play card_chi_2 after AoE attack starts');
 
   // Set P2 defense rolls to [1, 1, 1, 1, 1] -> slots [0, 1, 2] -> min die index 0 becomes maxFace 4 -> [4, 1, 1] sum = 6
   game.turnData.aoeDefenses['p2'].rolls = [1, 1, 1, 1, 1];
@@ -213,7 +213,7 @@ console.log('\n--- 4. Testing card_it_1 blessing execution ---');
   assert(playRes.ok, 'P2 played card_it_1 blessing');
   assert(game.players[1].activeBlessings.some(c => c.id === 'card_it_1'), 'card_it_1 added to activeBlessings');
   assert(game.players[1].card.positiveSkill?.id === 'star_showoff', `Copied positiveSkill: ${game.players[1].card.positiveSkill?.id}`);
-  assert(JSON.stringify(game.players[1].card.dicePool) === JSON.stringify([4,4,4,6,6]), `Copied dicePool: ${JSON.stringify(game.players[1].card.dicePool)}`);
+  assert(JSON.stringify(game.players[1].card.dicePool) === JSON.stringify([4,4,6,6]), `Copied skill leaves dicePool unchanged: ${JSON.stringify(game.players[1].card.dicePool)}`);
 }
 
 // 5. Defect 5: card_bio_3 opponent damage with various HP levels
@@ -335,15 +335,16 @@ console.log('\n--- 8. Testing card_gen_14 AoE mode support ---');
   game.players[1].tp = 0; // P2
   game.players[2].tp = 0; // P3
 
-  // P2 plays card_gen_14
+  // P2 plays card_gen_14 after the AoE attack starts; defense cards cannot be
+  // used during the target-selection phase.
   const gen14 = CARDS.find(c => c.id === 'card_gen_14');
   game.players[1].handCards.push(gen14);
-  playTacticalCard(game, 'p2', 'card_gen_14');
 
   selectTarget(game, 'p1', 'p2');
 
   rollAttack(game);
   confirmAttack(game, [0, 1, 2]);
+  assert(playTacticalCard(game, 'p2', 'card_gen_14').ok, 'P2 can play card_gen_14 after AoE attack starts');
 
   // P2 defRolls = [10, 10, 10, 10] -> damage 0
   // P3 defRolls = [1, 1, 1, 1] -> damage > 0
