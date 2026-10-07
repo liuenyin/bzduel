@@ -400,6 +400,10 @@ export function registerGameServer(io) {
 
     if (room.game.pending) {
       if (room.game.mode === 'sanguosha' && room.game.players) {
+        // Waiting-room disconnects remove the player entirely. Unlike a
+        // battle spectator, this session no longer belongs to the room and
+        // must be free to create or join another room after the grace period.
+        socketToRoom.delete(playerId);
         room.game.players = room.game.players.filter(p => p.id !== playerId);
         room.playerSockets = room.playerSockets.filter(pid => pid !== playerId);
         if (room.playerSockets.length === 0) cleanupRoom(roomId);

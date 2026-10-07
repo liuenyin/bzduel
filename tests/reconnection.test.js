@@ -254,6 +254,32 @@ test('an active battle survives a socket replacement during the reconnect grace 
     const closeNotice = await roomClosed;
     assert.equal(leaveResult.ok, true);
     assert.match(closeNotice.reason, /离开/);
+
+    // A player that times out while waiting in an FFA room is removed from
+    // the room completely, including the session-to-room index. The same
+    // session must be able to create a fresh room after reconnecting.
+    const ffaSessionA = `pending_ffa_a_${suffix}`;
+    const ffaSessionB = `pending_ffa_b_${suffix}`;
+    const ffaA = await connectClient(baseURL, ffaSessionA);
+    const ffaB = await connectClient(baseURL, ffaSessionB);
+    sockets.push(ffaA, ffaB);
+    const ffaCreated = await emitWithAck(ffaA, 'create_ffa_room', { nickname: '等待房主' });
+    const ffaRoomId = ffaCreated.roomId;
+    const ffaJoined = await emitWithAck(ffaB, 'join_ffa_room', { roomId: ffaRoomId, nickname: '等待队友' });
+    assert.equal(ffaJoined.ok, true);
+    const ffaRemoved = waitForEvent(ffaB, 'ffa_room_update', players => players.players?.length === 1);
+    ffaA.disconnect();
+    await ffaRemoved;
+    await new Promise(resolve => setTimeout(resolve, 2200));
+
+    const ffaReplacement = await connectClient(baseURL, ffaSessionA);
+    sockets.push(ffaReplacement);
+    const ffaResume = await resumeSession(ffaReplacement);
+    assert.equal(ffaResume.ok, false);
+    const freshFfa = await emitWithAck(ffaReplacement, 'create_ffa_room', { nickname: '新房主' });
+    assert.equal(freshFfa.ok, true);
+    assert.notEqual(freshFfa.roomId, ffaRoomId);
+    await emitWithAck(ffaReplacement, 'leave_room');
   } finally {
     for (const socket of sockets) socket.disconnect();
     if (serverProcess.exitCode === null) serverProcess.kill();
