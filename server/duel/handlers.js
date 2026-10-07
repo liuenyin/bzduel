@@ -228,10 +228,11 @@ export function registerDuelHandlers(socket, {
       return;
     }
     const roomId = newRoomId();
-    rooms.set(roomId, {
+    const room = {
       game: { pending: true, mode: 'sanguosha', players: [{ id: playerId, nickname }] },
       playerSockets: [playerId], isAI: false,
-    });
+    };
+    rooms.set(roomId, room);
     socketToRoom.set(playerId, roomId);
     socket.join(roomId);
     acknowledge?.({ ok: true, roomId, mode: 'sanguosha', waiting: true, players: room.game.players });
@@ -310,11 +311,21 @@ export function registerDuelHandlers(socket, {
 
     const game = createGame(room.game.players, 'sanguosha');
     room.game = game;
-    reply({ ok: true });
+    reply({
+      ok: true,
+      match: {
+        roomId,
+        mode: 'sanguosha',
+        opponent: '大乱斗模式',
+        schedule: game.schedule,
+        state: getStateView(game, playerId),
+      },
+    });
 
     for (const pid of room.playerSockets) {
       io.to(pid).emit('match_found', {
         roomId,
+        mode: 'sanguosha',
         opponent: '大乱斗模式', // placeholder
         schedule: game.schedule,
         state: getStateView(game, pid),

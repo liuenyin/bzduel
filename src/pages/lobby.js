@@ -43,9 +43,16 @@ export function renderLobby(container, data = {}) {
         <div class="btn-group">
           <button id="btn-create" class="btn btn-secondary">创建 1v1 房间</button>
           <div class="room-row">
-            <input id="room-input" type="text" placeholder="房间号" maxlength="8" />
+            <input id="room-input" type="text" placeholder="输入房间号" maxlength="8" aria-label="房间号" />
             <button id="btn-join" class="btn btn-secondary">加入 1v1</button>
           </div>
+        </div>
+
+        <div class="lobby-mode-divider" role="separator"><span>多人模式</span></div>
+        <div class="btn-group lobby-ffa-actions">
+          <button id="btn-create-ffa" class="btn btn-secondary">创建大乱斗房间</button>
+          <button id="btn-join-ffa" class="btn btn-secondary">加入大乱斗</button>
+          <small class="lobby-mode-hint">3–8 人同场，使用上方房间号加入</small>
         </div>
 
         <div style="margin-top:12px; text-align:center;">
@@ -154,11 +161,13 @@ export function renderLobby(container, data = {}) {
 
   const inviteParams = new URLSearchParams(window.location.search);
   const invitedRoomId = inviteParams.get('room');
-  const invitedMode = '1v1';
+  const invitedMode = inviteParams.get('mode') === 'sanguosha' ? 'sanguosha' : '1v1';
   if (invitedRoomId) {
     const inputId = 'room-input';
     document.getElementById(inputId).value = invitedRoomId;
-    statusDiv.innerHTML = `<p class="status-msg">邀请房间 ${escapeHTML(invitedRoomId)} 已填入，输入昵称后即可加入。</p>`;
+    const modeLabel = invitedMode === 'sanguosha' ? '大乱斗' : '1v1';
+    statusDiv.innerHTML = `<p class="status-msg">${modeLabel}邀请房间 ${escapeHTML(invitedRoomId)} 已填入，输入昵称后点击“加入${modeLabel}”。</p>`;
+    nicknameInput.focus();
   }
 
   function getNick() {
@@ -306,6 +315,28 @@ export function renderLobby(container, data = {}) {
     statusDiv.innerHTML = '<p class="status-msg">正在加入房间…</p>';
     lobbyAction(event.currentTarget, '正在加入…', acknowledge => gameSocket.joinRoom(n, roomId, acknowledge), '加入房间失败', result => {
       if (result.match) handleMatchFound(result.match);
+    });
+  });
+
+  document.getElementById('btn-create-ffa').addEventListener('click', event => {
+    const n = getNick(); if (!n) return;
+    statusDiv.innerHTML = '<p class="status-msg">正在创建大乱斗房间…</p>';
+    lobbyAction(event.currentTarget, '正在创建…', acknowledge => gameSocket.createFfaRoom(n, acknowledge), '创建大乱斗房间失败', result => {
+      if (result.roomId) showWaitingRoom({ roomId: result.roomId, mode: 'sanguosha', isOwner: true, players: result.players || [] });
+    });
+  });
+
+  document.getElementById('btn-join-ffa').addEventListener('click', event => {
+    const n = getNick(); if (!n) return;
+    const roomId = document.getElementById('room-input').value.trim();
+    if (!roomId) {
+      statusDiv.innerHTML = '<p style="color:var(--red);">请输入大乱斗房间号</p>';
+      document.getElementById('room-input').focus();
+      return;
+    }
+    statusDiv.innerHTML = '<p class="status-msg">正在加入大乱斗房间…</p>';
+    lobbyAction(event.currentTarget, '正在加入…', acknowledge => gameSocket.joinFfaRoom(n, roomId, acknowledge), '加入大乱斗房间失败', result => {
+      if (result.roomId) showWaitingRoom({ roomId: result.roomId, mode: 'sanguosha', isOwner: false, players: result.players || [] });
     });
   });
 
@@ -469,7 +500,11 @@ export function renderLobby(container, data = {}) {
         button.disabled = true;
         button.textContent = '正在开始…';
         gameSocket.startFfaGame(result => {
-          if (result?.ok || !button.isConnected) return;
+          if (result?.ok) {
+            if (result.match) handleMatchFound(result.match);
+            return;
+          }
+          if (!button.isConnected) return;
           button.disabled = false;
           button.textContent = '全员准备完毕，开始游戏';
           showLobbyError(result?.error || '暂时无法开始游戏');
@@ -501,6 +536,7 @@ export function renderLobby(container, data = {}) {
   });
 
   gameSocket.on('ffa_room_update', ({ players }) => {
+    if (!active || !gameSocket.currentRoomId) return;
     // 仅在房主端显示或者全员大厅显示
     const list = (Array.isArray(players) ? players : []).map(p => `<li>${escapeHTML(p?.nickname || '匿名玩家')}</li>`).join('');
     const listEl = document.getElementById('ffa-player-list');

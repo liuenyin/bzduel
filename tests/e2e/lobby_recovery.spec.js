@@ -101,13 +101,12 @@ test('rejected FFA start retains room controls and can be retried after friends 
   page.on('pageerror', error => errors.push(error.message));
   try {
     await page.goto('/');
-    const roomId = await page.evaluate(async () => {
-      const { gameSocket } = await import('/src/net/socket.js');
-      return new Promise(resolve => {
-        gameSocket.socket.once('room_created', room => resolve(room.roomId));
-        gameSocket.createFfaRoom('房主');
-      });
-    });
+    await dropLobbyEvents(page);
+    await page.fill('#nickname-input', '房主');
+    await page.click('#btn-create-ffa');
+    await expect(page.locator('#btn-leave-waiting')).toBeVisible();
+    const roomId = await page.evaluate(async () => (await import('/src/net/socket.js')).gameSocket.currentRoomId);
+    expect(roomId).toBeTruthy();
     await page.click('#btn-start-ffa');
     await expect(page.locator('#status')).toContainText('大乱斗至少需要 3 名玩家');
     await expect(page.locator('#btn-start-ffa')).toBeEnabled();
@@ -125,10 +124,10 @@ test('rejected FFA start retains room controls and can be retried after friends 
       contexts.push(context);
       const guest = await context.newPage();
       await guest.goto('/');
-      await guest.evaluate(async ({ roomId, index }) => {
-        const { gameSocket } = await import('/src/net/socket.js');
-        gameSocket.joinFfaRoom(`好友${index}`, roomId);
-      }, { roomId, index });
+      await guest.fill('#nickname-input', `好友${index}`);
+      await guest.fill('#room-input', roomId);
+      await guest.click('#btn-join-ffa');
+      await expect(guest.locator('#btn-leave-waiting')).toBeVisible();
     }
     await expect(page.locator('#ffa-player-list li')).toHaveCount(3);
     await page.click('#btn-start-ffa');
