@@ -299,45 +299,66 @@ export function registerDuelHandlers(socket, {
   });
 
   // ── 掷攻击骰 ──
-  socket.on('roll_dice', () => {
-    const room = getRoom(playerId); if (!room) return;
+  socket.on('roll_dice', (_payload = {}, acknowledge) => {
+    const reply = result => { if (typeof acknowledge === 'function') acknowledge(result); };
+    const room = getRoom(playerId);
+    if (!room) { reply({ ok: false, error: '对局不存在' }); return; }
     const g = room.game;
-    if (getCurrentAttackerId(g) !== playerId) return;
-    const res = rollAttack(g);
-    if (!res.ok) {
-      if (res.error === 'dream_target_required') {
-        socket.emit('error_msg', { message: '梦境盲选尚未完成，请等待对手选择目标。' });
-      }
+    if (getCurrentAttackerId(g) !== playerId) {
+      reply({ ok: false, error: '当前不是你的攻击回合' });
       return;
     }
-      emitStateToAll(room);
-      if (res.skipped) {
-        emitSkippedAttackResolution(room, res);
-      } else if (res.selfKill) {
-        emitImmediateTurnResolution(room, res);
+    const res = rollAttack(g);
+    if (!res.ok) {
+      if (res.error === 'dream_target_required' && typeof acknowledge !== 'function') {
+        socket.emit('error_msg', { message: '梦境盲选尚未完成，请等待对手选择目标。' });
       }
+      reply({ ok: false, error: res.error || '暂时无法掷骰' });
+      return;
+    }
+    reply({ ok: true });
+    emitStateToAll(room);
+    if (res.skipped) {
+      emitSkippedAttackResolution(room, res);
+    } else if (res.selfKill) {
+      emitImmediateTurnResolution(room, res);
+    }
   });
 
   // ── 重投骰子 ──
-  socket.on('reroll_dice', (payload = {}) => {
+  socket.on('reroll_dice', (payload = {}, acknowledge) => {
+    const reply = result => { if (typeof acknowledge === 'function') acknowledge(result); };
     const indices = payloadObject(payload).indices;
-    const room = getRoom(playerId); if (!room) return;
+    const room = getRoom(playerId);
+    if (!room) { reply({ ok: false, error: '对局不存在' }); return; }
     const res = rerollDice(room.game, playerId, indices);
-    if (!res.ok) return;
+    if (!res.ok) {
+      reply({ ok: false, error: res.error || '暂时无法重投' });
+      return;
+    }
+    reply({ ok: true });
     emitStateToAll(room);
     if (res.selfKill) emitImmediateTurnResolution(room, res);
   });
 
   // ── 周煊声: 买水 (跳过攻击，蓄势) ──
-  socket.on('buy_water', () => {
-    const room = getRoom(playerId); if (!room) return;
+  socket.on('buy_water', (_payload = {}, acknowledge) => {
+    const reply = result => { if (typeof acknowledge === 'function') acknowledge(result); };
+    const room = getRoom(playerId);
+    if (!room) { reply({ ok: false, error: '对局不存在' }); return; }
     const g = room.game;
     const res = buyWater(g, playerId);
     if (!res.ok) {
-      if (res.error === 'already_rerolled') socket.emit('error_msg', { message: '已经重投过了，无法买水！' });
-      else if (res.error === 'max_charges') socket.emit('error_msg', { message: '蓄势已满（最多2层）！' });
+      const message = res.error === 'already_rerolled'
+        ? '已经重投过了，无法买水！'
+        : res.error === 'max_charges'
+          ? '蓄势已满（最多2层）！'
+          : (res.error || '暂时无法买水');
+      if (typeof acknowledge !== 'function') socket.emit('error_msg', { message });
+      reply({ ok: false, error: message });
       return;
     }
+    reply({ ok: true });
     emitToAll(room, 'buy_water_result', (pid) => ({
       chargeStacks: res.chargeStacks,
       state: getStateView(g, pid),
@@ -357,27 +378,40 @@ export function registerDuelHandlers(socket, {
   });
 
   // ── 确认骰子 ──
-  socket.on('confirm_dice', (payload = {}) => {
+  socket.on('confirm_dice', (payload = {}, acknowledge) => {
+    const reply = result => { if (typeof acknowledge === 'function') acknowledge(result); };
     const { indices, options = {} } = payloadObject(payload);
     const roomId = socketToRoom.get(playerId);
-    const room = getRoom(playerId); if (!room) return;
+    const room = getRoom(playerId);
+    if (!room) { reply({ ok: false, error: '对局不存在' }); return; }
     const g = room.game;
 
     if (g.turnPhase === TURN.ATK_ROLLED && getCurrentAttackerId(g) === playerId) {
       const res = confirmAttack(g, indices);
-      if (!res.ok) return;
+      if (!res.ok) {
+        reply({ ok: false, error: res.error || '无效的攻击选骰' });
+        return;
+      }
       if (res.selfKill) {
+        reply({ ok: true });
         emitImmediateTurnResolution(room, res);
         return;
       }
+      reply({ ok: true });
       emitToAll(room, 'atk_confirmed', (pid) => getAttackConfirmationView(g, pid));
       triggerAiPhase(roomId);
 
     } else if (g.turnPhase === TURN.DEF_ROLLED) {
       if (g.turnData.isAoE) {
-        if (!g.turnData.aoeDefenses[playerId]) return;
+        if (!g.turnData.aoeDefenses[playerId]) {
+          reply({ ok: false, error: '当前不是你的防守回合' });
+          return;
+        }
       } else {
-        if (getCurrentDefenderId(g) !== playerId) return;
+        if (getCurrentDefenderId(g) !== playerId) {
+          reply({ ok: false, error: '当前不是你的防守回合' });
+          return;
+        }
       }
 
       // Save defender info before confirmDefense modifies state
@@ -392,18 +426,24 @@ export function registerDuelHandlers(socket, {
 
       const res = confirmDefense(g, playerId, indices, options);
       if (!res.ok) {
-        if (res.error === 'zww_d10_limit') {
-          socket.emit('error_msg', { message: '曾无畏的限制：防御时最多只能选中一个 D10 骰子！' });
-        } else {
-          socket.emit('error_msg', { message: '无效的选骰' });
+        if (typeof acknowledge !== 'function') {
+          if (res.error === 'zww_d10_limit') {
+            socket.emit('error_msg', { message: '曾无畏的限制：防御时最多只能选中一个 D10 骰子！' });
+          } else {
+            socket.emit('error_msg', { message: '无效的选骰' });
+          }
         }
+        reply({ ok: false, error: res.error || '无效的防守选骰' });
         return;
       }
 
       if (res.waitingForOthers) {
+        reply({ ok: true, waitingForOthers: true });
         emitStateToAll(room);
         return;
       }
+
+      reply({ ok: true });
 
       // YZX masking: hide defense/attack stats from opponents when YZX is involved
       emitToAll(room, 'turn_resolved', (pid) => {
@@ -442,6 +482,8 @@ export function registerDuelHandlers(socket, {
       } else {
         triggerAiPhase(roomId);
       }
+    } else {
+      reply({ ok: false, error: '当前无法确认骰子' });
     }
   });
 

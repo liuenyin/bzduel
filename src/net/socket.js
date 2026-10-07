@@ -89,6 +89,18 @@ class GameSocket {
     return () => this.sessionResumeListeners.delete(listener);
   }
 
+  emitWithAck(event, payload, acknowledge) {
+    if (typeof acknowledge !== 'function') {
+      this.socket.emit(event, payload);
+      return;
+    }
+    this.socket.timeout(8000).emit(event, payload, (error, result) => {
+      acknowledge(error
+        ? { ok: false, error: '连接超时，请检查网络后重试' }
+        : result);
+    });
+  }
+
   startPVE(n, aiCardId = null) { this.socket.emit('start_pve', { nickname: n, aiCardId }); }
   createRoom(n) { this.socket.emit('create_room', { nickname: n }); }
   joinRoom(n, r) { this.socket.emit('join_room', { nickname: n, roomId: r }); }
@@ -104,24 +116,27 @@ class GameSocket {
   setReady() { this.socket.emit('ready'); }
   useReschedule(idx, subj) { this.socket.emit('use_reschedule', { classIndex: idx, newType: subj }); }
 
-  rollDice() { this.socket.emit('roll_dice'); }
-  rerollDice(indices) { this.socket.emit('reroll_dice', { indices }); }
-  confirmDice(indices, options = {}) { this.socket.emit('confirm_dice', { indices, options }); }
-  buyWater() { this.socket.emit('buy_water'); }
+  rollDice(acknowledge) { this.emitWithAck('roll_dice', {}, acknowledge); }
+  rerollDice(indices, acknowledge) { this.emitWithAck('reroll_dice', { indices }, acknowledge); }
+  confirmDice(indices, options = {}, acknowledge) {
+    if (typeof options === 'function') { acknowledge = options; options = {}; }
+    this.emitWithAck('confirm_dice', { indices, options }, acknowledge);
+  }
+  buyWater(acknowledge) { this.emitWithAck('buy_water', {}, acknowledge); }
   chooseDreamTarget(idx) { this.socket.emit('choose_dream_target', { targetIndex: idx }); }
 
   playTacticalCard(id, options, acknowledge) {
     if (typeof options === 'function') { acknowledge = options; options = {}; }
-    this.socket.emit('play_tactical_card', { cardId: id, ...(options || {}) }, acknowledge);
+    this.emitWithAck('play_tactical_card', { cardId: id, ...(options || {}) }, acknowledge);
   }
   refreshDraftSlot(idx) { this.socket.emit('refresh_draft_slot', { slotIndex: idx }); }
-  buyDraftCard(idx, acknowledge) { this.socket.emit('buy_draft_card', { slotIndex: idx }, acknowledge); }
+  buyDraftCard(idx, acknowledge) { this.emitWithAck('buy_draft_card', { slotIndex: idx }, acknowledge); }
   confirmDraftReady() { this.socket.emit('draft_ready'); }
-  surrender(acknowledge) { this.socket.emit('surrender', {}, acknowledge); }
-  requestRematch(acknowledge) { this.socket.emit('request_rematch', {}, acknowledge); }
+  surrender(acknowledge) { this.emitWithAck('surrender', {}, acknowledge); }
+  requestRematch(acknowledge) { this.emitWithAck('request_rematch', {}, acknowledge); }
   leaveRoom(acknowledge) {
     this.sessionRevision++;
-    this.socket.emit('leave_room', {}, (result) => {
+    this.emitWithAck('leave_room', {}, (result) => {
       if (result?.ok) {
         this.currentRoomId = null;
         this.lastResumeData = null;

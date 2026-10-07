@@ -2,7 +2,7 @@ import { gameSocket } from '../../net/socket.js';
 import { DICE_COLORS } from '../../../shared/rules.js';
 import { vfxManager } from '../../utils/vfx.js';
 
-export function createDiceSelection({ getState, appendOverlay }) {
+export function createDiceSelection({ getState, appendOverlay, showToast = () => {} }) {
   let selectionKey = null;
   function renderDice() {
     const S = getState();
@@ -184,7 +184,11 @@ export function createDiceSelection({ getState, appendOverlay }) {
 
   function doSacrifice(idx) {
     const indices = Array.from(document.querySelectorAll('.die.defense.selected')).map(d => parseInt(d.dataset.idx));
-    gameSocket.confirmDice(indices, { sacrificeIndex: idx });
+    gameSocket.confirmDice(indices, { sacrificeIndex: idx }, result => {
+      if (!result?.ok) {
+        showToast(result?.error || '暂时无法确认献祭');
+      }
+    });
     document.getElementById('sacrifice-modal')?.remove();
   }
   return { renderDice, updateActionButtons, showSacrifice, doSacrifice };

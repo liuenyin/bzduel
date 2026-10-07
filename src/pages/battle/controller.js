@@ -153,7 +153,11 @@ export function createBattleView(container, data) {
     cancelBattleAnimations();
     S = data.state;
     shop = createDraftShop({ actions, viewLifecycle, appendOverlay });
-    ({ renderDice, updateActionButtons, showSacrifice, doSacrifice } = createDiceSelection({ getState: () => S, appendOverlay }));
+    ({ renderDice, updateActionButtons, showSacrifice, doSacrifice } = createDiceSelection({
+      getState: () => S,
+      appendOverlay,
+      showToast: message => actions.showToast?.(message),
+    }));
     ({ checkDreamTargetModal, showRescheduleModal } = createBattleChoices({ getState: () => S, actions, appendOverlay }));
     ({ showGameOver } = createBattleResults({ actions, viewLifecycle, appendOverlay }));
     tacticalHandOpen = false;

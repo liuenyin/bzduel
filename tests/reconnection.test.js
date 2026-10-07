@@ -175,6 +175,12 @@ test('an active battle survives a socket replacement during the reconnect grace 
     assert.notEqual(resumed.state.me.isDead, true);
     assert.equal(reconnectNotice.playerId, originalPlayerId);
 
+    // Battle controls receive a deterministic failure acknowledgement when a
+    // stale or duplicate client action arrives, so the UI can unlock itself.
+    const invalidRoll = await emitWithAck(clientB, 'roll_dice');
+    assert.equal(invalidRoll.ok, false);
+    assert.equal(invalidRoll.error, '当前不是你的攻击回合');
+
     // The real Socket.IO handler must acknowledge tactical-card validation
     // failures instead of throwing on an undefined options object.
     const invalidTacticalCard = await emitWithAck(replacementA, 'play_tactical_card', {

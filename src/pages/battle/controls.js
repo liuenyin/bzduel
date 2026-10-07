@@ -7,30 +7,44 @@ export function configureCombatControls({ actions, socket, lifecycle, showResche
     const button = document.getElementById('btn-reroll');
     if (button) button.style.display = 'none';
   };
+  const recoverAction = (button, result, fallback) => {
+    if (result?.ok) return;
+    if (button) {
+      button.disabled = false;
+      button.textContent = button.dataset.previousLabel || button.textContent;
+      delete button.dataset.rerolling;
+    }
+    updateActionButtons();
+    actions.showToast(result?.error || fallback);
+  };
   actions.roll = (_value, button) => {
+    button.dataset.previousLabel = button.textContent;
     button.disabled = true;
     button.textContent = '掷骰中…';
     playDiceRoll();
-    socket.rollDice();
+    socket.rollDice(lifecycle.guard(result => recoverAction(button, result, '暂时无法掷骰')));
   };
   actions.confirmDice = (_value, button) => {
+    button.dataset.previousLabel = button.textContent;
     button.disabled = true;
     button.textContent = '处理中…';
     hideReroll();
-    socket.confirmDice(indices());
+    socket.confirmDice(indices(), lifecycle.guard(result => recoverAction(button, result, '暂时无法确认骰子')));
   };
   actions.buyWater = (_value, button) => {
+    button.dataset.previousLabel = button.textContent;
     button.disabled = true;
     button.textContent = '购买中…';
-    socket.buyWater();
+    socket.buyWater(lifecycle.guard(result => recoverAction(button, result, '暂时无法买水')));
   };
   actions.reroll = (_value, button) => {
     const dice = selectedDice();
     if (!dice.length) return;
+    button.dataset.previousLabel = button.textContent;
     button.disabled = true;
     button.dataset.rerolling = 'true';
     playDiceRoll();
-    socket.rerollDice(indices());
+    socket.rerollDice(indices(), lifecycle.guard(result => recoverAction(button, result, '暂时无法重投')));
     for (const die of dice) {
       die.classList.remove('selected');
       die.setAttribute('aria-pressed', 'false');

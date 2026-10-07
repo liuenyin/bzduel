@@ -43,6 +43,25 @@ const EFFECT_COLORS = {
   counter: '#7c5fb3',
 };
 
+const MAX_TRANSIENT_VFX = {
+  banners: 6,
+  overlays: 8,
+  particles: 18,
+  floatingDamage: 12,
+};
+
+function removeTransientNode(node) {
+  if (!node) return;
+  gsap.killTweensOf(node);
+  node.querySelectorAll?.('*').forEach(child => gsap.killTweensOf(child));
+  node.remove();
+}
+
+function pruneTransient(selector, limit) {
+  const nodes = Array.from(document.querySelectorAll(selector));
+  while (nodes.length >= limit) removeTransientNode(nodes.shift());
+}
+
 /**
  * GSAP Visual Effects Manager Singleton
  */
@@ -220,6 +239,9 @@ export const vfxManager = {
     dmgEl.textContent = validDmg > 0 ? `−${validDmg}` : '格挡';
     dmgEl.style.animation = 'none';
 
+    while (targetElement.querySelectorAll('.floating-damage').length >= MAX_TRANSIENT_VFX.floatingDamage) {
+      removeTransientNode(targetElement.querySelector('.floating-damage'));
+    }
     targetElement.appendChild(dmgEl);
 
     const tl = gsap.timeline({
@@ -247,6 +269,7 @@ export const vfxManager = {
    */
   showSkillBanner(title, subtitle = '', type = 'pos') {
     if (!canAnimate()) return null;
+    pruneTransient('.skill-glass-banner', MAX_TRANSIENT_VFX.banners);
     const banner = document.createElement('div');
     banner.className = `skill-glass-banner ${type}`;
     banner.innerHTML = `
@@ -303,6 +326,7 @@ export const vfxManager = {
       // 1. Fu Xiuran Domain Expansion ("梦境领域")
       this.showSkillBanner('梦境领域 · 展开', '付修然 展开梦境领域！盲选真身与分身', 'neu');
 
+      pruneTransient('.fxr-domain-overlay', MAX_TRANSIENT_VFX.overlays);
       const overlay = document.createElement('div');
       overlay.className = 'fxr-domain-overlay';
       overlay.innerHTML = `
@@ -354,6 +378,7 @@ export const vfxManager = {
       // 2. Dream King Rage Form ("gpy 狂暴斩杀形态")
       this.showSkillBanner('gpy 狂暴斩杀形态', '血量降至 20% 以下，封印解除！', 'crimson');
 
+      pruneTransient('.redheat-vignette', MAX_TRANSIENT_VFX.overlays);
       const vignette = document.createElement('div');
       vignette.className = 'redheat-vignette';
       targetContainer.appendChild(vignette);
@@ -378,6 +403,7 @@ export const vfxManager = {
       // 3. Yan Ziming ("Timeless Grace · 极致优雅")
       this.showSkillBanner('Timeless Grace · 极致优雅', '数点成双！无视防御 / 额外回合', 'gold');
 
+      pruneTransient('.gold-beam-sweep', MAX_TRANSIENT_VFX.overlays);
       const beam = document.createElement('div');
       beam.className = 'gold-beam-sweep';
       targetContainer.appendChild(beam);
@@ -402,6 +428,7 @@ export const vfxManager = {
       // 4. Wang Hedi ("观星 & 显眼包")
       this.showSkillBanner('观星 & 显眼包', '极差 ≤ 2！伤害重构与判定反转', 'gold');
 
+      pruneTransient('.star-constellation-overlay', MAX_TRANSIENT_VFX.overlays);
       const constellation = document.createElement('div');
       constellation.className = 'star-constellation-overlay';
       targetContainer.appendChild(constellation);
@@ -427,6 +454,7 @@ export const vfxManager = {
       // 5. Zhou Xuansheng ("天子蓄势 · 极水崩山")
       this.showSkillBanner('天子蓄势 · 极水崩山', '消耗 2 层蓄势！+16 伤害 & 穿透防护', 'azure');
 
+      pruneTransient('.azure-water-wave', MAX_TRANSIENT_VFX.overlays);
       const wave = document.createElement('div');
       wave.className = 'azure-water-wave';
       targetContainer.appendChild(wave);
@@ -621,7 +649,9 @@ export const vfxManager = {
     const endX = tRect.width > 0 ? (tRect.left + tRect.width / 2) : (window.innerWidth / 2);
     const endY = tRect.height > 0 ? (tRect.top + tRect.height / 2) : (window.innerHeight / 2);
 
+    pruneTransient('.vfx-particle-container', MAX_TRANSIENT_VFX.particles);
     const particleContainer = document.createElement('div');
+    particleContainer.className = 'vfx-particle-container';
     particleContainer.style.position = 'fixed';
     particleContainer.style.inset = '0';
     particleContainer.style.pointerEvents = 'none';
@@ -708,9 +738,11 @@ export const vfxManager = {
     const mobileLimit = window.matchMedia?.('(max-width: 680px)').matches ? 12 : 30;
     const numParticles = Math.min(mobileLimit, Math.max(0, Math.floor(Number.isFinite(requestedCount) ? requestedCount : 12)));
     if (numParticles === 0) return null;
+    pruneTransient('.vfx-particle-container', MAX_TRANSIENT_VFX.particles);
     const particleColor = color || 'var(--accent)';
 
     const container = document.createElement('div');
+    container.className = 'vfx-particle-container';
     container.style.position = 'fixed';
     container.style.left = `${x}px`;
     container.style.top = `${y}px`;
