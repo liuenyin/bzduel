@@ -120,6 +120,19 @@ test('discard and draw requires another card in hand', () => {
   assert.deepEqual(game, before);
 });
 
+test('biology life payment always matches the minimum integer cost', () => {
+  const game = createBattle();
+  game.schedule[0] = 'biology';
+  const player = game.players[0];
+  const opponent = game.players[1];
+  player.handCards = [structuredClone(cardMap.card_bio_3)];
+  player.hp = 2;
+  opponent.hp = 10;
+  assert.equal(playTacticalCard(game, player.id, 'card_bio_3').ok, true);
+  assert.equal(player.hp, 1);
+  assert.equal(opponent.hp, 9);
+});
+
 test('study blessing draws after the attack turn resolves', () => {
   const game = createBattle();
   game.schedule[0] = 'study';

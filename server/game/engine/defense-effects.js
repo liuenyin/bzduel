@@ -58,7 +58,6 @@ export function applyDefenseEffects(state, {
   if (def.card.positiveSkill?.id === SKILL.DREAM_KING) {
     const sumChosen = keptRolls.reduce((s, v) => s + v, 0);
     if (sumChosen >= 15) {
-      if ((def.dreamStacks || 0) < 3) def.rerolls = (def.rerolls || 0) + 1;
       def.dreamStacks = Math.min(3, (def.dreamStacks || 0) + 1);
       if (def.dreamStacks >= 3 && !def.inDreamState && !def.pendingDreamState) {
         def.pendingDreamState = true;

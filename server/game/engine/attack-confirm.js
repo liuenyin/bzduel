@@ -109,7 +109,6 @@ export function confirmAttack(state, keepIndices) {
   if (atk.card.positiveSkill?.id === SKILL.DREAM_KING) {
     const sumChosen = keptRolls.reduce((s, v) => s + v, 0);
     if (sumChosen >= 15) {
-      if ((atk.dreamStacks || 0) < 3) atk.rerolls = (atk.rerolls || 0) + 1;
       atk.dreamStacks = Math.min(3, (atk.dreamStacks || 0) + 1);
       if (atk.dreamStacks >= 3 && !atk.inDreamState && !atk.pendingDreamState) {
         atk.pendingDreamState = true;

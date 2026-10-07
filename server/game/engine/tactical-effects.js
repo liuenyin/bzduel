@@ -226,8 +226,8 @@ export function applyInstantCardEffect(state, p, card, options = {}) {
       // 防守无伤获得 2 TP（由 confirmDefense 处理）
       break;
     case 'card_bio_3': {
-      const hpCost = Math.floor(p.hp * 0.3);
-      const realDmg = Math.min(10, Math.max(1, hpCost));
+      const hpCost = Math.max(1, Math.floor(p.hp * 0.3));
+      const realDmg = Math.min(10, hpCost);
       p.hp = Math.max(1, p.hp - hpCost);
       if (opp) {
         opp.hp = Math.max(0, opp.hp - realDmg);
