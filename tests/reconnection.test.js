@@ -187,7 +187,7 @@ test('an active battle survives a socket replacement during the reconnect grace 
 
     const invalidReady = await emitWithAck(clientB, 'ready');
     assert.equal(invalidReady.ok, false);
-    assert.equal(invalidReady.error, 'invalid_phase');
+    assert.equal(invalidReady.error, '当前不在可操作阶段');
 
     // The real Socket.IO handler must acknowledge tactical-card validation
     // failures instead of throwing on an undefined options object.

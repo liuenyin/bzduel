@@ -7,6 +7,21 @@ import { recordMatch } from '../statsManager.js';
 
 import { payloadObject, normalizeNickname, validRoomId, rejectInvalidNickname } from '../validation.js';
 
+const ACTION_ERROR_LABELS = {
+  invalid_phase: '当前不在可操作阶段',
+  invalid_schedule: '课程安排无效',
+  ffa_only: '该角色仅限大乱斗模式',
+  player_not_found: '玩家不存在',
+  player_defeated: '已淘汰，无法操作',
+  already_ready: '你已经完成选牌',
+  already_chosen: '目标已被其他玩家选择',
+  invalid_index: '目标编号无效',
+};
+
+function readableActionError(error, fallback) {
+  return ACTION_ERROR_LABELS[error] || error || fallback;
+}
+
 export function registerDuelHandlers(socket, {
   newRoomId, hasActiveSession, triggerAiPhase, scheduleAiSelection, scheduleFinishedRoomCleanup, emitImmediateTurnResolution, emitSkippedAttackResolution, emitTacticalGameOver, surrenderGame, requestRoomRematch, leavePlayerRoom, getPersistentPlayerId, resumePlayerSession, schedulePlayerDisconnect, getRoom, broadcastToOpponent, emitStateToAll, emitToAll, rooms, matchQueue, socketToRoom, activeSockets, acRuns, io
 }) {
@@ -271,9 +286,9 @@ export function registerDuelHandlers(socket, {
       if (typeof acknowledge === 'function') acknowledge({ ok: true, isReal: res.isReal });
       emitStateToAll(room);
     } else if (typeof acknowledge === 'function') {
-      acknowledge({ ok: false, error: res.error || '当前无法选择梦境目标' });
+      acknowledge({ ok: false, error: readableActionError(res.error, '当前无法选择梦境目标') });
     } else {
-      socket.emit('error_msg', { message: res.error || '当前无法选择梦境目标' });
+      socket.emit('error_msg', { message: readableActionError(res.error, '当前无法选择梦境目标') });
     }
   });
 
@@ -286,7 +301,7 @@ export function registerDuelHandlers(socket, {
     }
     const result = selectCard(room.game, playerId, cardId);
     if (!result.ok) {
-      const error = result.error || '无法选择角色';
+      const error = readableActionError(result.error, '无法选择角色');
       if (typeof acknowledge === 'function') acknowledge({ ok: false, error });
       else socket.emit('error_msg', { message: error });
       return;
@@ -305,7 +320,7 @@ export function registerDuelHandlers(socket, {
     if (!room) { reply({ ok: false, error: '对局不存在' }); return; }
     const res = setReady(room.game, playerId);
     if (!res.ok) {
-      const error = res.error || '暂时无法准备';
+      const error = readableActionError(res.error, '暂时无法准备');
       if (typeof acknowledge !== 'function') socket.emit('error_msg', { message: error });
       reply({ ok: false, error });
       return;
@@ -338,7 +353,7 @@ export function registerDuelHandlers(socket, {
     }
     const result = useReschedule(room.game, playerId, classIndex, newType);
     if (!result.ok) {
-      const error = result.error || '暂时无法调课';
+      const error = readableActionError(result.error, '暂时无法调课');
       if (typeof acknowledge === 'function') acknowledge({ ok: false, error });
       else socket.emit('error_msg', { message: error });
       return;
@@ -596,7 +611,7 @@ export function registerDuelHandlers(socket, {
     }
     const res = refreshDraftSlot(room.game, playerId, slotIndex);
     if (!res.ok) {
-      const error = res.error || '无法刷新';
+      const error = readableActionError(res.error, '无法刷新');
       if (typeof acknowledge === 'function') acknowledge({ ok: false, error });
       else socket.emit('error_msg', { message: error });
       return;
@@ -632,7 +647,7 @@ export function registerDuelHandlers(socket, {
     }
     const result = confirmDraftReady(room.game, playerId);
     if (!result.ok) {
-      const error = result.error || '无法完成选牌';
+      const error = readableActionError(result.error, '无法完成选牌');
       if (typeof acknowledge !== 'function') socket.emit('error_msg', { message: error });
       reply({ ok: false, error });
       return;
