@@ -1,4 +1,4 @@
-import { prepareDefenseDice, sacrificeDefenseDie } from './defense-dice.js';
+import { prepareDefenseDice, recordDefenseRollHistory, sacrificeDefenseDie } from './defense-dice.js';
 import { applyDefenseEffects } from './defense-effects.js';
 import { calcTacticalCardEffects } from './tactical-effects.js';
 import { reviveNineLives, resolveDefenderNegativeSkill, hasNegativeImmunity } from './skills.js';
@@ -14,11 +14,7 @@ export function resolveAoeTarget(state, pid, { atk, ar, atkMulti, selectedAttack
   if (!p || p.isDead || p.hp <= 0 || !ds.confirmed) return;
   const defenseRolls = Array.isArray(ds.rolls) ? ds.rolls : [];
   const defenseKeepIndices = Array.isArray(ds.keepIndices) ? ds.keepIndices : [];
-  // Preserve the raw roll history for next-round cards (art/history), just like 1v1 defense.
-  p.lastMaxRoll = defenseRolls.length > 0 ? Math.max(...defenseRolls) : 0;
-  p.unusedDiceSum = defenseRolls
-    .filter((_, index) => !defenseKeepIndices.includes(index))
-    .reduce((sum, value) => sum + value, 0);
+  recordDefenseRollHistory(p, defenseRolls, defenseKeepIndices);
   let pMulti = getCourseMultiplier(p, state);
   const primaryDefender = Number.isInteger(state.turnData.defenderIdx)
     ? state.players[state.turnData.defenderIdx]

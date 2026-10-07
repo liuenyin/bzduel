@@ -16,6 +16,17 @@ export function turnCards(player) {
   return player.playedTurnCards || (player.playedTurnCard ? [player.playedTurnCard] : []);
 }
 
+/** Save raw defense dice for effects that resolve on the following round. */
+export function recordDefenseRollHistory(player, rolls, keepIndices) {
+  if (!player) return;
+  const values = Array.isArray(rolls) ? rolls : [];
+  const kept = Array.isArray(keepIndices) ? keepIndices : [];
+  player.lastMaxRoll = values.length > 0 ? Math.max(...values) : 0;
+  player.unusedDiceSum = values
+    .filter((_, index) => !kept.includes(index))
+    .reduce((sum, value) => sum + value, 0);
+}
+
 /** Apply selection effects in order, leaving the original rolled dice intact. */
 export function prepareDefenseDice(state, attacker, defender, rolls, indices) {
   const keptRolls = indices.map(index => rolls[index]);

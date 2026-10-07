@@ -1,4 +1,4 @@
-import { prepareDefenseDice, sacrificeDefenseDie, validateDefenseSelection } from './defense-dice.js';
+import { prepareDefenseDice, recordDefenseRollHistory, sacrificeDefenseDie, validateDefenseSelection } from './defense-dice.js';
 import { resolvePhaseEnd } from './phase.js';
 import { advanceAttackerTimedStates } from './turn-state.js';
 import { calcTacticalCardEffects } from './tactical-effects.js';
@@ -23,8 +23,7 @@ export function resolveSingleDefense(state, playerId, keepIndices, options, { at
 
   let defMulti = getCourseMultiplier(def, state);
 
-  def.lastMaxRoll = Math.max(...defRolls);
-  def.unusedDiceSum = defRolls.filter((_, i) => !keepIndices.includes(i)).reduce((a, b) => a + b, 0);
+  recordDefenseRollHistory(def, defRolls, keepIndices);
 
   const { keptRolls, defTurnCards, atkTurnCards } = prepareDefenseDice(state, atk, def, defRolls, keepIndices);
 
