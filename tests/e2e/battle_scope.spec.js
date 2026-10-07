@@ -108,6 +108,48 @@ test('targeted reroll presents hidden FFA dice by position and submits the selec
   ]);
 });
 
+test('disabled hand and supply cards explain why they cannot be used', async ({ page }) => {
+  await enterBattle(page);
+  await page.evaluate(async () => {
+    const { gameSocket } = await import('/src/net/socket.js');
+    const { renderBattle } = await import('/src/pages/battle.js');
+    const { cardMap } = await import('/shared/cards.js');
+    const state = await new Promise(resolve => {
+      gameSocket.socket.once('state_update', resolve);
+      gameSocket.socket.emit('resume_session', {});
+    });
+    state.turnPhase = 'waiting_atk';
+    state.attackerIdx = state.myIndex === 0 ? 1 : 0;
+    state.defenderIdx = state.myIndex;
+    state.isMyAttackTurn = false;
+    state.isMyDefendTurn = true;
+    state.draftShop = { active: false };
+    state.me.handCards = [cardMap.card_gen_04];
+    renderBattle(document.getElementById('app'), { state });
+  });
+  await page.locator('#hand-fab').click();
+  await expect(page.locator('.hand-card-kards .card-disable-overlay')).toBeVisible();
+  await expect(page.locator('.hand-card-kards .card-disable-badge')).toContainText('仅在攻击回合使用');
+
+  await page.evaluate(async () => {
+    const { gameSocket } = await import('/src/net/socket.js');
+    const { renderBattle } = await import('/src/pages/battle.js');
+    const { cardMap } = await import('/shared/cards.js');
+    const state = await new Promise(resolve => {
+      gameSocket.socket.once('state_update', resolve);
+      gameSocket.socket.emit('resume_session', {});
+    });
+    state.me.handCards = [cardMap.card_gen_02, cardMap.card_gen_04, cardMap.card_gen_06];
+    state.me.tp = 0;
+    state.draftShop = { active: true, players: {
+      [state.me.id]: { ready: false, slots: [{ card: cardMap.card_gen_01, refreshesLeft: 1 }] },
+    } };
+    renderBattle(document.getElementById('app'), { state });
+  });
+  await expect(page.locator('.draft-slot-card .card-disable-overlay')).toBeVisible();
+  await expect(page.locator('.draft-slot-card .card-disable-badge')).toContainText('手牌已满');
+});
+
 test('late purchase replies, old cleanup and old animation cannot change a replacement battle', async ({ page }) => {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
