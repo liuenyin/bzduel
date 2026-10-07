@@ -237,7 +237,7 @@ export function registerDuelHandlers(socket, {
     socket.join(roomId);
     acknowledge?.({ ok: true, roomId, mode: 'sanguosha', waiting: true, players: room.game.players });
     socket.emit('room_created', { roomId, mode: 'sanguosha' });
-    io.to(roomId).emit('ffa_room_update', { players: [{ id: playerId, nickname }] });
+    io.to(roomId).emit('ffa_room_update', { roomId, players: [{ id: playerId, nickname }] });
   });
 
   socket.on('join_ffa_room', (payload = {}, acknowledge) => {
@@ -282,7 +282,7 @@ export function registerDuelHandlers(socket, {
     acknowledge?.({ ok: true, roomId, mode: 'sanguosha', waiting: true, players: room.game.players });
 
     // 通知所有人更新房间玩家列表
-    io.to(roomId).emit('ffa_room_update', { players: room.game.players });
+    io.to(roomId).emit('ffa_room_update', { roomId, players: room.game.players });
   });
 
   socket.on('start_ffa_game', (payload = {}, acknowledge) => {

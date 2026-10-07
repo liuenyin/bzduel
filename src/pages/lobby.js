@@ -535,8 +535,8 @@ export function renderLobby(container, data = {}) {
     showWaitingRoom({ roomId, mode, isOwner: true });
   });
 
-  gameSocket.on('ffa_room_update', ({ players }) => {
-    if (!active || !gameSocket.currentRoomId) return;
+  gameSocket.on('ffa_room_update', ({ roomId, players }) => {
+    if (!active || !gameSocket.currentRoomId || roomId !== gameSocket.currentRoomId) return;
     // 仅在房主端显示或者全员大厅显示
     const list = (Array.isArray(players) ? players : []).map(p => `<li>${escapeHTML(p?.nickname || '匿名玩家')}</li>`).join('');
     const listEl = document.getElementById('ffa-player-list');

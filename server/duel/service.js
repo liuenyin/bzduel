@@ -244,7 +244,7 @@ export function registerGameServer(io) {
         room.game.players = room.game.players.filter(player => player.id !== playerId);
         room.playerSockets = room.playerSockets.filter(id => id !== playerId);
         if (room.playerSockets.length === 0) cleanupRoom(roomId);
-        else io.to(roomId).emit('ffa_room_update', { players: room.game.players });
+        else io.to(roomId).emit('ffa_room_update', { roomId, players: room.game.players });
       } else {
         io.to(roomId).emit('room_closed', { reason: '房主已离开房间' });
         cleanupRoom(roomId);
@@ -323,7 +323,7 @@ export function registerGameServer(io) {
 
     if (room.game.pending) {
       if (wasDisconnected && room.game.players) {
-        io.to(roomId).emit('ffa_room_update', { players: room.game.players });
+        io.to(roomId).emit('ffa_room_update', { roomId, players: room.game.players });
       }
       return {
         ok: true,
@@ -407,7 +407,7 @@ export function registerGameServer(io) {
         room.game.players = room.game.players.filter(p => p.id !== playerId);
         room.playerSockets = room.playerSockets.filter(pid => pid !== playerId);
         if (room.playerSockets.length === 0) cleanupRoom(roomId);
-        else io.to(roomId).emit('ffa_room_update', { players: room.game.players });
+        else io.to(roomId).emit('ffa_room_update', { roomId, players: room.game.players });
       } else {
         cleanupRoom(roomId);
       }
