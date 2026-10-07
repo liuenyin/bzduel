@@ -64,7 +64,7 @@
 
 - `npm test`：136 项核心测试、R1 战术卡验证与 R2-M1 的 57 项流程检查通过。默认核心命令包含原有自走棋测试，仅用于检测兼容性，没有修改其实现；普通对战卡牌验证不包含自走棋。
 - `npm run build`：生产构建通过。
-- `npm run test:e2e -- --workers=1 --grep-invert autochess`：35 项浏览器测试通过，排除自走棋；包含回执丢事件恢复、梦境盲选、匹配取消、大乱斗开局失败重试和聊天浮窗生命周期。
+- `npm run test:e2e -- --workers=1 --grep-invert autochess`：37 项浏览器测试通过，排除自走棋；包含回执丢事件恢复、梦境盲选、匹配取消、大乱斗目标选择、开局失败重试和聊天浮窗生命周期。
 - `node tests/challenger_m3_ultimate_battle_stress.js`：7 项技能、多人结算与 DOM 清理压力场景通过，无未捕获异常。
 - `node tests/e2e/challenger_stress_test.js`：五种视口的极端卡牌排版与 VFX 容错压力测试通过，无错误。
 - `npx playwright test tests/e2e/multiplayer.spec.js --workers=1 --grep "four-player target selection"`：键盘与移动端四人目标选择流程均通过。
