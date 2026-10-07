@@ -99,7 +99,8 @@ export function createDiceSelection({ getState, appendOverlay, showToast = () =>
       d.dataset.battleAction = 'selectDie';
       d.setAttribute('role', 'button');
       d.tabIndex = 0;
-      d.setAttribute('aria-label', `骰子 ${d.dataset.val}`);
+      const announcedValue = d.dataset.val === '-1' ? '隐藏骰子' : d.dataset.val;
+      d.setAttribute('aria-label', `骰子 ${announcedValue}`);
       d.setAttribute('aria-pressed', String(d.classList.contains('selected')));
     });
     updateActionButtons();
