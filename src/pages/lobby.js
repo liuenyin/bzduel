@@ -22,6 +22,7 @@ function portraitFrame(character, className = '') {
 }
 
 export function renderLobby(container, data = {}) {
+  let active = true;
   hideGlobalChat();
   container.innerHTML = `
     <div class="lobby">
@@ -175,20 +176,38 @@ export function renderLobby(container, data = {}) {
   const customPveStartButton = document.getElementById('btn-start-custom-pve');
   const pveOpponentSelection = document.getElementById('pve-opponent-selection');
   const pveOpponentOptions = [...document.querySelectorAll('.pve-opponent-option')];
-  const lobbyAction = (button, pendingLabel, action, fallback = '操作失败') => {
+  const lobbyAction = (button, pendingLabel, action, fallback = '操作失败', onSuccess = () => {}) => {
     if (!button || button.disabled) return;
     const previousLabel = button.textContent;
     button.disabled = true;
     button.textContent = pendingLabel;
     action(result => {
-      if (result?.ok || !button.isConnected) return;
+      if (!active) return;
+      if (result?.ok) {
+        onSuccess(result);
+        return;
+      }
+      if (!button.isConnected) return;
       button.disabled = false;
       button.textContent = previousLabel;
-      showLobbyError(result.error || fallback);
+      showLobbyError(result?.error || fallback);
     });
   };
   let customPveNickname = null;
   let selectedAiCardId = null;
+  let handledMatchRoomId = null;
+
+  const handleMatchFound = (data = {}) => {
+    if (!active || !data.roomId || handledMatchRoomId === data.roomId) return;
+    handledMatchRoomId = data.roomId;
+    gameSocket.currentRoomId = data.roomId;
+    if (data.mode === 'autochess') {
+      navigate('autochess', data);
+    } else {
+      showGlobalChat('已连接到对局！');
+      navigate('preparation', data);
+    }
+  };
 
   const closePveOpponentModal = () => {
     pveOpponentModal.classList.remove('is-open');
@@ -210,7 +229,9 @@ export function renderLobby(container, data = {}) {
 
   document.getElementById('btn-pve').addEventListener('click', event => {
     const n = getNick(); if (!n) return;
-    lobbyAction(event.currentTarget, '正在创建对局…', acknowledge => gameSocket.startPVE(n, acknowledge), '创建对局失败');
+    lobbyAction(event.currentTarget, '正在创建对局…', acknowledge => gameSocket.startPVE(n, acknowledge), '创建对局失败', result => {
+      if (result.match) handleMatchFound(result.match);
+    });
   });
 
   document.getElementById('btn-pve-custom').addEventListener('click', event => {
@@ -243,10 +264,15 @@ export function renderLobby(container, data = {}) {
     customPveStartButton.disabled = true;
     customPveStartButton.textContent = '正在创建对局…';
     gameSocket.startPVE(customPveNickname, selectedAiCardId, result => {
-      if (result?.ok || !customPveStartButton.isConnected) return;
+      if (!active) return;
+      if (result?.ok) {
+        if (result.match) handleMatchFound(result.match);
+        return;
+      }
+      if (!customPveStartButton.isConnected) return;
       customPveStartButton.disabled = false;
       customPveStartButton.textContent = '开始对战';
-      showLobbyError(result.error || '创建对局失败');
+      showLobbyError(result?.error || '创建对局失败');
     });
   });
 
@@ -257,13 +283,17 @@ export function renderLobby(container, data = {}) {
     lobbyAction(event.currentTarget, '匹配中…', acknowledge => gameSocket.joinMatchmaking(n, result => {
       if (result?.ok && result.waiting) showMatchmakingWaiting();
       acknowledge(result);
-    }), '匹配失败');
+    }), '匹配失败', result => {
+      if (result.match) handleMatchFound(result.match);
+    });
   });
 
   document.getElementById('btn-create').addEventListener('click', event => {
     const n = getNick(); if (!n) return;
     statusDiv.innerHTML = '<p class="status-msg">创建 1v1 房间中…</p>';
-    lobbyAction(event.currentTarget, '正在创建…', acknowledge => gameSocket.createRoom(n, acknowledge), '创建房间失败');
+    lobbyAction(event.currentTarget, '正在创建…', acknowledge => gameSocket.createRoom(n, acknowledge), '创建房间失败', result => {
+      if (result.roomId) showWaitingRoom({ roomId: result.roomId, mode: result.mode || '1v1', isOwner: true });
+    });
   });
 
   document.getElementById('btn-join').addEventListener('click', event => {
@@ -274,7 +304,9 @@ export function renderLobby(container, data = {}) {
       return;
     }
     statusDiv.innerHTML = '<p class="status-msg">正在加入房间…</p>';
-    lobbyAction(event.currentTarget, '正在加入…', acknowledge => gameSocket.joinRoom(n, roomId, acknowledge), '加入房间失败');
+    lobbyAction(event.currentTarget, '正在加入…', acknowledge => gameSocket.joinRoom(n, roomId, acknowledge), '加入房间失败', result => {
+      if (result.match) handleMatchFound(result.match);
+    });
   });
 
   const motionToggle = document.getElementById('motion-toggle');
@@ -402,6 +434,8 @@ export function renderLobby(container, data = {}) {
   };
 
   const showWaitingRoom = ({ roomId, mode, isOwner = true, players = [] }) => {
+    if (!active) return;
+    if (gameSocket.currentRoomId === roomId && statusDiv.querySelector('#btn-leave-waiting')) return;
     gameSocket.currentRoomId = roomId;
     container.querySelectorAll('.lobby > .panel > .btn-group').forEach(group => { group.style.display = 'none'; });
     showGlobalChat(isOwner ? '房间已创建，等待对手加入...' : '已重新加入等待中的房间。');
@@ -480,6 +514,7 @@ export function renderLobby(container, data = {}) {
   });
 
   const showMatchmakingWaiting = () => {
+    if (!active) return;
     matchButton.disabled = true;
     matchButton.textContent = '匹配中…';
     statusDiv.innerHTML = `
@@ -509,15 +544,7 @@ export function renderLobby(container, data = {}) {
 
   gameSocket.on('matchmaking_waiting', showMatchmakingWaiting);
 
-  gameSocket.on('match_found', (data) => {
-    gameSocket.currentRoomId = data.roomId;
-    if (data.mode === 'autochess') {
-      navigate('autochess', data);
-    } else {
-      showGlobalChat('已连接到对局！');
-      navigate('preparation', data);
-    }
-  });
+  gameSocket.on('match_found', handleMatchFound);
 
   gameSocket.on('error_msg', (data = {}) => {
     const message = typeof data === 'string' ? data : data.message;
@@ -538,6 +565,7 @@ export function renderLobby(container, data = {}) {
   if (data.resumedRoom) showWaitingRoom(data.resumedRoom);
 
   return () => {
+    active = false;
     document.removeEventListener('keydown', handleLobbyKeydown);
   };
 }

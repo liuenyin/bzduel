@@ -74,13 +74,14 @@ export function registerDuelHandlers(socket, {
       aiCardId: requestedAiCard?.id || null,
     });
     socketToRoom.set(playerId, roomId);
-    acknowledge?.({ ok: true, roomId });
-    socket.emit('match_found', {
-      roomId, opponent: '🤖 电脑',
+    const match = {
+      roomId, mode: '1v1', opponent: '🤖 电脑',
       schedule: game.schedule,
       state: getStateView(game, playerId),
       aiOpponentCardId: requestedAiCard?.id || null,
-    });
+    };
+    acknowledge?.({ ok: true, roomId, match });
+    socket.emit('match_found', match);
     console.log(`[PVE] 房间 ${roomId} 已创建, AI: ${aiId}, 指定角色: ${requestedAiCard?.id || '自动选择'}`);
 
     scheduleAiSelection(roomId, playerId);
@@ -103,7 +104,7 @@ export function registerDuelHandlers(socket, {
     });
     socketToRoom.set(playerId, roomId);
     socket.join(roomId);
-    acknowledge?.({ ok: true, roomId });
+    acknowledge?.({ ok: true, roomId, mode: '1v1' });
     socket.emit('room_created', { roomId, mode: '1v1' });
   });
 
@@ -138,10 +139,16 @@ export function registerDuelHandlers(socket, {
     room.game = game; room.playerSockets[1] = playerId;
     socketToRoom.set(playerId, roomId);
     socket.join(roomId);
-    acknowledge?.({ ok: true, roomId });
+    const ownMatch = {
+      roomId, mode: '1v1',
+      opponent: game.players.find(p => p.id !== playerId)?.nickname || '未知对手',
+      schedule: game.schedule,
+      state: getStateView(game, playerId),
+    };
+    acknowledge?.({ ok: true, roomId, match: ownMatch });
     for (const pid of [game.players[0].id, game.players[1].id]) {
       io.to(pid).emit('match_found', {
-        roomId, opponent: game.players.find(p => p.id !== pid).nickname,
+        roomId, mode: '1v1', opponent: game.players.find(p => p.id !== pid).nickname,
         schedule: game.schedule, state: getStateView(game, pid),
       });
     }
@@ -176,12 +183,18 @@ export function registerDuelHandlers(socket, {
       socketToRoom.set(playerId, roomId);
       socketToRoom.set(other.playerId, roomId);
       socket.join(roomId);
-      acknowledge?.({ ok: true, roomId, matched: true });
+      const ownMatch = {
+        roomId, mode: '1v1', matched: true,
+        opponent: other.nickname,
+        schedule: game.schedule,
+        state: getStateView(game, playerId),
+      };
+      acknowledge?.({ ok: true, roomId, matched: true, match: ownMatch });
       const otherSocketId = activeSockets.get(other.playerId);
       if (otherSocketId) io.sockets.sockets.get(otherSocketId)?.join(roomId);
       for (const pid of [other.playerId, playerId]) {
         io.to(pid).emit('match_found', {
-          roomId,
+          roomId, mode: '1v1',
           opponent: game.players.find(p => p.id !== pid)?.nickname || "未知对手",
           schedule: game.schedule,
           state: getStateView(game, pid),
@@ -221,7 +234,7 @@ export function registerDuelHandlers(socket, {
     });
     socketToRoom.set(playerId, roomId);
     socket.join(roomId);
-    acknowledge?.({ ok: true, roomId });
+    acknowledge?.({ ok: true, roomId, mode: 'sanguosha', waiting: true, players: room.game.players });
     socket.emit('room_created', { roomId, mode: 'sanguosha' });
     io.to(roomId).emit('ffa_room_update', { players: [{ id: playerId, nickname }] });
   });
@@ -265,7 +278,7 @@ export function registerDuelHandlers(socket, {
     room.playerSockets.push(playerId);
     socketToRoom.set(playerId, roomId);
     socket.join(roomId);
-    acknowledge?.({ ok: true, roomId });
+    acknowledge?.({ ok: true, roomId, mode: 'sanguosha', waiting: true, players: room.game.players });
 
     // 通知所有人更新房间玩家列表
     io.to(roomId).emit('ffa_room_update', { players: room.game.players });
