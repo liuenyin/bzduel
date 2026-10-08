@@ -5,6 +5,7 @@ import { appendBattleLog } from './battle-log.js';
 import { rollDiceGroup, maximizeDieValue, canPlayBattleAction, getCourseMultiplier } from './primitives.js';
 import { TURN } from '../../../shared/turn.js';
 import { SKILL } from '../../../shared/characters.js';
+import { getActiveDreamPlayer } from '../../../shared/dream.js';
 import { finishSelfKill } from './immediate-deaths.js';
 
 export function rollAttack(state) {
@@ -27,8 +28,7 @@ export function rollAttack(state) {
   }
 
   // 梦境前置检查：如果场上有 FXR 在梦境中，必须先完成盲选
-  const fxrP = state.players.find(p => p?.card?.positiveSkill?.id === SKILL.DREAM_KING
-    && !p.isDead && p.hp > 0 && p.inDreamState && !p.lgpyForm);
+  const fxrP = getActiveDreamPlayer(state.players);
   if (fxrP && fxrP.dreamTargetChoice == null) {
     return { ok: false, error: 'dream_target_required' };
   }

@@ -1,6 +1,6 @@
 import { selectCard, rollAttack, rerollDice, confirmAttack, confirmDefense, chooseDreamTarget, playTacticalCard, buyDraftCard, confirmDraftReady, getCurrentAttackerId, getCurrentDefenderId, getStateView, getAttackConfirmationView, getEffectiveDicePool, getAllowedSlotCount, TURN } from '../game/engine.js';
 import { aiSelectCard, aiChooseKeepIndices, aiChooseRerollIndices, aiChooseTacticalCard, aiChooseDraftSlot } from '../game/ai.js';
-import { SKILL } from '../../shared/characters.js';
+import { getActiveDreamPlayer } from '../../shared/dream.js';
 
 import { recordMatch } from '../statsManager.js';
 
@@ -24,8 +24,8 @@ export function createAiController({
     const g = room.game;
 
     // AI 自动盲选目标（梦境）
-    const fxr = g.players.find(p => p.card?.positiveSkill?.id === SKILL.DREAM_KING);
-    if (fxr && !fxr.isDead && fxr.hp > 0 && fxr.inDreamState && !fxr.lgpyForm && fxr.dreamTargetChoice == null) {
+    const fxr = getActiveDreamPlayer(g.players);
+    if (fxr && fxr.dreamTargetChoice == null) {
       // 找到非 FXR 的 AI 玩家来盲选
       const nonFxrAi = fxr.id === room.aiId ? null : room.aiId;
       if (nonFxrAi) {

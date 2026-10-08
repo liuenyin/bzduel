@@ -3,6 +3,7 @@ import { canPlayBattleAction } from './primitives.js';
 import { TURN } from '../../../shared/turn.js';
 import { PHASE, GAME_MODE } from '../../../shared/rules.js';
 import { SKILL } from '../../../shared/characters.js';
+import { getActiveDreamPlayer } from '../../../shared/dream.js';
 
 export function chooseDreamTarget(state, playerId, targetIndex) {
   if (!canPlayBattleAction(state)) return { ok: false };
@@ -12,9 +13,9 @@ export function chooseDreamTarget(state, playerId, targetIndex) {
   if (!Number.isInteger(targetIndex) || targetIndex < 0 || targetIndex > 2) {
     return { ok: false, error: 'invalid_index' };
   }
-  const fxr = state.players.find(p => p.card?.positiveSkill?.id === SKILL.DREAM_KING);
+  const fxr = getActiveDreamPlayer(state.players);
   const attacker = state.players[state.turnData?.attackerIdx];
-  if (!fxr || fxr.isDead || fxr.hp <= 0 || !fxr.inDreamState || fxr.lgpyForm) return { ok: false };
+  if (!fxr) return { ok: false };
   const canChoose = attacker?.id === playerId && !attacker.isDead && attacker.hp > 0 && attacker.id !== fxr.id;
   const fxrIsAttacker = attacker?.id === fxr.id;
   const isLivingOpponent = playerId !== fxr.id && state.players.some(player => (

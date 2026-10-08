@@ -4,7 +4,7 @@ import { createGame, selectCard, setReady, selectTarget, confirmAttack, chooseDr
 import { settleWinner } from '../server/game/engine/outcome.js';
 import { calculateDamageSteps, finalizeDamageExplanation } from '../server/game/engine/damage.js';
 import { getTacticalCardUsability, getRerollTargetChoices } from '../src/pages/battle/tactical.js';
-import { phasePrompt } from '../src/pages/battle/presentation.js';
+import { phasePrompt, isDreamBlocking } from '../src/pages/battle/presentation.js';
 import { canChooseDreamTarget } from '../src/pages/battle/dream.js';
 import { logEntryHTML } from '../src/pages/battle/log.js';
 import { cardMap } from '../shared/cards.js';
@@ -210,6 +210,37 @@ test('four-player FFA dream flow accepts one opponent choice before attack', () 
   assert.equal(selectTarget(state, 'a', 'd').ok, true);
   assert.equal(rollAttack(state).ok, true);
   assert.equal(state.turnPhase, 'atk_rolled');
+});
+
+test('copying a non-dream skill immediately removes the client dream gate', () => {
+  const state = createGame([{ id: 'a', nickname: 'a' }, { id: 'b', nickname: 'b' }]);
+  selectCard(state, 'a', 'char_fxr');
+  selectCard(state, 'b', 'char_6');
+  setReady(state, 'a');
+  setReady(state, 'b');
+  state.schedule[state.currentClassIndex] = 'it';
+  Object.assign(state.players[0], {
+    inDreamState: true, dreamTargetChoice: null, realTargetIdx: 2,
+    handCards: [structuredClone(cardMap.card_it_1)],
+  });
+  assert.equal(playTacticalCard(state, 'a', 'card_it_1').ok, true);
+  assert.equal(isDreamBlocking(getStateView(state, 'a')), false);
+  assert.equal(canChooseDreamTarget(getStateView(state, 'b')), false);
+  assert.equal(rollAttack(state).ok, true);
+});
+
+test('an inactive dream skill holder cannot shadow an active dream defender', () => {
+  const state = battle();
+  state.turnPhase = 'waiting_atk';
+  state.turnData = { attackerIdx: 0, defenderIdx: 1 };
+  for (const player of state.players.slice(0, 2)) {
+    player.card.positiveSkill = { id: 'dream_king' };
+  }
+  Object.assign(state.players[1], { inDreamState: true, dreamTargetChoice: null, realTargetIdx: 1 });
+  assert.equal(isDreamBlocking(getStateView(state, 'a')), true);
+  assert.equal(canChooseDreamTarget(getStateView(state, 'a')), true);
+  assert.deepEqual(chooseDreamTarget(state, 'a', 1), { ok: true, isReal: true });
+  assert.equal(rollAttack(state).ok, true);
 });
 
 test('undefined dream choice is treated as pending after a reconnect or legacy state load', () => {

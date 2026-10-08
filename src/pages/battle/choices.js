@@ -6,9 +6,7 @@ import { trapFocus } from '../../utils/a11y.js';
 export function createBattleChoices({ getState, actions, appendOverlay }) {
   function checkDreamTargetModal(s) {
     const existing = document.getElementById('dream-target-modal');
-    const fxr = s.players?.find(p => (p.card?.positiveSkill?.id === 'dream_king' || p.cardId === 'char_fxr')
-      && !p.isDead && p.hp > 0);
-    if (canChooseDreamTarget(s) && fxr?.inDreamState) {
+    if (canChooseDreamTarget(s)) {
       if (existing) return;
       const overlay = document.createElement('div');
       overlay.className = 'result-overlay';

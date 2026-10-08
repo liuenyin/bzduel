@@ -378,6 +378,9 @@ export function registerDuelHandlers(socket, {
     if (res.ok) {
       if (typeof acknowledge === 'function') acknowledge({ ok: true, isReal: res.isReal });
       emitStateToAll(room);
+      // A previous AI roll may already have stopped while waiting for this choice.
+      const roomId = socketToRoom.get(playerId);
+      if (roomId && room.isAI) triggerAiPhase(roomId);
     } else if (typeof acknowledge === 'function') {
       acknowledge({ ok: false, error: readableActionError(res.error, '当前无法选择梦境目标') });
     } else {

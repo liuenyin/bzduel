@@ -1,5 +1,6 @@
 import { escapeHTML } from '../../utils/html.js';
 import { SUBJECTS, getSkillMultiplier } from '../../../shared/rules.js';
+import { getActiveDreamPlayer } from '../../../shared/dream.js';
 
 export function pct(c,m) {
   if (!Number.isFinite(c) || !Number.isFinite(m) || m <= 0) return 0;
@@ -84,9 +85,8 @@ export function phasePrompt(s) {
 
 export function isDreamBlocking(s) {
   if (!s || !s.players) return false;
-  const fxr = s.players.find(p => (p.card?.positiveSkill?.id === 'dream_king' || p.cardId === 'char_fxr')
-    && !p.isDead && p.hp > 0);
-  return fxr && fxr.inDreamState && !fxr.lgpyForm && fxr.dreamTargetChoice == null;
+  const fxr = getActiveDreamPlayer(s.players);
+  return !!fxr && fxr.dreamTargetChoice == null;
 }
 
 export function actionButtons(s) {
