@@ -4,6 +4,7 @@ import { battleLogHTML } from './log.js';
 import { buffIcons } from './status.js';
 import { escapeHTML } from '../../utils/html.js';
 import { SUBJECTS, IDENTITY } from '../../../shared/rules.js';
+import { cardDetailsButton } from './card-details.js';
 
 export function buildArena(s, tacticalHandOpen = false) {
   const me = s.me, op = s.opponent;
@@ -179,7 +180,7 @@ export function tacticalBarHTML(s, tacticalHandOpen = false) {
       </div>
     `;
   } else {
-    cardsHtml = handCards.map((c) => {
+    cardsHtml = handCards.map((c, index) => {
       if (c.hidden) return '';
       const typeClass = c.type || 'buff';
       const scopeLabel = c.subject === 'universal' ? '通用' : (SUBJECTS[c.subject]?.label || c.subject);
@@ -189,6 +190,7 @@ export function tacticalBarHTML(s, tacticalHandOpen = false) {
       const disableReason = usability.reason;
 
       return `
+        <div class="hand-card-entry">
         <button type="button" class="hand-card-kards ${canPlay ? '' : 'disabled'}" data-card-id="${escapeHTML(c.id)}"
                 ${canPlay ? `data-battle-action="playTacticalCard" data-value="${escapeHTML(c.id)}"` : 'disabled'}
                 aria-label="${escapeHTML(canPlay ? `打出${c.name}` : `${c.name}，${disableReason}`)}">
@@ -204,6 +206,8 @@ export function tacticalBarHTML(s, tacticalHandOpen = false) {
           </div>
           ${canPlay ? '' : `<span class="card-disable-overlay" aria-hidden="true"><span class="card-disable-badge">${escapeHTML(disableReason)}</span></span>`}
         </button>
+        ${cardDetailsButton(c, 'hand', index)}
+        </div>
       `;
     }).join('');
   }

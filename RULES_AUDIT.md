@@ -70,14 +70,14 @@
 - `npm test`：144 项核心测试、R1 战术卡验证与 R2-M1 的 57 项流程检查通过。默认核心命令包含原有自走棋测试，仅用于检测兼容性，没有修改其实现；普通对战卡牌验证不包含自走棋。
 - `npm run test:stress`：普通对战规则、布局、VFX 和动画生命周期压力套件全部通过。
 - `npm run build`：生产构建通过。
-- `npm run test:e2e -- --workers=1 --grep-invert autochess`：39 项浏览器测试通过，排除自走棋；包含回执丢事件恢复、梦境盲选、匹配取消、大乱斗目标选择、禁用卡原因反馈、开局失败重试和聊天浮窗生命周期。梦境弹窗测试固定回合阶段，并分别从普通与隐藏生命对手状态构造完整梦境角色，避免将 `??` 转成 `NaN` 导致随机失败；该场景验证前端弹窗与焦点管理，不替代真实多人梦境验收。
+- `npm run test:e2e -- --workers=1 --grep-invert autochess`：42 项浏览器测试通过，排除自走棋；包含回执丢事件恢复、梦境盲选、匹配取消、大乱斗目标选择、禁用卡原因反馈、开局失败重试、聊天浮窗生命周期，以及 320/375/1280 像素下卡牌完整说明弹窗的可读性、焦点恢复、状态更新和只读行为。梦境弹窗测试固定回合阶段，并分别从普通与隐藏生命对手状态构造完整梦境角色，避免将 `??` 转成 `NaN` 导致随机失败；该场景验证前端弹窗与焦点管理，不替代真实多人梦境验收。
 - `node tests/challenger_m3_ultimate_battle_stress.js`：7 项技能、多人结算与 DOM 清理压力场景通过，无未捕获异常。
 - `node tests/e2e/challenger_stress_test.js`：五种视口的极端卡牌排版与 VFX 容错压力测试通过，无错误。
 - `node tests/reviewer2_deep_stress_test.js`：44 项深度规则压力检查通过，覆盖群攻防守卡时机、信息复制技能、梦境与多回合状态清理。
 - `node tests/r2_m3_vfx_stress.js`：10 项 VFX、重复挂载、动画锁和旧全局钩子清理检查通过。
 - `node tests/r2_m3_vfx_verification.js`：22 项 VFX、乱斗目标委托、伤害文本和动画锁检查通过。
 - `node tests/challenger_r2_m1_stress.js`：16 项补给价格、卡牌时机、状态清理、全卡上下文拒绝和 50 局随机普通对战检查通过。
-- `node tests/r2_m2_ui_verification.js`：35 项当前样式源、卡牌截断、禁用覆盖层和委托操作结构检查通过；历史布局入口已指向同一套当前验证。
+- `node tests/r2_m2_ui_verification.js`：38 项当前样式源、卡牌截断、禁用覆盖层、完整说明入口和委托操作结构检查通过；历史布局入口已指向同一套当前验证。
 - `npx playwright test tests/e2e/multiplayer.spec.js --workers=1 --grep "four-player target selection"`：键盘与移动端四人目标选择流程均通过。
 - `git diff --check`：通过。
 

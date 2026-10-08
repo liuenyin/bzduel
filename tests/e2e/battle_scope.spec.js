@@ -209,3 +209,94 @@ test('late purchase replies, old cleanup and old animation cannot change a repla
   expect(result.hp.replaceAll(' ', '')).toBe(result.expectedHp);
   expect(errors).toEqual([]);
 });
+
+for (const width of [320, 375, 1280]) test(`card details stay readable without playing or buying at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 812 });
+  await enterBattle(page);
+  const description = '这是需要完整阅读的卡牌说明。'.repeat(30) + '<最后一段>不可省略。';
+  await page.evaluate(async description => {
+    const { gameSocket } = await import('/src/net/socket.js');
+    const { renderBattle } = await import('/src/pages/battle.js');
+    const { cardMap } = await import('/shared/cards.js');
+    const { state } = await new Promise(resolve => gameSocket.requestState(resolve));
+    Object.assign(state, { turnPhase: 'waiting_atk', isMyAttackTurn: false, isMyDefendTurn: true,
+      attackerIdx: 1 - state.myIndex, defenderIdx: state.myIndex, draftShop: { active: false } });
+    state.me.handCards = [{ ...cardMap.card_gen_04, desc: description }, cardMap.card_gen_02, cardMap.card_gen_06];
+    window.cardDetailState = state;
+    window.cardDetailRequests = { play: 0, buy: 0 };
+    gameSocket.playTacticalCard = () => window.cardDetailRequests.play++;
+    gameSocket.buyDraftCard = () => window.cardDetailRequests.buy++;
+    renderBattle(document.getElementById('app'), { state });
+  }, description);
+  await page.locator('#hand-fab').click();
+  await expect(page.locator('.hand-card-kards').first()).toBeDisabled();
+  const inspectHand = page.locator('[data-battle-action="viewCardDetails"][data-value="hand:0"]');
+  await inspectHand.focus();
+  await page.keyboard.press('Enter');
+  const dialog = page.locator('.card-details-dialog');
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator('.card-details-description')).toHaveText(description);
+  await expect(dialog.locator('.card-details-status')).toContainText('仅在攻击回合使用');
+  const close = dialog.getByRole('button', { name: '关闭卡牌说明' });
+  await expect(close).toBeFocused();
+  await page.keyboard.press('Tab');
+  expect(await page.evaluate(() => document.querySelector('.card-details-dialog').contains(document.activeElement))).toBe(true);
+  const bounds = await dialog.boundingBox();
+  expect(bounds.x).toBeGreaterThanOrEqual(0);
+  expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+  expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await page.screenshot({ path: test.info().outputPath('card-details.png') });
+
+  // A state refresh must update the reason and keep reading open.
+  await page.evaluate(async () => {
+    const { gameSocket } = await import('/src/net/socket.js');
+    const state = window.cardDetailState;
+    Object.assign(state, { attackerIdx: state.myIndex, defenderIdx: 1 - state.myIndex,
+      isMyAttackTurn: true, isMyDefendTurn: false });
+    gameSocket.socket.emitEvent(['state_update', structuredClone(state)]);
+  });
+  await expect(dialog.locator('.card-details-status')).toHaveText('当前可以打出');
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await expect(inspectHand).toBeFocused();
+  await expect(page.locator('#hand-fab')).toHaveAttribute('aria-expanded', 'true');
+
+  await page.evaluate(async description => {
+    const { renderBattle } = await import('/src/pages/battle.js');
+    const { cardMap } = await import('/shared/cards.js');
+    const state = window.cardDetailState;
+    state.me.handCards = [];
+    state.me.tp = 10;
+    state.draftShop = { active: true, players: { [state.me.id]: {
+      ready: false, slots: [cardMap.card_gen_01, cardMap.card_gen_02, cardMap.card_gen_06]
+        .map(card => ({ card: { ...card, desc: description }, refreshesLeft: 1 })),
+    } } };
+    renderBattle(document.getElementById('app'), { state });
+  }, description);
+  const inspectDraft = page.locator('[data-battle-action="viewCardDetails"][data-value="draft:0"]');
+  await inspectDraft.click();
+  await expect(dialog.locator('.card-details-description')).toHaveText(description);
+  await expect(dialog.locator('.card-details-status')).toHaveText('可在补给站购买');
+  await close.click();
+  await expect(inspectDraft).toBeFocused();
+  expect(await page.evaluate(() => window.cardDetailRequests)).toEqual({ play: 0, buy: 0 });
+  await inspectDraft.click();
+  // A refreshed slot must not leave an obsolete card description open.
+  await page.evaluate(async () => {
+    const { gameSocket } = await import('/src/net/socket.js');
+    const { cardMap } = await import('/shared/cards.js');
+    const state = window.cardDetailState;
+    state.draftShop.players[state.me.id].slots[0].card = cardMap.card_gen_02;
+    gameSocket.socket.emitEvent(['state_update', structuredClone(state)]);
+  });
+  await expect(dialog).toHaveCount(0);
+  await expect(inspectDraft).toBeFocused();
+  await page.locator('.draft-slot-card.clickable').first().click();
+  expect(await page.evaluate(() => window.cardDetailRequests)).toEqual({ play: 0, buy: 1 });
+  await inspectDraft.click();
+  await page.evaluate(async () => {
+    const { renderBattle } = await import('/src/pages/battle.js');
+    renderBattle(document.getElementById('app'), { state: window.cardDetailState });
+  });
+  await expect(dialog).toHaveCount(0);
+});

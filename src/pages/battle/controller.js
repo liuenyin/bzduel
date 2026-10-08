@@ -1,4 +1,5 @@
 import { createDraftShop } from './draft-shop.js';
+import { createCardDetails } from './card-details.js';
 import { createDiceSelection } from './dice-selection.js';
 import { createBattleChoices } from './choices.js';
 import { createBattleResults } from './results.js';
@@ -29,7 +30,7 @@ import { getRerollTargetChoices } from './tactical.js';
 export function createBattleView(container, data) {
   const actions = Object.create(null);
   const overlays = new Set();
-  let shop, renderDice, updateActionButtons, showSacrifice, doSacrifice;
+  let shop, cardDetails, renderDice, updateActionButtons, showSacrifice, doSacrifice;
   let checkDreamTargetModal, showRescheduleModal, showGameOver;
   let S; // State belongs only to this mounted view.
   let animLock = false; // prevent state_update during animations
@@ -154,6 +155,7 @@ export function createBattleView(container, data) {
     cancelBattleAnimations();
     S = data.state;
     shop = createDraftShop({ actions, viewLifecycle, appendOverlay });
+    cardDetails = createCardDetails({ actions, getState: () => S, appendOverlay });
     ({ renderDice, updateActionButtons, showSacrifice, doSacrifice } = createDiceSelection({
       getState: () => S,
       appendOverlay,
@@ -470,6 +472,7 @@ export function createBattleView(container, data) {
     // Check dream target modal
     checkDreamTargetModal(S);
     shop.render(S);
+    cardDetails.sync();
     playTurnTransitionIfNeeded();
   }
 

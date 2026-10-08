@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const css = ['src/style/tactical.css', 'src/style/battle-interaction.css', 'src/style/effects.css']
+const css = ['src/style/tactical.css', 'src/style/battle-interaction.css', 'src/style/effects.css', 'src/style/card-details.css']
   .map(file => fs.readFileSync(path.join(root, file), 'utf8')).join('\n');
 const handSource = fs.readFileSync(path.join(root, 'src/pages/battle/arena.js'), 'utf8');
 const draftSource = fs.readFileSync(path.join(root, 'src/pages/battle/draft-shop.js'), 'utf8');
@@ -53,9 +53,12 @@ check(/\.hand-card-kards\.disabled[^{}]*,?[^{}]*\.hand-card-kards:disabled/i.tes
 check(handSource.includes('class="hand-card-kards') && handSource.includes('class="card-title-text"'), 'battle arena renders hand card titles');
 check(handSource.includes('class="card-desc-text"'), 'battle arena renders hand card descriptions');
 check(handSource.includes('class="card-disable-overlay"') && handSource.includes('class="card-disable-badge"'), 'battle arena renders disabled-card explanation overlays');
+check(handSource.includes('cardDetailsButton') && handSource.includes("'hand'"), 'battle arena exposes full card explanation inspection');
 check(draftSource.includes('class="draft-slot-card') && draftSource.includes('class="draft-card-title"'), 'draft shop renders supply card titles');
 check(draftSource.includes('class="card-disable-overlay"') && draftSource.includes('class="card-disable-badge"'), 'draft shop renders disabled-card explanation overlays');
 check(draftSource.includes('data-battle-action="buyDraftCard"'), 'draft shop uses delegated buy actions');
+check(draftSource.includes('cardDetailsButton') && draftSource.includes("'draft'"), 'draft shop exposes full card explanation inspection');
+check(css.includes('.card-details-dialog') && css.includes('.card-details-button'), 'full card explanation dialog has dedicated responsive styles');
 
 console.log(`\nVerification complete: ${passed} passed, ${failed} failed.`);
 process.exitCode = failed ? 1 : 0;

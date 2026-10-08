@@ -3,6 +3,7 @@ import { gameSocket } from '../../net/socket.js';
 import { SUBJECTS } from '../../../shared/rules.js';
 import { waitingNames } from './presentation.js';
 import { trapFocus } from '../../utils/a11y.js';
+import { cardDetailsButton } from './card-details.js';
 
 export function createDraftShop({ actions, viewLifecycle, appendOverlay }) {
   let draftInteraction = null;
@@ -108,6 +109,7 @@ export function createDraftShop({ actions, viewLifecycle, appendOverlay }) {
           const actionLabel = buyDisabled ? disableReason : `购买 · ${c.tpCost} TP`;
 
           return `
+            <div class="draft-slot-entry">
             <div class="draft-slot-card ${buyDisabled ? 'disabled' : 'clickable'} ${cardState}" data-slot-index="${idx}" data-card-id="${escapeHTML(c.id)}"
                  ${buyDisabled ? '' : `role="button" tabindex="0" data-battle-action="buyDraftCard" data-value="${idx}"`}
                  aria-label="${escapeHTML(`${c.name}，${actionLabel}`)}">
@@ -126,6 +128,8 @@ export function createDraftShop({ actions, viewLifecycle, appendOverlay }) {
                 <span class="draft-card-action">${escapeHTML(actionLabel)}</span>
               </div>
               ${buyDisabled ? `<span class="card-disable-overlay" aria-hidden="true"><span class="card-disable-badge">${escapeHTML(disableReason)}</span></span>` : ''}
+            </div>
+            ${cardDetailsButton(c, 'draft', idx)}
             </div>
           `;
         }).join('');
