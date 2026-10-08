@@ -169,13 +169,15 @@ test.describe('School Dice Duel - UI/UX & VFX Verification', () => {
       expect(consoleErrors).toEqual([]);
     });
 
-    test('1.3a Dream target dialog keeps the eligible attacker inside the chooser', async ({ page }) => {
+    for (const aiCardId of ['char_6', 'char_10']) test(`1.3a Dream target dialog keeps the eligible attacker inside the chooser (${aiCardId})`, async ({ page }) => {
       const { pageErrors, consoleErrors } = setupErrorTracking(page);
 
       await page.goto('/');
       await page.waitForSelector('#nickname-input');
       await page.fill('#nickname-input', 'Tester_Dream_Dialog');
-      await page.click('#btn-pve');
+      await page.click('#btn-pve-custom');
+      await page.click(`[data-character-id="${aiCardId}"]`);
+      await page.click('#btn-start-custom-pve');
       await page.waitForSelector('#card-selector');
       await page.click('.avatar-cell[data-id="char_6"]');
       await page.click('#modal-select-btn');
@@ -185,6 +187,7 @@ test.describe('School Dice Duel - UI/UX & VFX Verification', () => {
 
       const listenerCount = await page.evaluate(async () => {
         const { gameSocket } = await import('/src/net/socket.js');
+        const { characterMap } = await import('/shared/characters.js');
         const state = await new Promise((resolve, reject) => {
           const timer = setTimeout(() => reject(new Error('未收到战斗状态')), 5000);
           gameSocket.socket.once('state_update', nextState => {
@@ -195,8 +198,10 @@ test.describe('School Dice Duel - UI/UX & VFX Verification', () => {
         });
         const myIndex = state.myIndex;
         const dreamIndex = myIndex === 0 ? 1 : 0;
+        const originalOpponentHp = state.players[dreamIndex].hp;
         state.phase = 'battle';
         state.draftShop = { active: false };
+        state.turnPhase = 'waiting_atk';
         state.attackerIdx = myIndex;
         state.defenderIdx = dreamIndex;
         state.isMyAttackTurn = true;
@@ -206,20 +211,24 @@ test.describe('School Dice Duel - UI/UX & VFX Verification', () => {
         state.players[dreamIndex] = {
           ...state.players[dreamIndex],
           cardId: 'char_fxr',
+          card: structuredClone(characterMap.char_fxr),
           inDreamState: true,
           dreamTargetChoice: null,
           isDead: false,
-          hp: Math.max(1, state.players[dreamIndex].hp || 30),
+          hp: 30,
+          maxHp: 30,
           lgpyForm: false,
         };
+        state.opponent = state.players[dreamIndex];
         const { canChooseDreamTarget } = await import('/src/pages/battle/dream.js');
         const listeners = gameSocket.socket.listeners('state_update');
         listeners.forEach(listener => listener(state));
-        return { count: listeners.length, eligible: canChooseDreamTarget(state), me: state.me.id, attacker: state.players[myIndex].id };
+        return { count: listeners.length, eligible: canChooseDreamTarget(state), originalOpponentHp };
       });
 
       expect(listenerCount.count).toBeGreaterThan(0);
       expect(listenerCount.eligible).toBe(true);
+      if (aiCardId === 'char_10') expect(listenerCount.originalOpponentHp).toBe('??');
       await expect(page.locator('#dream-target-modal')).toBeVisible();
       await expect(page.locator('.dream-target-btn').first()).toBeFocused();
       await page.locator('.dream-target-btn').first().focus();

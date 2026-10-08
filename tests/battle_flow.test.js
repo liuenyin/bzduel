@@ -68,6 +68,24 @@ test('AoE secondary defender checks the actual attacker when explaining unusable
   assert.equal(getTacticalCardUsability(cardMap.card_gen_07, view).reason, '对手没有 TP');
 });
 
+test('AoE confirmation progress includes hidden-HP defenders for every viewer', () => {
+  const state = battle();
+  state.players[2].cardId = 'char_10';
+  state.turnPhase = 'def_rolled';
+  state.turnData = { attackerIdx: 0, defenderIdx: 1, isAoE: true, aoeDefenses: {
+    b: { confirmed: true, rolls: [1] }, c: { confirmed: false, rolls: [2] },
+  } };
+  assert.equal(getStateView(state, 'a').players[2].hp, '??');
+  for (const player of state.players) {
+    assert.match(phasePrompt(getStateView(state, player.id)), /已确认 1\/2/);
+  }
+  assert.match(phasePrompt(getStateView(state, 'b')), /等待c完成防御/);
+  state.turnData.aoeDefenses.c.confirmed = true;
+  for (const player of state.players) {
+    assert.match(phasePrompt(getStateView(state, player.id)), /已确认 2\/2/);
+  }
+});
+
 test('reroll choices preserve hidden dice and restrict FFA opponents', () => {
   const state = battle();
   state.turnPhase = 'def_rolled';

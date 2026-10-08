@@ -48,7 +48,8 @@ export function phasePrompt(s) {
   if (s.turnPhase === 'def_rolled' && s.aoeDefenses) {
     const activeDefenders = Object.keys(s.aoeDefenses).filter(id => {
       const player = s.players?.find(p => p.id === id);
-      return player && !player.isDead && player.hp > 0;
+      // Opponents of char_10 receive "??" instead of a numeric HP value.
+      return player && !player.isDead && (player.hp === '??' || player.hp > 0);
     });
     const pending = activeDefenders.filter(id => !s.aoeDefenses[id].confirmed);
     const names = escapeHTML(waitingNames(s, pending));
