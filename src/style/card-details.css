@@ -37,8 +37,20 @@
   color: var(--text);
   box-shadow: var(--shadow-lg);
   overflow-wrap: anywhere;
+  opacity: 0;
+  transform: translateY(10px) scale(.98);
+  transition: opacity 180ms ease, transform 180ms ease, display 180ms allow-discrete, overlay 180ms allow-discrete;
 }
-.card-details-dialog::backdrop { background: rgba(24, 20, 16, .55); }
+.card-details-dialog[open] { opacity: 1; transform: none; }
+.card-details-dialog::backdrop {
+  background: rgba(24, 20, 16, 0);
+  transition: background 180ms ease, display 180ms allow-discrete, overlay 180ms allow-discrete;
+}
+.card-details-dialog[open]::backdrop { background: rgba(24, 20, 16, .55); }
+@starting-style {
+  .card-details-dialog[open] { opacity: 0; transform: translateY(10px) scale(.98); }
+  .card-details-dialog[open]::backdrop { background: rgba(24, 20, 16, 0); }
+}
 .card-details-heading { display: flex; align-items: flex-start; gap: 12px; }
 .card-details-heading h2 { flex: 1; min-width: 0; font-size: 1.2rem; }
 .card-details-close {
@@ -61,4 +73,7 @@
   .draft-slot-entry { flex: 0 0 min(286px, calc(100vw - 64px)); scroll-snap-align: start; }
   .draft-slot-entry > .draft-slot-card { flex-basis: auto; }
   .card-details-dialog { padding: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .card-details-dialog, .card-details-dialog::backdrop { transition: none; }
 }

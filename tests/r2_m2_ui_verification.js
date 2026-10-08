@@ -59,6 +59,8 @@ check(draftSource.includes('class="card-disable-overlay"') && draftSource.includ
 check(draftSource.includes('data-battle-action="buyDraftCard"'), 'draft shop uses delegated buy actions');
 check(draftSource.includes('cardDetailsButton') && draftSource.includes("'draft'"), 'draft shop exposes full card explanation inspection');
 check(css.includes('.card-details-dialog') && css.includes('.card-details-button'), 'full card explanation dialog has dedicated responsive styles');
+check(/\.card-details-dialog[^{}]*\{[^{}]*transition\s*:/i.test(css), 'card explanation dialog has a restrained entrance transition');
+check(/prefers-reduced-motion[^{}]*\{[^{}]*\.card-details-dialog/i.test(css), 'card explanation dialog respects reduced-motion preferences');
 
 console.log(`\nVerification complete: ${passed} passed, ${failed} failed.`);
 process.exitCode = failed ? 1 : 0;
